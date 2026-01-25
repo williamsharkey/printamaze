@@ -1894,18 +1894,20 @@ class Maze {
         }
 
         // Character art in start room - 30% smaller overall, thinner lines
-        if (this.startPos && this.theme.character && CharacterArt[this.theme.character]) {
+        const characterArt = this.selectedCharacter || this.theme.character;
+        if (this.startPos && characterArt && CharacterArt[characterArt]) {
             const roomSize = this.startRoomSize || 2;
             const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
             const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
             const artColor = printMode ? '#000' : this.theme.wallColor;
             // 30% smaller: 0.8 * 0.7 = 0.56, thinner strokes via transform
             const artSize = roomSize * cellSize * 0.56;
-            svg += `<g color="${artColor}" style="stroke-width:0.8">${CharacterArt[this.theme.character](cx, cy, artSize)}</g>`;
+            svg += `<g color="${artColor}" style="stroke-width:0.8">${CharacterArt[characterArt](cx, cy, artSize)}</g>`;
         }
 
         // Goal art in end room - 10% smaller, half line height left
-        if (this.endPos && this.theme.goal && GoalArt[this.theme.goal]) {
+        const goalArt = this.selectedGoal || this.theme.goal;
+        if (this.endPos && goalArt && GoalArt[goalArt]) {
             const roomSize = this.endRoomSize || 2;
             // Shift half a line height (cellSize * 0.5) to the left
             const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize - cellSize * 0.5;
@@ -1913,7 +1915,7 @@ class Maze {
             const artColor = printMode ? '#000' : this.theme.wallColor;
             // 10% smaller: 0.8 * 0.9 = 0.72, thinner strokes
             const artSize = roomSize * cellSize * 0.72;
-            svg += `<g color="${artColor}" style="stroke-width:0.8">${GoalArt[this.theme.goal](cx, cy, artSize)}</g>`;
+            svg += `<g color="${artColor}" style="stroke-width:0.8">${GoalArt[goalArt](cx, cy, artSize)}</g>`;
         }
 
         // Room decorations (gray in print mode)
@@ -2608,7 +2610,7 @@ class StoryGenerator {
             .replace('{noun}', this.rng.choice(vocab.nouns));
     }
 
-    generateQuest(themeName, difficulty = 5) {
+    generateQuest(themeName, difficulty = 5, selectedCharacter = null, selectedGoal = null) {
         const vocab = ThemeVocabulary[themeName] || ThemeVocabulary.classic;
         const theme = Themes[themeName] || Themes.classic;
 
@@ -2632,9 +2634,9 @@ class StoryGenerator {
         const item1 = items[0];
         const item2 = items[1] || items[0];
 
-        // Use theme's character/goal names to match the artwork
-        const character = theme.characterName || this.rng.choice(vocab.characters);
-        const goal = theme.goalName || this.rng.choice(vocab.goals);
+        // Use passed character/goal names, or fallback to theme/vocab
+        const character = selectedCharacter || theme.characterName || this.rng.choice(vocab.characters);
+        const goal = selectedGoal || theme.goalName || this.rng.choice(vocab.goals);
 
         // Fill template
         let story = template
@@ -2899,6 +2901,27 @@ class MazeGenerator {
         maze.theme = Themes[themeName] || Themes.classic;
         maze.curvedWalls = curved;
 
+        // Select random character and goal from theme arrays
+        const theme = maze.theme;
+        if (theme.characters && theme.characters.length > 0) {
+            const charChoice = this.rng.choice(theme.characters);
+            maze.selectedCharacter = charChoice.art;
+            maze.selectedCharacterName = charChoice.name;
+        } else {
+            // Fallback for old theme format
+            maze.selectedCharacter = theme.character;
+            maze.selectedCharacterName = theme.characterName;
+        }
+        if (theme.goals && theme.goals.length > 0) {
+            const goalChoice = this.rng.choice(theme.goals);
+            maze.selectedGoal = goalChoice.art;
+            maze.selectedGoalName = goalChoice.name;
+        } else {
+            // Fallback for old theme format
+            maze.selectedGoal = theme.goal;
+            maze.selectedGoalName = theme.goalName;
+        }
+
         // Apply shape mask
         maze.applyShapeMask(shape);
 
@@ -3045,9 +3068,13 @@ class MazeGenerator {
     generateWithStory(width, height, algorithm, shape, themeName, curved, difficulty) {
         const maze = this.generate(width, height, algorithm, shape, themeName, curved);
 
-        // Generate story for this maze
+        // Generate story for this maze using the selected character/goal
         const storyGen = new StoryGenerator(this.rng);
-        const story = storyGen.generateQuest(themeName, difficulty);
+        const story = storyGen.generateQuest(themeName, difficulty, maze.selectedCharacterName, maze.selectedGoalName);
+
+        // Store character/goal in story for filename generation
+        story.character = maze.selectedCharacterName;
+        story.goal = maze.selectedGoalName;
 
         maze.story = story;
         return maze;
