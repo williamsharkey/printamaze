@@ -1383,7 +1383,7 @@ class Maze {
 
         // Calculate margins for title, quest, and START/END labels
         const titleHeight = this.story && this.story.title ? 20 : 0;
-        const questHeight = this.story && this.story.quest ? 24 : 0;
+        const questHeight = this.story && this.story.quest ? 36 : 0;
         const sidePadding = 35; // Space for START/END on sides
         const topPadding = 20 + titleHeight;
         const bottomPadding = 16 + questHeight;
@@ -1549,16 +1549,19 @@ class Maze {
         // (Since start/end positions are randomized, labels go under the art, not on sides)
         const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
 
+        // Use debug settings if available, otherwise defaults
+        const dbg = (typeof window !== 'undefined' && window.debugLabelSettings) || {
+            startScale: 0.36, startY: 1.0, endScale: 0.56, endX: 1.0
+        };
+
         if (this.startPos) {
             const roomSize = this.startRoomSize || 2;
             const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
             const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
-            // START: 40% smaller than previous (0.6 * 0.6 = 0.36), moved up 1 line height
-            const startLabelSize = labelSize * 0.36;
+            const startLabelSize = labelSize * dbg.startScale;
             const artBottom = cy + roomSize * cellSize * 0.28;
             const startWidth = VectorFont.measureText('START', startLabelSize);
-            // Move center up by 1 line height
-            const startY = artBottom + 2 - startLabelSize * 1.0;
+            const startY = artBottom + 2 - startLabelSize * dbg.startY;
             svg += VectorFont.renderText('START', cx - startWidth / 2, startY, startLabelSize, textColor, 0.7);
         }
 
@@ -1566,22 +1569,20 @@ class Maze {
             const roomSize = this.endRoomSize || 2;
             const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize;
             const cy = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
-            // END: 30% smaller than previous (0.8 * 0.7 = 0.56), moved left 1 character width
-            const endLabelSize = labelSize * 0.56;
+            const endLabelSize = labelSize * dbg.endScale;
             const artBottom = cy + roomSize * cellSize * 0.36;
             const endWidth = VectorFont.measureText('END', endLabelSize);
-            const letterWidth = endWidth / 3; // Approximate width per letter
-            // Move center left by 1 character width
-            const endX = cx - endWidth / 2 - letterWidth * 1.0;
+            const letterWidth = endWidth / 3;
+            const endX = cx - endWidth / 2 - letterWidth * dbg.endX;
             const endY = artBottom + 2;
             svg += VectorFont.renderText('END', endX, endY, endLabelSize, textColor, 0.7);
         }
 
-        // Quest at bottom (vector font, word-wrapped if needed) - 1.8 line heights higher
+        // Quest at bottom (vector font, word-wrapped if needed) - 2.8 line heights higher for 3 lines
         if (this.story && this.story.quest) {
             const questSize = Math.min(8, Math.max(5, svgWidth / 50));
-            // Move 1.8 line heights higher (subtract 1.8 * questSize)
-            const questY = svgHeight - questHeight + 4 - questSize * 1.8;
+            // Move 2.8 line heights higher (subtract 2.8 * questSize) to fit 3 lines
+            const questY = svgHeight - questHeight + 4 - questSize * 2.8;
             const maxWidth = svgWidth - 24;
 
             // Simple word wrap
@@ -1601,8 +1602,8 @@ class Maze {
             }
             if (currentLine) lines.push(currentLine);
 
-            // Render lines centered with white outline for readability
-            for (let i = 0; i < lines.length && i < 2; i++) {
+            // Render lines centered with white outline for readability (up to 3 lines)
+            for (let i = 0; i < lines.length && i < 3; i++) {
                 const lineY = questY + i * (questSize + 3);
                 // White outline (thicker stroke) then normal stroke on top
                 svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, questSize, '#fff', 2.5);
@@ -2809,7 +2810,7 @@ function getLayoutMetrics(maze) {
     const mazeHeight = maze.height * cellSize;
 
     const titleHeight = maze.story && maze.story.title ? 20 : 0;
-    const questHeight = maze.story && maze.story.quest ? 24 : 0;
+    const questHeight = maze.story && maze.story.quest ? 36 : 0;
     const sidePadding = 35;
     const topPadding = 20 + titleHeight;
     const bottomPadding = 16 + questHeight;
@@ -2861,7 +2862,7 @@ function getLayoutMetrics(maze) {
     let questBounds = null;
     if (maze.story && maze.story.quest) {
         const questSize = Math.min(8, Math.max(5, svgWidth / 50));
-        const questY = svgHeight - questHeight + 4 - questSize * 1.8;
+        const questY = svgHeight - questHeight + 4 - questSize * 2.8;
         const maxWidth = svgWidth - 24;
 
         // Calculate word wrap
@@ -2882,10 +2883,10 @@ function getLayoutMetrics(maze) {
 
         // Find widest line and total height
         let maxLineWidth = 0;
-        for (const line of lines.slice(0, 2)) {
+        for (const line of lines.slice(0, 3)) {
             maxLineWidth = Math.max(maxLineWidth, VectorFont.measureText(line, questSize));
         }
-        const numLines = Math.min(lines.length, 2);
+        const numLines = Math.min(lines.length, 3);
         const totalQuestHeight = numLines * questSize + (numLines - 1) * 3;
 
         questBounds = {
@@ -2893,7 +2894,7 @@ function getLayoutMetrics(maze) {
             top: questY,
             right: (svgWidth + maxLineWidth) / 2,
             bottom: questY + totalQuestHeight,
-            lines: lines.slice(0, 2),
+            lines: lines.slice(0, 3),
             size: questSize
         };
     }
