@@ -119,6 +119,41 @@
         }
         .level-dot.active { background: rgba(255,255,255,0.8); }
 
+        /* Difficulty +/- buttons */
+        .difficulty-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.4);
+            background: rgba(0,0,0,0.3);
+            color: rgba(255,255,255,0.7);
+            font-size: 24px;
+            font-weight: 300;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .difficulty-btn:active {
+            transform: translateY(-50%) scale(0.95);
+            background: rgba(255,255,255,0.2);
+        }
+        .difficulty-btn.minus {
+            left: max(10px, env(safe-area-inset-left));
+        }
+        .difficulty-btn.plus {
+            right: max(10px, env(safe-area-inset-right));
+        }
+        .difficulty-btn.hidden {
+            display: none;
+        }
+
         /* Action menu overlay */
         #actionMenu {
             position: fixed;
@@ -202,19 +237,6 @@
             overflow-y: auto;
         }
 
-        /* Swipe hint on first load */
-        .swipe-hint {
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(255,255,255,0.5);
-            font-size: 12px;
-            text-align: center;
-            z-index: 5;
-            animation: fadeOut 3s forwards 2s;
-        }
-        @keyframes fadeOut { to { opacity: 0; } }
     </style>
 </head>
 <body>
@@ -252,9 +274,6 @@
         <pre id="debugContent"></pre>
     </div>
 
-    <!-- Swipe hint -->
-    <div class="swipe-hint" id="swipeHint">← Swipe to change difficulty →</div>
-
     <script src="maze.js"></script>
     <script>
         const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle'];
@@ -277,8 +296,6 @@
         let mazeParams = []; // Array of {seed, theme, shape, algorithm} per position
         let currentIndex = 0;
         let activeMazeId = null;
-        let touchStartX = 0;
-        let touchStartY = 0;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -291,18 +308,9 @@
             generateMazeParams(20);
             renderMazes();
 
-            // Hide swipe hint after first interaction
-            document.getElementById('mazeContainer').addEventListener('scroll', () => {
-                document.getElementById('swipeHint').style.display = 'none';
-            }, { once: true });
-
             // Infinite scroll
             const container = document.getElementById('mazeContainer');
             container.addEventListener('scroll', handleScroll);
-
-            // Swipe detection for difficulty change
-            container.addEventListener('touchstart', handleTouchStart, { passive: true });
-            container.addEventListener('touchend', handleTouchEnd, { passive: true });
 
             // Pull down for favorites
             let pullStartY = 0;
@@ -372,6 +380,24 @@
             };
             frame.appendChild(heart);
 
+            // Minus button (decrease difficulty) - hidden at minimum
+            if (currentDifficulty > 3) {
+                const minusBtn = document.createElement('button');
+                minusBtn.className = 'difficulty-btn minus';
+                minusBtn.innerHTML = '−';
+                minusBtn.onclick = decreaseDifficulty;
+                frame.appendChild(minusBtn);
+            }
+
+            // Plus button (increase difficulty) - hidden at maximum
+            if (currentDifficulty < 12) {
+                const plusBtn = document.createElement('button');
+                plusBtn.className = 'difficulty-btn plus';
+                plusBtn.innerHTML = '+';
+                plusBtn.onclick = increaseDifficulty;
+                frame.appendChild(plusBtn);
+            }
+
             // Maze SVG
             const svgContainer = document.createElement('div');
             svgContainer.className = 'maze-svg-container';
@@ -412,26 +438,17 @@
             }
         }
 
-        function handleTouchStart(e) {
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
+        function decreaseDifficulty(e) {
+            e.stopPropagation();
+            if (currentDifficulty > 3) {
+                changeDifficulty(currentDifficulty - 1);
+            }
         }
 
-        function handleTouchEnd(e) {
-            const touchEndX = e.changedTouches[0].clientX;
-            const touchEndY = e.changedTouches[0].clientY;
-            const deltaX = touchEndX - touchStartX;
-            const deltaY = touchEndY - touchStartY;
-
-            // Only trigger if horizontal swipe is dominant
-            if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
-                if (deltaX < 0 && currentDifficulty < 12) {
-                    // Swipe left - increase difficulty
-                    changeDifficulty(currentDifficulty + 1);
-                } else if (deltaX > 0 && currentDifficulty > 3) {
-                    // Swipe right - decrease difficulty
-                    changeDifficulty(currentDifficulty - 1);
-                }
+        function increaseDifficulty(e) {
+            e.stopPropagation();
+            if (currentDifficulty < 12) {
+                changeDifficulty(currentDifficulty + 1);
             }
         }
 
@@ -534,17 +551,27 @@
         }
 
         function scrollToSeed(seed) {
+            // Find the favorite to get its difficulty
+            const fav = getFavorites().find(f => f.seed === seed);
+
+            // Apply the saved difficulty
+            if (fav && fav.difficulty && fav.difficulty !== currentDifficulty) {
+                currentDifficulty = fav.difficulty;
+            }
+
             // Find or create the maze with this seed
             let idx = mazeParams.findIndex(p => p.seed === seed);
             if (idx === -1) {
                 // Add it
-                const fav = getFavorites().find(f => f.seed === seed);
                 if (fav) {
                     mazeParams.unshift({ seed, theme: fav.theme, shape: fav.shape, algorithm: fav.algorithm });
-                    renderMazes();
                     idx = 0;
                 }
             }
+
+            // Re-render with potentially new difficulty
+            renderMazes();
+
             if (idx >= 0) {
                 document.getElementById('mazeContainer').children[idx].scrollIntoView({ behavior: 'smooth' });
             }
