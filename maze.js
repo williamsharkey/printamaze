@@ -527,6 +527,130 @@ const CharacterArt = {
                 <line x1="${x+s*0.5}" y1="${y-s*0.3}" x2="${x+s*0.5}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.12}" y1="${y+s*0.4}" x2="${x-s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
                 <line x1="${x+s*0.12}" y1="${y+s*0.4}" x2="${x+s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    // Additional Ocean characters
+    sailor: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y-s*0.85}" rx="${s*0.35}" ry="${s*0.12}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.35}" y1="${y-s*0.85}" x2="${x+s*0.35}" y2="${y-s*0.85}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y-s*0.2}" x2="${x}" y2="${y+s*0.5}" stroke="currentColor" stroke-width="2"/>
+                <path d="M${x-s*0.35},${y-s*0.1} L${x},${y+s*0.1} L${x+s*0.35},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    seaTurtle: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.6}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y}" rx="${s*0.45}" ry="${s*0.28}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.2}" y1="${y-s*0.1}" x2="${x+s*0.2}" y2="${y-s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.2}" y1="${y+s*0.1}" x2="${x+s*0.2}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.7}" cy="${y-s*0.1}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x+s*0.75}" cy="${y-s*0.15}" r="${s*0.03}" fill="currentColor"/>
+                <ellipse cx="${x-s*0.5}" cy="${y-s*0.35}" rx="${s*0.2}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x-s*0.5}" cy="${y+s*0.35}" rx="${s*0.2}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.4}" cy="${y-s*0.35}" rx="${s*0.15}" ry="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.4}" cy="${y+s*0.35}" rx="${s*0.15}" ry="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Additional Garden characters
+    bee: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.35}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.15}" y1="${y-s*0.15}" x2="${x-s*0.15}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.1}" y1="${y-s*0.15}" x2="${x+s*0.1}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x+s*0.45}" cy="${y}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x+s*0.5}" cy="${y-s*0.03}" r="${s*0.03}" fill="currentColor"/>
+                <ellipse cx="${x-s*0.1}" cy="${y-s*0.4}" rx="${s*0.25}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.15}" cy="${y-s*0.4}" rx="${s*0.25}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.35}" y1="${y+s*0.1}" x2="${x+s*0.5}" y2="${y+s*0.25}" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.55},${y-s*0.15} Q${x+s*0.65},${y-s*0.3} ${x+s*0.5},${y-s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.55},${y-s*0.15} Q${x+s*0.7},${y-s*0.2} ${x+s*0.6},${y-s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    butterfly: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.1}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x-s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x+s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x-s*0.35}" cy="${y+s*0.35}" rx="${s*0.25}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x+s*0.35}" cy="${y+s*0.35}" rx="${s*0.25}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x-s*0.4}" cy="${y-s*0.2}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.4}" cy="${y-s*0.2}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.05},${y-s*0.4} Q${x-s*0.2},${y-s*0.7} ${x-s*0.15},${y-s*0.8}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.05},${y-s*0.4} Q${x+s*0.2},${y-s*0.7} ${x+s*0.15},${y-s*0.8}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    ladybug: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.5}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y-s*0.4}" x2="${x}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x+s*0.55}" cy="${y-s*0.15}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x+s*0.6}" cy="${y-s*0.18}" r="${s*0.03}" fill="currentColor"/>
+                <circle cx="${x-s*0.2}" cy="${y-s*0.1}" r="${s*0.08}" fill="currentColor"/>
+                <circle cx="${x+s*0.15}" cy="${y+s*0.1}" r="${s*0.08}" fill="currentColor"/>
+                <circle cx="${x-s*0.25}" cy="${y+s*0.2}" r="${s*0.06}" fill="currentColor"/>
+                <path d="M${x+s*0.5},${y-s*0.3} L${x+s*0.6},${y-s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.55},${y-s*0.25} L${x+s*0.7},${y-s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Additional Jungle characters
+    babyMonkey: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.4}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x-s*0.4}" cy="${y-s*0.4}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.4}" cy="${y-s*0.4}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x-s*0.12}" cy="${y-s*0.45}" r="${s*0.05}" fill="currentColor"/>
+                <circle cx="${x+s*0.12}" cy="${y-s*0.45}" r="${s*0.05}" fill="currentColor"/>
+                <ellipse cx="${x}" cy="${y-s*0.25}" rx="${s*0.15}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y+s*0.2}" rx="${s*0.25}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.25},${y+s*0.1} Q${x-s*0.5},${y} ${x-s*0.55},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.25},${y+s*0.1} Q${x+s*0.5},${y} ${x+s*0.55},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x},${y+s*0.5} Q${x+s*0.3},${y+s*0.7} ${x+s*0.5},${y+s*0.5} Q${x+s*0.6},${y+s*0.3} ${x+s*0.4},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    parrot: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.3}" ry="${s*0.45}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x+s*0.15}" cy="${y-s*0.55}" r="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x+s*0.22}" cy="${y-s*0.58}" r="${s*0.05}" fill="currentColor"/>
+                <path d="M${x+s*0.35},${y-s*0.5} L${x+s*0.55},${y-s*0.45} L${x+s*0.35},${y-s*0.55}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.05},${y-s*0.75} Q${x+s*0.1},${y-s*0.95} ${x+s*0.3},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.05},${y-s*0.75} Q${x+s*0.2},${y-s*1} ${x+s*0.4},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.15},${y+s*0.45} L${x-s*0.25},${y+s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.15},${y+s*0.45} L${x+s*0.25},${y+s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x},${y+s*0.45} Q${x-s*0.1},${y+s*0.7} ${x-s*0.3},${y+s} Q${x},${y+s*1.1} ${x+s*0.3},${y+s}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    // Additional Candy characters
+    candyFairy: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.15},${y-s*0.7} Q${x-s*0.3},${y-s*0.9} ${x-s*0.1},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.15},${y-s*0.7} Q${x+s*0.3},${y-s*0.9} ${x+s*0.1},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x},${y-s*0.25} L${x},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.15},${y+s*0.4} L${x},${y-s*0.1} L${x+s*0.15},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x-s*0.45}" cy="${y-s*0.2}" rx="${s*0.3}" ry="${s*0.15}" transform="rotate(-30 ${x-s*0.45} ${y-s*0.2})" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.45}" cy="${y-s*0.2}" rx="${s*0.3}" ry="${s*0.15}" transform="rotate(30 ${x+s*0.45} ${y-s*0.2})" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y+s*0.4}" x2="${x}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x}" cy="${y+s*1}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Additional Space characters
+    alien: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y-s*0.4}" rx="${s*0.4}" ry="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x-s*0.2}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x+s*0.2}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x-s*0.2}" cy="${y-s*0.5}" r="${s*0.05}" fill="currentColor"/>
+                <circle cx="${x+s*0.2}" cy="${y-s*0.5}" r="${s*0.05}" fill="currentColor"/>
+                <ellipse cx="${x}" cy="${y+s*0.3}" rx="${s*0.2}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.2}" y1="${y+s*0.2}" x2="${x-s*0.45}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.2}" y1="${y+s*0.2}" x2="${x+s*0.45}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.1}" y1="${y+s*0.55}" x2="${x-s*0.15}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.1}" y1="${y+s*0.55}" x2="${x+s*0.15}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>`;
     }
 };
 
@@ -622,6 +746,141 @@ const GoalArt = {
                 <rect x="${x-s*0.08}" y="${y+s*0.3}" width="${s*0.16}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.6}" y1="${y+s*0.35}" x2="${x-s*0.6}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1.5"/>
                 <line x1="${x+s*0.6}" y1="${y+s*0.35}" x2="${x+s*0.6}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    // Additional Ocean goals
+    coralPalace: (x, y, size) => {
+        const s = size * 0.4;
+        return `<path d="M${x-s*0.6},${y+s*0.5} L${x-s*0.6},${y-s*0.2} Q${x-s*0.5},${y-s*0.5} ${x-s*0.3},${y-s*0.4} L${x-s*0.3},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.6},${y+s*0.5} L${x+s*0.6},${y-s*0.2} Q${x+s*0.5},${y-s*0.5} ${x+s*0.3},${y-s*0.4} L${x+s*0.3},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.3},${y-s*0.4} Q${x},${y-s*0.8} ${x+s*0.3},${y-s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.1}" y="${y+s*0.1}" width="${s*0.2}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x-s*0.45}" cy="${y+s*0.3}" r="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.45}" cy="${y+s*0.2}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    sunkenShip: (x, y, size) => {
+        const s = size * 0.4;
+        return `<path d="M${x-s*0.7},${y+s*0.4} Q${x-s*0.6},${y+s*0.6} ${x},${y+s*0.5} Q${x+s*0.6},${y+s*0.4} ${x+s*0.7},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.5},${y+s*0.3} L${x-s*0.4},${y-s*0.1} L${x+s*0.3},${y-s*0.1} L${x+s*0.5},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.1}" y1="${y-s*0.1}" x2="${x-s*0.1}" y2="${y-s*0.7}" stroke="currentColor" stroke-width="2"/>
+                <path d="M${x-s*0.1},${y-s*0.65} L${x+s*0.3},${y-s*0.45} L${x+s*0.3},${y-s*0.25} L${x-s*0.1},${y-s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.1}" y1="${y-s*0.5}" x2="${x+s*0.3}" y2="${y-s*0.35}" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x-s*0.3}" cy="${y+s*0.1}" r="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.15}" cy="${y+s*0.15}" r="${s*0.06}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Additional Space goals
+    warpGate: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.7}" ry="${s*0.9}" fill="none" stroke="currentColor" stroke-width="2"/>
+                <ellipse cx="${x}" cy="${y}" rx="${s*0.55}" ry="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y}" rx="${s*0.4}" ry="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y}" rx="${s*0.2}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x-s*0.5}" cy="${y-s*0.6}" r="${s*0.08}" fill="currentColor"/>
+                <circle cx="${x+s*0.55}" cy="${y-s*0.5}" r="${s*0.06}" fill="currentColor"/>
+                <circle cx="${x+s*0.4}" cy="${y+s*0.7}" r="${s*0.07}" fill="currentColor"/>
+                <circle cx="${x-s*0.45}" cy="${y+s*0.65}" r="${s*0.05}" fill="currentColor"/>`;
+    },
+
+    moonBase: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y+s*0.5}" rx="${s*0.8}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.4},${y+s*0.4} L${x-s*0.4},${y} Q${x-s*0.4},${y-s*0.3} ${x-s*0.2},${y-s*0.3} L${x+s*0.2},${y-s*0.3} Q${x+s*0.4},${y-s*0.3} ${x+s*0.4},${y} L${x+s*0.4},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x}" cy="${y-s*0.5}" r="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y-s*0.3}" x2="${x}" y2="${y-s*0.7}" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x-s*0.2}" cy="${y+s*0.1}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.2}" cy="${y+s*0.15}" r="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.65}" y="${y+s*0.2}" width="${s*0.2}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x+s*0.45}" y="${y+s*0.2}" width="${s*0.2}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    rocketShip: (x, y, size) => {
+        const s = size * 0.4;
+        return `<path d="M${x},${y-s*0.9} Q${x-s*0.3},${y-s*0.6} ${x-s*0.3},${y+s*0.3} L${x+s*0.3},${y+s*0.3} Q${x+s*0.3},${y-s*0.6} ${x},${y-s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x}" cy="${y-s*0.3}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.3},${y+s*0.1} L${x-s*0.5},${y+s*0.5} L${x-s*0.3},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.3},${y+s*0.1} L${x+s*0.5},${y+s*0.5} L${x+s*0.3},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.15},${y+s*0.3} L${x-s*0.2},${y+s*0.7} Q${x},${y+s*0.9} ${x+s*0.2},${y+s*0.7} L${x+s*0.15},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    // Additional Garden goals
+    mushroomHouse: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y-s*0.2}" rx="${s*0.6}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.25}" y="${y-s*0.1}" width="${s*0.5}" height="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x-s*0.25}" cy="${y-s*0.35}" r="${s*0.12}" fill="currentColor"/>
+                <circle cx="${x+s*0.2}" cy="${y-s*0.25}" r="${s*0.1}" fill="currentColor"/>
+                <circle cx="${x+s*0.35}" cy="${y-s*0.45}" r="${s*0.08}" fill="currentColor"/>
+                <rect x="${x-s*0.1}" y="${y+s*0.25}" width="${s*0.2}" height="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.05}" cy="${y+s*0.4}" r="${s*0.04}" fill="currentColor"/>`;
+    },
+
+    greenhouse: (x, y, size) => {
+        const s = size * 0.4;
+        return `<rect x="${x-s*0.6}" y="${y}" width="${s*1.2}" height="${s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.6},${y} L${x},${y-s*0.5} L${x+s*0.6},${y}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y-s*0.5}" x2="${x}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.6}" y1="${y+s*0.3}" x2="${x+s*0.6}" y2="${y+s*0.3}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.3}" y1="${y-s*0.25}" x2="${x-s*0.3}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.3}" y1="${y-s*0.25}" x2="${x+s*0.3}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x-s*0.15}" cy="${y+s*0.45}" rx="${s*0.08}" ry="${s*0.12}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.15}" cy="${y+s*0.42}" rx="${s*0.1}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.45}" cy="${y+s*0.4}" rx="${s*0.08}" ry="${s*0.12}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Additional Candy goals
+    lollipopForest: (x, y, size) => {
+        const s = size * 0.35;
+        let svg = '';
+        const positions = [[-0.5, 0], [0, -0.2], [0.5, 0.1]];
+        for (let i = 0; i < positions.length; i++) {
+            const [px, py] = positions[i];
+            const lx = x + px * s;
+            const ly = y + py * s;
+            const r = s * (0.3 + i * 0.05);
+            svg += `<line x1="${lx}" y1="${ly}" x2="${lx}" y2="${ly+s*0.8}" stroke="currentColor" stroke-width="2"/>`;
+            svg += `<circle cx="${lx}" cy="${ly-r*0.3}" r="${r}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<path d="M${lx-r*0.7},${ly-r*0.3} Q${lx},${ly-r} ${lx+r*0.7},${ly-r*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+        }
+        return svg;
+    },
+
+    chocolateFountain: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y+s*0.5}" rx="${s*0.7}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y+s*0.2}" rx="${s*0.5}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y-s*0.1}" rx="${s*0.35}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y-s*0.35}" rx="${s*0.2}" ry="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y+s*0.35}" x2="${x}" y2="${y-s*0.35}" stroke="currentColor" stroke-width="2"/>
+                <path d="M${x-s*0.2},${y-s*0.35} Q${x-s*0.35},${y-s*0.1} ${x-s*0.5},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.2},${y-s*0.35} Q${x+s*0.35},${y-s*0.1} ${x+s*0.5},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Additional Jungle goals
+    waterfall: (x, y, size) => {
+        const s = size * 0.4;
+        return `<path d="M${x-s*0.6},${y-s*0.6} L${x-s*0.3},${y-s*0.5} L${x-s*0.3},${y-s*0.3} L${x+s*0.3},${y-s*0.3} L${x+s*0.3},${y-s*0.5} L${x+s*0.6},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.2},${y-s*0.3} Q${x-s*0.25},${y} ${x-s*0.15},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x},${y-s*0.3} Q${x+s*0.05},${y+s*0.1} ${x},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.2},${y-s*0.3} Q${x+s*0.15},${y} ${x+s*0.2},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y+s*0.6}" rx="${s*0.5}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.7},${y-s*0.5} Q${x-s*0.8},${y-s*0.3} ${x-s*0.65},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.7},${y-s*0.5} Q${x+s*0.8},${y-s*0.3} ${x+s*0.65},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    treehouseVillage: (x, y, size) => {
+        const s = size * 0.4;
+        return `<line x1="${x-s*0.4}" y1="${y+s*0.7}" x2="${x-s*0.4}" y2="${y-s*0.3}" stroke="currentColor" stroke-width="2"/>
+                <line x1="${x+s*0.4}" y1="${y+s*0.7}" x2="${x+s*0.4}" y2="${y-s*0.2}" stroke="currentColor" stroke-width="2"/>
+                <rect x="${x-s*0.65}" y="${y-s*0.1}" width="${s*0.5}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.7},${y-s*0.1} L${x-s*0.4},${y-s*0.4} L${x-s*0.1},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x+s*0.15}" y="${y-s*0.2}" width="${s*0.5}" height="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.1},${y-s*0.2} L${x+s*0.4},${y-s*0.5} L${x+s*0.7},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.15},${y+s*0.1} Q${x},${y+s*0.2} ${x+s*0.15},${y+s*0.05}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.4}" y1="${y+s*0.5}" x2="${x-s*0.6}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.4}" y1="${y+s*0.5}" x2="${x+s*0.6}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1"/>`;
     }
 };
 
@@ -2137,15 +2396,50 @@ class MazeGenerator {
 function generateMazeDebugOutput(maze) {
     const lines = [];
 
-    lines.push('=' .repeat(60));
+    lines.push('=' .repeat(70));
     lines.push('MAZE DEBUG OUTPUT');
-    lines.push('='.repeat(60));
+    lines.push('='.repeat(70));
+
+    // Basic info
+    lines.push('\n[CONFIGURATION]');
+    lines.push(`  Seed: ${maze.seed || 'unknown'}`);
+    lines.push(`  Dimensions: ${maze.width}x${maze.height}`);
+    lines.push(`  Algorithm: ${maze.algorithm || 'recursive_backtracker'}`);
+    lines.push(`  Shape: ${maze.shape}`);
+    lines.push(`  Theme: ${maze.theme.name}`);
+    lines.push(`  Curved Walls: ${maze.curvedWalls ? 'Yes' : 'No'}`);
+    lines.push(`  Difficulty: ${maze.difficulty || 'unknown'}`);
+
+    // Art references
+    lines.push('\n[ARTWORK]');
+    lines.push(`  Character Art: ${maze.theme.character || 'none'} ${CharacterArt[maze.theme.character] ? '✓' : '✗'}`);
+    lines.push(`  Goal Art: ${maze.theme.goal || 'none'} ${GoalArt[maze.theme.goal] ? '✓' : '✗'}`);
+    lines.push(`  Border Pattern: ${maze.theme.borderPattern || 'none'}`);
+    lines.push(`  Decorations: ${maze.theme.decorations?.join(', ') || 'none'}`);
 
     // Stats
     const stats = CompactMazeEncoder.stats(maze);
     lines.push('\n[STATS]');
-    for (const [key, value] of Object.entries(stats)) {
-        lines.push(`  ${key}: ${value}`);
+    lines.push(`  Total Cells: ${stats.totalCells}`);
+    lines.push(`  Active Cells: ${stats.activeCells}`);
+    lines.push(`  Blocked Cells: ${stats.blockedCells}`);
+    lines.push(`  Wall Segments: ${stats.wallSegments}`);
+    lines.push(`  Interior Rooms: ${stats.interiorRooms}`);
+    lines.push(`  Solution Length: ${stats.solutionLength} cells`);
+
+    // Rooms
+    lines.push('\n[ROOMS]');
+    if (maze.startPos) {
+        lines.push(`  Start: (${maze.startPos.x},${maze.startPos.y}) ${maze.startRoomSize}x${maze.startRoomSize}`);
+    }
+    if (maze.endPos) {
+        lines.push(`  End: (${maze.endPos.x},${maze.endPos.y}) ${maze.endRoomSize}x${maze.endRoomSize}`);
+    }
+    if (maze.rooms && maze.rooms.length > 0) {
+        for (let i = 0; i < maze.rooms.length; i++) {
+            const r = maze.rooms[i];
+            lines.push(`  Interior ${i+1}: (${r.x},${r.y}) ${r.w}x${r.h}`);
+        }
     }
 
     // Story if present
@@ -2154,24 +2448,148 @@ function generateMazeDebugOutput(maze) {
         lines.push(`  Title: ${maze.story.title}`);
         lines.push(`  Quest: ${maze.story.quest}`);
         lines.push(`  Type: ${maze.story.templateType}`);
-        if (maze.story.items.length > 0) {
+        if (maze.story.items && maze.story.items.length > 0) {
             lines.push(`  Items: ${maze.story.items.join(', ')}`);
         }
+        // Check if enhanced
+        const originalKey = EnhancedSentenceCache.hash(maze.story.quest);
+        lines.push(`  Enhanced: ${EnhancedSentenceCache.cache.has(originalKey) ? 'Yes (cached)' : 'No (original)'}`);
     }
 
-    // Compact encoding
-    lines.push('\n[COMPACT ENCODING]');
-    lines.push(CompactMazeEncoder.encode(maze));
+    // Compact encoding (for smaller mazes)
+    if (maze.width <= 25 && maze.height <= 30) {
+        lines.push('\n[COMPACT ENCODING]');
+        lines.push(CompactMazeEncoder.encode(maze));
+    }
 
     // ASCII art (only for small mazes)
-    if (maze.width <= 20 && maze.height <= 25) {
+    if (maze.width <= 15 && maze.height <= 18) {
         lines.push('\n[ASCII ART]');
         lines.push(CompactMazeEncoder.toASCII(maze));
     }
 
-    lines.push('\n' + '='.repeat(60));
+    lines.push('\n' + '='.repeat(70));
 
     return lines.join('\n');
+}
+
+// Comprehensive test function - generates multiple mazes and outputs summary
+function runMazeTests(count = 12) {
+    const results = [];
+    const themes = Object.keys(Themes);
+    const shapes = Object.keys(ShapeMasks);
+    const algorithms = ['recursive_backtracker', 'prims', 'kruskals'];
+    const difficulties = [3, 5, 7, 10];
+
+    console.log('=' .repeat(70));
+    console.log('MAZE GENERATION TEST SUITE');
+    console.log('='.repeat(70));
+    console.log(`Running ${count} test mazes...\n`);
+
+    for (let i = 0; i < count; i++) {
+        const seed = 1000 + i;
+        const gen = new MazeGenerator(seed);
+        const theme = themes[i % themes.length];
+        const shape = shapes[Math.floor(i / themes.length) % shapes.length];
+        const algo = algorithms[i % algorithms.length];
+        const diff = difficulties[i % difficulties.length];
+
+        // Get dimensions for difficulty
+        const dims = {
+            3: { w: 5, h: 6 },
+            5: { w: 10, h: 13 },
+            7: { w: 17, h: 22 },
+            10: { w: 33, h: 43 }
+        }[diff] || { w: 10, h: 13 };
+
+        const maze = gen.generate(dims.w, dims.h, algo, shape, theme, i % 2 === 0);
+        maze.seed = seed;
+        maze.algorithm = algo;
+        maze.difficulty = diff;
+
+        // Generate story
+        const storyGen = new StoryGenerator(new SeededRandom(seed));
+        maze.story = storyGen.generateQuest(theme, diff);
+
+        // Collect results
+        const result = {
+            id: i + 1,
+            seed,
+            theme,
+            shape,
+            algorithm: algo,
+            difficulty: diff,
+            dimensions: `${dims.w}x${dims.h}`,
+            curved: i % 2 === 0,
+            hasStart: !!maze.startPos,
+            hasEnd: !!maze.endPos,
+            hasSolution: !!maze.solution && maze.solution.length > 0,
+            solutionLength: maze.solution ? maze.solution.length : 0,
+            interiorRooms: maze.rooms ? maze.rooms.length : 0,
+            character: maze.theme.character,
+            goal: maze.theme.goal,
+            charArtOk: !!CharacterArt[maze.theme.character],
+            goalArtOk: !!GoalArt[maze.theme.goal],
+            storyTitle: maze.story.title,
+            storyQuest: maze.story.quest.substring(0, 50) + '...'
+        };
+
+        results.push(result);
+
+        // Print compact result
+        const status = result.hasStart && result.hasEnd && result.hasSolution ? '✓' : '✗';
+        const artStatus = result.charArtOk && result.goalArtOk ? '✓' : '✗';
+        console.log(`[${i+1}] ${status} ${result.dimensions} ${result.theme}/${result.shape} (${result.algorithm}) Art:${artStatus}`);
+        console.log(`    Solution: ${result.solutionLength} cells, Rooms: ${result.interiorRooms}`);
+        console.log(`    "${result.storyTitle}"`);
+    }
+
+    // Summary
+    console.log('\n' + '='.repeat(70));
+    console.log('SUMMARY');
+    console.log('='.repeat(70));
+    const passed = results.filter(r => r.hasStart && r.hasEnd && r.hasSolution).length;
+    const artOk = results.filter(r => r.charArtOk && r.goalArtOk).length;
+    console.log(`Mazes Generated: ${count}`);
+    console.log(`Solvable: ${passed}/${count}`);
+    console.log(`Art Complete: ${artOk}/${count}`);
+    console.log(`Themes Tested: ${[...new Set(results.map(r => r.theme))].join(', ')}`);
+    console.log(`Shapes Tested: ${[...new Set(results.map(r => r.shape))].join(', ')}`);
+    console.log(`Algorithms Tested: ${[...new Set(results.map(r => r.algorithm))].join(', ')}`);
+
+    // List available art
+    console.log('\n[AVAILABLE CHARACTER ART]');
+    console.log(`  ${Object.keys(CharacterArt).join(', ')}`);
+    console.log('\n[AVAILABLE GOAL ART]');
+    console.log(`  ${Object.keys(GoalArt).join(', ')}`);
+
+    return results;
+}
+
+// Quick test a single maze configuration
+function testMaze(seed, theme, shape, difficulty, curved = false) {
+    const gen = new MazeGenerator(seed);
+    const dims = {
+        3: { w: 5, h: 6 },
+        4: { w: 7, h: 9 },
+        5: { w: 10, h: 13 },
+        6: { w: 13, h: 17 },
+        7: { w: 17, h: 22 },
+        8: { w: 21, h: 27 },
+        9: { w: 27, h: 35 },
+        10: { w: 33, h: 43 }
+    }[difficulty] || { w: 10, h: 13 };
+
+    const maze = gen.generate(dims.w, dims.h, 'recursive_backtracker', shape, theme, curved);
+    maze.seed = seed;
+    maze.algorithm = 'recursive_backtracker';
+    maze.difficulty = difficulty;
+
+    const storyGen = new StoryGenerator(new SeededRandom(seed));
+    maze.story = storyGen.generateQuest(theme, difficulty);
+
+    console.log(generateMazeDebugOutput(maze));
+    return maze;
 }
 
 // Generate batch of stories for review and enhancement
@@ -2229,4 +2647,10 @@ if (typeof window !== 'undefined') {
     window.addEnhancedSentence = addEnhancedSentence;
     window.ThemeVocabulary = ThemeVocabulary;
     window.EnhancedSentenceCache = EnhancedSentenceCache;
+    window.CharacterArt = CharacterArt;
+    window.GoalArt = GoalArt;
+    window.Themes = Themes;
+    window.ShapeMasks = ShapeMasks;
+    window.runMazeTests = runMazeTests;
+    window.testMaze = testMaze;
 }
