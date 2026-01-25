@@ -370,35 +370,40 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Show debug button if debug mode
-            if (localStorage.getItem('debug')) {
-                document.getElementById('debugBtn').style.display = 'block';
-            }
-
-            // Generate initial mazes
-            generateMazeParams(20);
-            renderMazes();
-
-            // Infinite scroll
-            const container = document.getElementById('mazeContainer');
-            container.addEventListener('scroll', handleScroll);
-
-            // Pull down for favorites
-            let pullStartY = 0;
-            container.addEventListener('touchstart', e => {
-                if (container.scrollTop <= 0) {
-                    pullStartY = e.touches[0].clientY;
+            try {
+                // Show debug button if debug mode
+                if (localStorage.getItem('debug')) {
+                    document.getElementById('debugBtn').style.display = 'block';
                 }
-            }, { passive: true });
-            container.addEventListener('touchmove', e => {
-                if (container.scrollTop <= 0 && pullStartY > 0) {
-                    const pullDist = e.touches[0].clientY - pullStartY;
-                    if (pullDist > 80) {
-                        showFavorites();
-                        pullStartY = 0;
+
+                // Generate initial mazes
+                generateMazeParams(20);
+                renderMazes();
+
+                // Infinite scroll
+                const container = document.getElementById('mazeContainer');
+                container.addEventListener('scroll', handleScroll);
+
+                // Pull down for favorites
+                let pullStartY = 0;
+                container.addEventListener('touchstart', e => {
+                    if (container.scrollTop <= 0) {
+                        pullStartY = e.touches[0].clientY;
                     }
-                }
-            }, { passive: true });
+                }, { passive: true });
+                container.addEventListener('touchmove', e => {
+                    if (container.scrollTop <= 0 && pullStartY > 0) {
+                        const pullDist = e.touches[0].clientY - pullStartY;
+                        if (pullDist > 80) {
+                            showFavorites();
+                            pullStartY = 0;
+                        }
+                    }
+                }, { passive: true });
+            } catch (e) {
+                console.error('Initialization error:', e);
+                document.body.innerHTML = '<div style="color:red;padding:20px;font-family:monospace;">Error: ' + e.message + '<br><br>' + e.stack + '</div>';
+            }
         });
 
         function generateMazeParams(count) {

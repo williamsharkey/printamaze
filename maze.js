@@ -3876,4 +3876,9 @@ if (typeof window !== 'undefined') {
     window.getLayoutMetrics = getLayoutMetrics;
     window.testMazeBoundingBoxes = testMazeBoundingBoxes;
     window.runBoundingBoxTests = runBoundingBoxTests;
+    // Difficulty normalization exports
+    window.TARGET_SOLUTION_LENGTHS = TARGET_SOLUTION_LENGTHS;
+    window.findOptimalDimensions = findOptimalDimensions;
+    window.getTrialSolutionLength = getTrialSolutionLength;
+    window.SeededRandom = SeededRandom;
 }
