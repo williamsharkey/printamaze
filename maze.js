@@ -589,7 +589,7 @@ class Maze {
         }
     }
 
-    toSVG(showSolution = false) {
+    toSVG(showSolution = false, printMode = false) {
         const cellSize = Math.min(20, Math.max(10, Math.floor(400 / Math.max(this.width, this.height))));
         const padding = 30;
         const strokeWidth = 2;
@@ -598,15 +598,24 @@ class Maze {
         const svgWidth = mazeWidth + padding * 2;
         const svgHeight = mazeHeight + padding * 2;
 
-        const theme = this.theme;
+        // Print mode: black walls on white background
+        const theme = printMode ? {
+            wallColor: '#000',
+            pathColor: '#fff',
+            bgColor: '#fff',
+            solutionColor: '#888',
+            startColor: '#000',
+            endColor: '#000'
+        } : this.theme;
+
         let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" style="background:${theme.bgColor}">`;
 
         // Background
         svg += `<rect width="${svgWidth}" height="${svgHeight}" fill="${theme.bgColor}"/>`;
 
-        // Border pattern
-        if (theme.borderPattern && BorderPatterns[theme.borderPattern]) {
-            svg += `<g color="${theme.wallColor}">${BorderPatterns[theme.borderPattern](svgWidth, svgHeight, padding, this.rng)}</g>`;
+        // Border pattern (skip in print mode)
+        if (!printMode && this.theme.borderPattern && BorderPatterns[this.theme.borderPattern]) {
+            svg += `<g color="${this.theme.wallColor}">${BorderPatterns[this.theme.borderPattern](svgWidth, svgHeight, padding, this.rng)}</g>`;
         }
 
         // Cell backgrounds (white for maze area)
@@ -634,13 +643,13 @@ class Maze {
             svg += `<path d="${pathD}" fill="none" stroke="${theme.solutionColor}" stroke-width="${cellSize * 0.3}" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>`;
         }
 
-        // Room decorations
-        if (theme.decorations.length > 0) {
-            svg += `<g color="${theme.wallColor}">`;
+        // Room decorations (skip in print mode)
+        if (!printMode && this.theme.decorations && this.theme.decorations.length > 0) {
+            svg += `<g color="${this.theme.wallColor}">`;
             for (const room of this.rooms) {
                 const cx = padding + (room.x + room.size / 2) * cellSize;
                 const cy = padding + (room.y + room.size / 2) * cellSize;
-                const artType = this.rng.choice(theme.decorations);
+                const artType = this.rng.choice(this.theme.decorations);
                 if (ArtGenerators[artType]) {
                     svg += ArtGenerators[artType](cx, cy, room.size * cellSize, this.rng);
                 }

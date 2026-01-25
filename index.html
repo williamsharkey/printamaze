@@ -34,6 +34,19 @@
         }
         .seed-input { width: 70px; opacity: 0.5; font-size: 11px !important; }
         .seed-input:focus { opacity: 1; }
+        .toggle-label { display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; }
+        .toggle-label input { cursor: pointer; }
+        .tab-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .tab-btn.active { background: #333; color: white; border-color: #333; }
+        .favorite-btn { color: #ccc; }
+        .favorite-btn.favorited { color: #f39c12; }
         .gallery {
             padding: 70px 12px 20px;
             display: grid;
@@ -154,16 +167,16 @@
             <option value="hexagon">Hexagon</option>
         </select>
         <select id="difficulty">
-            <option value="3">Age 3</option>
-            <option value="4" selected>Age 4</option>
-            <option value="5">Age 5</option>
-            <option value="6">Age 6</option>
-            <option value="7">Age 7</option>
-            <option value="8">Age 8</option>
-            <option value="9">Age 9</option>
-            <option value="10">Age 10</option>
-            <option value="11">Age 11</option>
-            <option value="12">Age 12+</option>
+            <option value="3">Level 1</option>
+            <option value="4" selected>Level 2</option>
+            <option value="5">Level 3</option>
+            <option value="6">Level 4</option>
+            <option value="7">Level 5</option>
+            <option value="8">Level 6</option>
+            <option value="9">Level 7</option>
+            <option value="10">Level 8</option>
+            <option value="11">Level 9</option>
+            <option value="12">Level 10</option>
         </select>
         <select id="algorithm">
             <option value="recursive_backtracker">Winding</option>
@@ -171,10 +184,15 @@
             <option value="kruskals">Random</option>
         </select>
         <input type="number" class="seed-input" id="seed" value="1" min="1" max="99999" title="Seed">
+        <label class="toggle-label"><input type="checkbox" id="printMode"> Print Mode</label>
+        <button class="tab-btn" id="galleryTab" onclick="showGallery()">Gallery</button>
+        <button class="tab-btn" id="favoritesTab" onclick="showFavorites()">Favorites</button>
     </header>
 
     <main class="gallery" id="gallery"></main>
+    <main class="gallery" id="favoritesGallery" style="display:none"></main>
     <div class="loading-more" id="loading">Loading more mazes...</div>
+    <div class="loading-more" id="noFavorites" style="display:none">No favorites yet. Click the heart on a maze to add it!</div>
 
     <div class="solution-overlay" id="solution-overlay" onclick="if(event.target===this)closeSolution()">
         <div class="solution-modal">
@@ -239,14 +257,17 @@
 
             const display = document.createElement('div');
             display.className = 'maze-display';
-            display.innerHTML = maze.toSVG();
+            display.innerHTML = maze.toSVG(false, getPrintMode());
             display.onclick = () => printMaze(maze);
 
             const footer = document.createElement('div');
             footer.className = 'card-footer';
+            const levelNum = settings.difficulty - 2;
+            const isFav = isFavorited(seed, settings);
             footer.innerHTML = `
-                <div class="card-info"><strong>${settings.theme}</strong> &bull; Age ${settings.difficulty}+</div>
+                <div class="card-info"><strong>${settings.theme}</strong> &bull; Level ${levelNum}</div>
                 <div class="card-actions">
+                    <button class="favorite-btn ${isFav ? 'favorited' : ''}" onclick="event.stopPropagation();toggleFavorite(${seed},this)" title="Favorite">&#9829;</button>
                     <button onclick="event.stopPropagation();showSolution(${seed})" title="Solution">&#128269;</button>
                     <button onclick="event.stopPropagation();printMaze(window.mazeCache[${seed}])" title="Print">&#128424;</button>
                     <button onclick="event.stopPropagation();downloadMaze(window.mazeCache[${seed}],${seed})" title="Download">&#128190;</button>
@@ -265,7 +286,7 @@
         function showSolution(seed) {
             const maze = window.mazeCache[seed];
             if (maze) {
-                document.getElementById('solution-display').innerHTML = maze.toSVG(true);
+                document.getElementById('solution-display').innerHTML = maze.toSVG(true, getPrintMode());
                 document.getElementById('solution-overlay').classList.add('open');
             }
         }
@@ -278,17 +299,114 @@
             const w = window.open('', '_blank');
             w.document.write(`<!DOCTYPE html><html><head><title>Maze</title>
                 <style>@page{size:letter;margin:0.5in}body{display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
-                svg{max-width:7.5in;max-height:10in}</style></head><body>${maze.toSVG()}</body></html>`);
+                svg{max-width:7.5in;max-height:10in}</style></head><body>${maze.toSVG(false, getPrintMode())}</body></html>`);
             w.document.close();
             setTimeout(() => w.print(), 100);
         }
 
         function downloadMaze(maze, seed) {
-            const blob = new Blob([maze.toSVG()], { type: 'image/svg+xml' });
+            const blob = new Blob([maze.toSVG(false, getPrintMode())], { type: 'image/svg+xml' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = `maze-${seed}.svg`;
             a.click();
+        }
+
+        // Print Mode
+        function getPrintMode() {
+            return document.getElementById('printMode').checked;
+        }
+
+        function savePrintMode(enabled) {
+            localStorage.setItem('mazejs-printMode', enabled ? 'true' : 'false');
+        }
+
+        function loadPrintMode() {
+            const saved = localStorage.getItem('mazejs-printMode');
+            return saved === 'true';
+        }
+
+        // Favorites
+        function getFavorites() {
+            try {
+                return JSON.parse(localStorage.getItem('mazejs-favorites') || '[]');
+            } catch { return []; }
+        }
+
+        function saveFavorites(favs) {
+            localStorage.setItem('mazejs-favorites', JSON.stringify(favs));
+        }
+
+        function isFavorited(seed, settings) {
+            const favs = getFavorites();
+            return favs.some(f => f.seed === seed && f.theme === settings.theme &&
+                f.shape === settings.shape && f.difficulty === settings.difficulty &&
+                f.algorithm === settings.algorithm);
+        }
+
+        function toggleFavorite(seed, btn) {
+            const settings = getSettings();
+            let favs = getFavorites();
+            const idx = favs.findIndex(f => f.seed === seed && f.theme === settings.theme &&
+                f.shape === settings.shape && f.difficulty === settings.difficulty &&
+                f.algorithm === settings.algorithm);
+
+            if (idx >= 0) {
+                favs.splice(idx, 1);
+                btn.classList.remove('favorited');
+            } else {
+                favs.push({
+                    seed,
+                    theme: settings.theme,
+                    shape: settings.shape,
+                    difficulty: settings.difficulty,
+                    algorithm: settings.algorithm
+                });
+                btn.classList.add('favorited');
+            }
+            saveFavorites(favs);
+        }
+
+        // Tab switching
+        let currentView = 'gallery';
+
+        function showGallery() {
+            currentView = 'gallery';
+            document.getElementById('gallery').style.display = '';
+            document.getElementById('favoritesGallery').style.display = 'none';
+            document.getElementById('loading').style.display = '';
+            document.getElementById('noFavorites').style.display = 'none';
+            document.getElementById('galleryTab').classList.add('active');
+            document.getElementById('favoritesTab').classList.remove('active');
+        }
+
+        function showFavorites() {
+            currentView = 'favorites';
+            document.getElementById('gallery').style.display = 'none';
+            document.getElementById('favoritesGallery').style.display = '';
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('galleryTab').classList.remove('active');
+            document.getElementById('favoritesTab').classList.add('active');
+            renderFavorites();
+        }
+
+        function renderFavorites() {
+            const container = document.getElementById('favoritesGallery');
+            container.innerHTML = '';
+            const favs = getFavorites();
+
+            if (favs.length === 0) {
+                document.getElementById('noFavorites').style.display = '';
+                return;
+            }
+            document.getElementById('noFavorites').style.display = 'none';
+
+            for (const fav of favs) {
+                const dims = ageDifficulty[fav.difficulty] || ageDifficulty[4];
+                const maze = new MazeGenerator(fav.seed).generate(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme);
+                window.mazeCache[fav.seed] = maze;
+                container.appendChild(createCard(maze, fav.seed, fav));
+            }
         }
 
         // Setup
@@ -297,9 +415,21 @@
             el.addEventListener('input', debounceRegenerate);
         });
 
+        // Print mode toggle
+        const printModeCheckbox = document.getElementById('printMode');
+        printModeCheckbox.checked = loadPrintMode();
+        printModeCheckbox.addEventListener('change', () => {
+            savePrintMode(printModeCheckbox.checked);
+            debounceRegenerate();
+            if (currentView === 'favorites') renderFavorites();
+        });
+
+        // Tab default state
+        document.getElementById('galleryTab').classList.add('active');
+
         // Infinite scroll
         new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting) loadMoreMazes();
+            if (entries[0].isIntersecting && currentView === 'gallery') loadMoreMazes();
         }, { threshold: 0.1 }).observe(document.getElementById('loading'));
 
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSolution(); });
