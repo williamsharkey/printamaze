@@ -585,10 +585,16 @@ const Themes = {
         endColor: '#FF5722',
         borderPattern: 'simple',
         decorations: ['compass', 'torch', 'key', 'coin'],
-        character: 'explorer',
-        characterName: 'explorer',  // Name used in stories
-        goal: 'treasure',
-        goalName: 'treasure'  // Name used in stories
+        characters: [
+            { art: 'explorer', name: 'explorer' },
+            { art: 'explorer', name: 'adventurer' },
+            { art: 'explorer', name: 'treasure hunter' }
+        ],
+        goals: [
+            { art: 'treasure', name: 'treasure' },
+            { art: 'treasure', name: 'golden key' },
+            { art: 'treasure', name: 'magic gem' }
+        ]
     },
     ocean: {
         name: 'Ocean',
@@ -600,10 +606,17 @@ const Themes = {
         endColor: '#FF6B35',
         borderPattern: 'waves',
         decorations: ['fish', 'bubble', 'seaweed', 'shell'],
-        character: 'diver',
-        characterName: 'diver',
-        goal: 'treasureChest',
-        goalName: 'treasure chest'
+        characters: [
+            { art: 'diver', name: 'diver' },
+            { art: 'mermaid', name: 'mermaid' },
+            { art: 'sailor', name: 'sailor' },
+            { art: 'seaTurtle', name: 'sea turtle' }
+        ],
+        goals: [
+            { art: 'treasureChest', name: 'treasure chest' },
+            { art: 'coralPalace', name: 'coral palace' },
+            { art: 'sunkenShip', name: 'sunken ship' }
+        ]
     },
     space: {
         name: 'Space',
@@ -615,10 +628,17 @@ const Themes = {
         endColor: '#ff6b6b',
         borderPattern: 'stars',
         decorations: ['star', 'planet', 'rocket', 'moon'],
-        character: 'astronaut',
-        characterName: 'astronaut',
-        goal: 'spaceStation',
-        goalName: 'space station'
+        characters: [
+            { art: 'astronaut', name: 'astronaut' },
+            { art: 'robot', name: 'robot' },
+            { art: 'alien', name: 'alien friend' }
+        ],
+        goals: [
+            { art: 'spaceStation', name: 'space station' },
+            { art: 'warpGate', name: 'warp gate' },
+            { art: 'moonBase', name: 'moon base' },
+            { art: 'rocketShip', name: 'rocket ship' }
+        ]
     },
     garden: {
         name: 'Garden',
@@ -630,10 +650,18 @@ const Themes = {
         endColor: '#FFD700',
         borderPattern: 'vines',
         decorations: ['flower', 'butterfly', 'bee', 'leaf'],
-        character: 'bee',
-        characterName: 'bee',
-        goal: 'beehive',
-        goalName: 'beehive'
+        characters: [
+            { art: 'bee', name: 'bee' },
+            { art: 'butterfly', name: 'butterfly' },
+            { art: 'ladybug', name: 'ladybug' },
+            { art: 'gardener', name: 'little gardener' }
+        ],
+        goals: [
+            { art: 'beehive', name: 'beehive' },
+            { art: 'flowerGarden', name: 'flower garden' },
+            { art: 'mushroomHouse', name: 'fairy house' },
+            { art: 'greenhouse', name: 'greenhouse' }
+        ]
     },
     candy: {
         name: 'Candy',
@@ -645,10 +673,15 @@ const Themes = {
         endColor: '#FFD700',
         borderPattern: 'candy',
         decorations: ['lollipop', 'cupcake', 'star', 'heart'],
-        character: 'gingerbread',
-        characterName: 'gingerbread kid',
-        goal: 'candyCastle',
-        goalName: 'candy castle'
+        characters: [
+            { art: 'gingerbread', name: 'gingerbread kid' },
+            { art: 'candyFairy', name: 'candy fairy' }
+        ],
+        goals: [
+            { art: 'candyCastle', name: 'candy castle' },
+            { art: 'lollipopForest', name: 'lollipop forest' },
+            { art: 'chocolateFountain', name: 'chocolate fountain' }
+        ]
     },
     jungle: {
         name: 'Jungle',
@@ -660,10 +693,16 @@ const Themes = {
         endColor: '#FFD700',
         borderPattern: 'leaves',
         decorations: ['palm', 'bird', 'monkey', 'snake'],
-        character: 'jungleKid',
-        characterName: 'explorer',
-        goal: 'temple',
-        goalName: 'hidden temple'
+        characters: [
+            { art: 'jungleKid', name: 'explorer' },
+            { art: 'babyMonkey', name: 'baby monkey' },
+            { art: 'parrot', name: 'parrot' }
+        ],
+        goals: [
+            { art: 'temple', name: 'hidden temple' },
+            { art: 'waterfall', name: 'secret waterfall' },
+            { art: 'treehouseVillage', name: 'treetop village' }
+        ]
     }
 };
 
@@ -1765,10 +1804,10 @@ class Maze {
 
         // Calculate margins for title, quest, and START/END labels
         const titleHeight = this.story && this.story.title ? 20 : 0;
-        const questHeight = this.story && this.story.quest ? 36 : 0;
+        const questHeight = this.story && this.story.quest ? 52 : 0; // Extra space for 3 lines
         const sidePadding = 35; // Space for START/END on sides
         const topPadding = 20 + titleHeight;
-        const bottomPadding = 16 + questHeight;
+        const bottomPadding = 24 + questHeight; // More padding between maze and quest
 
         const svgWidth = mazeWidth + sidePadding * 2;
         const svgHeight = mazeHeight + topPadding + bottomPadding;
@@ -2003,7 +2042,7 @@ class Maze {
         if (this.story && this.story.quest) {
             const questSize = Math.min(8, Math.max(5, svgWidth / 50));
             // Move 2.8 line heights higher (subtract 2.8 * questSize) to fit 3 lines
-            const questY = svgHeight - questHeight + 4 - questSize * 2.8;
+            const questY = svgHeight - questHeight + 8;
             const maxWidth = svgWidth - 24;
 
             // Simple word wrap
@@ -3231,10 +3270,10 @@ function getLayoutMetrics(maze) {
     const mazeHeight = maze.height * cellSize;
 
     const titleHeight = maze.story && maze.story.title ? 20 : 0;
-    const questHeight = maze.story && maze.story.quest ? 36 : 0;
+    const questHeight = maze.story && maze.story.quest ? 52 : 0;
     const sidePadding = 35;
     const topPadding = 20 + titleHeight;
-    const bottomPadding = 16 + questHeight;
+    const bottomPadding = 24 + questHeight;
 
     const svgWidth = mazeWidth + sidePadding * 2;
     const svgHeight = mazeHeight + topPadding + bottomPadding;
@@ -3283,7 +3322,7 @@ function getLayoutMetrics(maze) {
     let questBounds = null;
     if (maze.story && maze.story.quest) {
         const questSize = Math.min(8, Math.max(5, svgWidth / 50));
-        const questY = svgHeight - questHeight + 4 - questSize * 2.8;
+        const questY = svgHeight - questHeight + 8;
         const maxWidth = svgWidth - 24;
 
         // Calculate word wrap
