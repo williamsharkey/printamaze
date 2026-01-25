@@ -213,28 +213,33 @@
         <strong>Debug: START/END Position Tweaks</strong>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px;">
             <div>
-                <label>START Scale: <span id="startScaleVal">0.36</span></label>
-                <input type="range" id="startScale" min="0.1" max="1" step="0.01" value="0.36" style="width:100%">
+                <label>START Scale: <span id="startScaleVal">0.67</span></label>
+                <input type="range" id="startScale" min="0.1" max="1" step="0.01" value="0.67" style="width:100%">
             </div>
             <div>
-                <label>START Y Offset: <span id="startYVal">1.0</span></label>
-                <input type="range" id="startY" min="-2" max="3" step="0.1" value="1.0" style="width:100%">
+                <label>START Y Offset: <span id="startYVal">0.7</span></label>
+                <input type="range" id="startY" min="-2" max="3" step="0.1" value="0.7" style="width:100%">
             </div>
             <div>
-                <label>END Scale: <span id="endScaleVal">0.56</span></label>
-                <input type="range" id="endScale" min="0.1" max="1" step="0.01" value="0.56" style="width:100%">
+                <label>END Scale: <span id="endScaleVal">0.61</span></label>
+                <input type="range" id="endScale" min="0.1" max="1" step="0.01" value="0.61" style="width:100%">
             </div>
             <div>
-                <label>END X Offset (chars): <span id="endXVal">1.0</span></label>
-                <input type="range" id="endX" min="-2" max="3" step="0.1" value="1.0" style="width:100%">
+                <label>END X Offset (chars): <span id="endXVal">2.8</span></label>
+                <input type="range" id="endX" min="-2" max="5" step="0.1" value="2.8" style="width:100%">
+            </div>
+            <div>
+                <label>END Y Offset: <span id="endYVal">0</span></label>
+                <input type="range" id="endY" min="-2" max="3" step="0.1" value="0" style="width:100%">
             </div>
         </div>
         <div style="margin-top:10px;">
             <code id="debugCode">// Current values:
-startLabelSize = labelSize * 0.36;
-startY = artBottom + 2 - startLabelSize * 1.0;
-endLabelSize = labelSize * 0.56;
-endX = cx - endWidth/2 - letterWidth * 1.0;</code>
+startLabelSize = labelSize * 0.67;
+startY = artBottom + 2 - startLabelSize * 0.7;
+endLabelSize = labelSize * 0.61;
+endX = cx - endWidth/2 - letterWidth * 2.8;
+endY = artBottom + 2 - endLabelSize * 0;</code>
         </div>
     </div>
 
@@ -547,7 +552,7 @@ endX = cx - endWidth/2 - letterWidth * 1.0;</code>
             document.getElementById('debugPanel').style.display = 'block';
 
             // Wire up sliders
-            const sliders = ['startScale', 'startY', 'endScale', 'endX'];
+            const sliders = ['startScale', 'startY', 'endScale', 'endX', 'endY'];
             sliders.forEach(id => {
                 const slider = document.getElementById(id);
                 const valSpan = document.getElementById(id + 'Val');
@@ -559,7 +564,8 @@ endX = cx - endWidth/2 - letterWidth * 1.0;</code>
                         startScale: parseFloat(document.getElementById('startScale').value),
                         startY: parseFloat(document.getElementById('startY').value),
                         endScale: parseFloat(document.getElementById('endScale').value),
-                        endX: parseFloat(document.getElementById('endX').value)
+                        endX: parseFloat(document.getElementById('endX').value),
+                        endY: parseFloat(document.getElementById('endY').value)
                     };
                     debounceRegenerate();
                 });
@@ -570,16 +576,18 @@ endX = cx - endWidth/2 - letterWidth * 1.0;</code>
                 const sy = document.getElementById('startY').value;
                 const es = document.getElementById('endScale').value;
                 const ex = document.getElementById('endX').value;
+                const ey = document.getElementById('endY').value;
                 document.getElementById('debugCode').textContent = `// Current values:
 startLabelSize = labelSize * ${ss};
 startY = artBottom + 2 - startLabelSize * ${sy};
 endLabelSize = labelSize * ${es};
-endX = cx - endWidth/2 - letterWidth * ${ex};`;
+endX = cx - endWidth/2 - letterWidth * ${ex};
+endY = artBottom + 2 - endLabelSize * ${ey};`;
             }
 
             // Initialize global settings
             window.debugLabelSettings = {
-                startScale: 0.36, startY: 1.0, endScale: 0.56, endX: 1.0
+                startScale: 0.67, startY: 0.7, endScale: 0.61, endX: 2.8, endY: 0
             };
         }
 

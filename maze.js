@@ -1551,7 +1551,7 @@ class Maze {
 
         // Use debug settings if available, otherwise defaults
         const dbg = (typeof window !== 'undefined' && window.debugLabelSettings) || {
-            startScale: 0.36, startY: 1.0, endScale: 0.56, endX: 1.0
+            startScale: 0.67, startY: 0.7, endScale: 0.61, endX: 2.8, endY: 0
         };
 
         if (this.startPos) {
@@ -1574,7 +1574,7 @@ class Maze {
             const endWidth = VectorFont.measureText('END', endLabelSize);
             const letterWidth = endWidth / 3;
             const endX = cx - endWidth / 2 - letterWidth * dbg.endX;
-            const endY = artBottom + 2;
+            const endY = artBottom + 2 - endLabelSize * dbg.endY;
             svg += VectorFont.renderText('END', endX, endY, endLabelSize, textColor, 0.7);
         }
 
@@ -2899,18 +2899,18 @@ function getLayoutMetrics(maze) {
         };
     }
 
-    // START label bounds - 36% of base size (40% smaller than 0.6), moved up 1 line height
+    // START label bounds - scale 0.67, Y offset 0.7
     let startBounds = null;
     if (maze.startPos) {
         const roomSize = maze.startRoomSize || 2;
         const cx = sidePadding + (maze.startPos.x + roomSize / 2) * cellSize;
         const cy = topPadding + (maze.startPos.y + roomSize / 2) * cellSize;
         const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
-        const startLabelSize = labelSize * 0.36;
+        const startLabelSize = labelSize * 0.67;
         const startWidth = VectorFont.measureText('START', startLabelSize);
         const artBottom = cy + roomSize * cellSize * 0.28;
         const startX = cx - startWidth / 2;
-        const startY = artBottom + 2 - startLabelSize * 1.0;
+        const startY = artBottom + 2 - startLabelSize * 0.7;
 
         startBounds = {
             left: startX,
@@ -2921,19 +2921,19 @@ function getLayoutMetrics(maze) {
         };
     }
 
-    // END label bounds - 56% of base size (30% smaller than 0.8), moved left 1 character width
+    // END label bounds - scale 0.61, X offset 2.8 chars, Y offset 0
     let endBounds = null;
     if (maze.endPos) {
         const roomSize = maze.endRoomSize || 2;
         const cx = sidePadding + (maze.endPos.x + roomSize / 2) * cellSize;
         const cy = topPadding + (maze.endPos.y + roomSize / 2) * cellSize;
         const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
-        const endLabelSize = labelSize * 0.56;
+        const endLabelSize = labelSize * 0.61;
         const endWidth = VectorFont.measureText('END', endLabelSize);
         const letterWidth = endWidth / 3;
         const artBottom = cy + roomSize * cellSize * 0.36;
-        const endX = cx - endWidth / 2 - letterWidth * 1.0;
-        const endY = artBottom + 2;
+        const endX = cx - endWidth / 2 - letterWidth * 2.8;
+        const endY = artBottom + 2 - endLabelSize * 0;
 
         endBounds = {
             left: endX,
