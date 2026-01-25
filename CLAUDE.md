@@ -79,36 +79,108 @@ python3 -m http.server 8000
 Current mapping (Level -> Grid Size):
 ```javascript
 const ageDifficulty = {
-    3: { w: 5, h: 6 },    // Level 1
-    4: { w: 7, h: 9 },    // Level 2
-    5: { w: 9, h: 12 },   // Level 3
-    6: { w: 11, h: 14 },  // Level 4
-    7: { w: 13, h: 17 },  // Level 5
-    8: { w: 15, h: 19 },  // Level 6
-    9: { w: 17, h: 22 },  // Level 7
-    10: { w: 21, h: 27 }, // Level 8
-    11: { w: 25, h: 32 }, // Level 9
-    12: { w: 29, h: 37 }  // Level 10
+    3: { w: 5, h: 6 },     // Level 1 - very easy
+    4: { w: 7, h: 9 },     // Level 2
+    5: { w: 10, h: 13 },   // Level 3
+    6: { w: 13, h: 17 },   // Level 4
+    7: { w: 17, h: 22 },   // Level 5
+    8: { w: 21, h: 27 },   // Level 6
+    9: { w: 27, h: 35 },   // Level 7
+    10: { w: 33, h: 43 },  // Level 8
+    11: { w: 39, h: 50 },  // Level 9
+    12: { w: 45, h: 58 }   // Level 10 - expert
 };
+```
+
+## Story Generation System
+
+Each maze generates a themed story with title and quest description.
+
+### Story Templates (scale by difficulty)
+- **Levels 1-3 (simple)**: "Help the {character} find the {goal}!"
+- **Levels 4-5 (collect)**: "Help the {character} collect the {item} and reach the {goal}!"
+- **Levels 6-7 (collectTwo)**: "Help the {character} find the {item1} and {item2}..."
+- **Levels 8-10 (full)**: Full quest with items AND dangers to avoid
+
+### Theme Vocabulary
+Each theme has character, item, danger, goal, and title word pools:
+```javascript
+ThemeVocabulary.ocean = {
+    characters: ["diver", "mermaid", "sailor", "sea turtle"],
+    items: ["pearl", "shell", "starfish", "treasure map"],
+    dangers: ["jellyfish", "shark", "whirlpool"],
+    goals: ["treasure chest", "sunken ship", "coral palace"],
+    adjectives: ["Deep", "Ocean", "Underwater"],
+    nouns: ["Dive", "Sea", "Reef", "Voyage"]
+}
+```
+
+### Enhanced Sentence Cache
+Hand-crafted improved versions of generated sentences are cached:
+```javascript
+// Original: "Help the diver collect the pearl and reach the treasure chest!"
+// Enhanced: "Dive deep with the brave diver to find the shimmering pearl..."
+addEnhancedSentence(original, enhanced);
+```
+
+## Compact Debug Representation
+
+Click the gear icon on any maze card to view the debug output.
+
+### Encoding Format
+```
+MAZE:7x9|circle|Ocean|S     # dimensions|shape|theme|S=straight/C=curved
+START:1,3|2x2               # position|room size
+END:4,5|2x2
+ROOMS:3,1:2x2;5,3:3x2       # interior rooms
+BORDER:waves
+SOLUTION:18 cells
+
+GRID:
+..B9B..                     # . = blocked
+.BASSB.                     # Hex = wall config (N=8,S=4,E=2,W=1)
+9SSaaA9                     # S = start room
+SSSEA99                     # E = end room
+9SEEE9.                     # a,b,c = interior rooms
+```
+
+### Wall Encoding (hex digit)
+- Bit 3 (8): North wall
+- Bit 2 (4): South wall
+- Bit 1 (2): East wall
+- Bit 0 (1): West wall
+- Example: `B` = 1011 = North + East + West walls
+
+### JavaScript API
+```javascript
+// Generate debug output for AI review
+const debug = generateMazeDebugOutput(maze);
+
+// Generate batch of stories for enhancement
+const stories = generateStoryBatch('ocean', 100, seed);
+
+// Format for review
+console.log(formatStoriesForReview(stories));
+
+// Add enhanced sentence to cache
+addEnhancedSentence(original, enhanced);
 ```
 
 ## Future Features (TODO)
 
-### High Priority
+### Completed
 
-1. **Story Mode** (NEXT)
-   - Grammar template: "Help [character] get [X] and [Y] and avoid [Z] to reach [goal]"
-   - Theme-based story generation:
-     - Ocean: "Help the diver collect shells and pearls while avoiding jellyfish to reach the treasure chest"
-     - Space: "Help the astronaut gather fuel cells and oxygen while avoiding asteroids to reach the space station"
-     - Garden: "Help the bee collect nectar and pollen while avoiding spiders to reach the hive"
-   - Display story text prominently above the maze
-   - Path items (X, Y) should be collectable along the solution path
-   - Distractions (Z) should be in dead ends or off-path areas
-   - Goal should be in the end room
+1. ~~**Story Mode**~~ DONE
+   - ~~Grammar template: "Help [character] get [X] and [Y] and avoid [Z] to reach [goal]"~~
+   - ~~Theme-based story generation for all 6 themes~~
+   - ~~Display story text prominently above the maze~~
+   - ~~Quest description below maze~~
+   - ~~Difficulty-scaled templates (simple -> full quest)~~
+   - ~~Enhanced sentence cache for improved grammar~~
 
 2. ~~**Start/End Rooms**~~ DONE
    - ~~Create 2x2 open spaces at start and end~~
+   - ~~Room size scales with maze size~~
    - Allow character art in start room (future)
    - Allow goal art in end room (future)
 
@@ -118,15 +190,25 @@ const ageDifficulty = {
    - ~~Always black in print mode~~
 
 4. ~~**Harder Difficulty Scaling**~~ DONE
-   - ~~Level 10 should be more challenging~~
-   - ~~Current max: 29x37, target: ~45x58~~
+   - ~~Level 10 now 45x58 (was 29x37)~~
+
+5. ~~**Interior Rooms**~~ DONE
+   - ~~Carve open spaces in larger mazes~~
+   - ~~Variable room sizes (rectangular support)~~
+   - ~~3-cell minimum gap between rooms~~
+   - Place themed art in rooms (partial - decorations added)
+
+6. ~~**Debug Representation**~~ DONE
+   - ~~Compact hex-encoded wall format~~
+   - ~~ASCII art output for small mazes~~
+   - ~~Stats summary (dimensions, rooms, solution length)~~
 
 ### Medium Priority
 
-5. **Interior Rooms**
-   - Carve open spaces in larger mazes
-   - Place themed art in rooms
-   - Rooms on solution path vs off-path
+7. **Curved Walls Mode**
+   - Basic implementation done
+   - Need UI toggle to enable
+   - Refinement for T-junctions
 
 6. **AI Art Generation** (from original project)
    - Photo upload -> custom theme
@@ -155,8 +237,9 @@ const ageDifficulty = {
 | AI Art | No | Yes (DALL-E) |
 | Themes | 6 built-in | 20+ with AI art |
 | Shapes | 6 masks | 16x16 high-res masks |
-| Rooms | Basic | Advanced interior rooms |
-| Story Mode | Planned | Planned |
+| Rooms | Variable size, 3-cell gap | Advanced interior rooms |
+| Story Mode | Yes (template-based) | Planned |
+| Debug Output | Yes (compact hex) | No |
 | Deployment | Static files | Python WSGI |
 
 ## Code Style
@@ -174,6 +257,24 @@ Open index.html in browser and verify:
 3. Favorites save and load properly
 4. Infinite scroll loads more mazes
 5. Solution overlay works
+6. Story titles appear above mazes
+7. Quest descriptions appear below mazes
+8. Debug button (gear icon) shows compact representation
+9. Print output includes title and quest
+
+### Console Testing
+```javascript
+// Generate batch of stories for review
+const stories = generateStoryBatch('ocean', 100);
+console.log(formatStoriesForReview(stories));
+
+// Get debug output for a maze
+const maze = window.mazeCache[1];
+console.log(generateMazeDebugOutput(maze));
+
+// Check compact encoding
+console.log(CompactMazeEncoder.encode(maze));
+```
 
 ## Git Repository
 
