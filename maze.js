@@ -3,6 +3,109 @@
  * Deterministic generation with seeded random
  */
 
+// =============================================================================
+// VECTOR FONT SYSTEM - Hershey-style pen plotter font
+// =============================================================================
+
+// Each letter is defined as an array of strokes. Each stroke is an array of [x,y] points.
+// Coordinates are in a 5x7 grid (width x height), scaled at render time.
+const VectorFont = {
+    charWidth: 5,
+    charHeight: 7,
+
+    // Letter definitions - each is array of strokes (polylines)
+    glyphs: {
+        'A': [[[0,7],[2.5,0],[5,7]], [[1,4.5],[4,4.5]]],
+        'B': [[[0,0],[0,7],[4,7],[5,6],[5,5],[4,4],[0,4]], [[4,4],[5,3],[5,1],[4,0],[0,0]]],
+        'C': [[[5,1],[4,0],[1,0],[0,1],[0,6],[1,7],[4,7],[5,6]]],
+        'D': [[[0,0],[0,7],[3,7],[5,5],[5,2],[3,0],[0,0]]],
+        'E': [[[5,0],[0,0],[0,7],[5,7]], [[0,3.5],[3,3.5]]],
+        'F': [[[5,0],[0,0],[0,7]], [[0,3.5],[3,3.5]]],
+        'G': [[[5,1],[4,0],[1,0],[0,1],[0,6],[1,7],[4,7],[5,6],[5,4],[2.5,4]]],
+        'H': [[[0,0],[0,7]], [[5,0],[5,7]], [[0,3.5],[5,3.5]]],
+        'I': [[[1,0],[4,0]], [[2.5,0],[2.5,7]], [[1,7],[4,7]]],
+        'J': [[[2,0],[5,0]], [[3.5,0],[3.5,6],[2.5,7],[1,7],[0,6]]],
+        'K': [[[0,0],[0,7]], [[5,0],[0,4],[5,7]]],
+        'L': [[[0,0],[0,7],[5,7]]],
+        'M': [[[0,7],[0,0],[2.5,4],[5,0],[5,7]]],
+        'N': [[[0,7],[0,0],[5,7],[5,0]]],
+        'O': [[[1,0],[4,0],[5,1],[5,6],[4,7],[1,7],[0,6],[0,1],[1,0]]],
+        'P': [[[0,7],[0,0],[4,0],[5,1],[5,3],[4,4],[0,4]]],
+        'Q': [[[1,0],[4,0],[5,1],[5,6],[4,7],[1,7],[0,6],[0,1],[1,0]], [[3,5],[5,7]]],
+        'R': [[[0,7],[0,0],[4,0],[5,1],[5,3],[4,4],[0,4]], [[2.5,4],[5,7]]],
+        'S': [[[5,1],[4,0],[1,0],[0,1],[0,3],[1,4],[4,4],[5,5],[5,6],[4,7],[1,7],[0,6]]],
+        'T': [[[0,0],[5,0]], [[2.5,0],[2.5,7]]],
+        'U': [[[0,0],[0,6],[1,7],[4,7],[5,6],[5,0]]],
+        'V': [[[0,0],[2.5,7],[5,0]]],
+        'W': [[[0,0],[1,7],[2.5,3],[4,7],[5,0]]],
+        'X': [[[0,0],[5,7]], [[5,0],[0,7]]],
+        'Y': [[[0,0],[2.5,3.5],[5,0]], [[2.5,3.5],[2.5,7]]],
+        'Z': [[[0,0],[5,0],[0,7],[5,7]]],
+        '0': [[[1,0],[4,0],[5,1],[5,6],[4,7],[1,7],[0,6],[0,1],[1,0]], [[0,7],[5,0]]],
+        '1': [[[1,1],[2.5,0],[2.5,7]], [[1,7],[4,7]]],
+        '2': [[[0,1],[1,0],[4,0],[5,1],[5,3],[0,7],[5,7]]],
+        '3': [[[0,1],[1,0],[4,0],[5,1],[5,2],[4,3],[2,3]], [[4,3],[5,4],[5,6],[4,7],[1,7],[0,6]]],
+        '4': [[[4,7],[4,0],[0,4.5],[5,4.5]]],
+        '5': [[[5,0],[0,0],[0,3],[4,3],[5,4],[5,6],[4,7],[1,7],[0,6]]],
+        '6': [[[4,0],[1,0],[0,1],[0,6],[1,7],[4,7],[5,6],[5,4],[4,3],[0,3]]],
+        '7': [[[0,0],[5,0],[2,7]]],
+        '8': [[[1,0],[4,0],[5,1],[5,3],[4,3.5],[1,3.5],[0,4],[0,6],[1,7],[4,7],[5,6],[5,4],[4,3.5]], [[1,3.5],[0,3],[0,1],[1,0]]],
+        '9': [[[1,7],[4,7],[5,6],[5,1],[4,0],[1,0],[0,1],[0,3],[1,4],[5,4]]],
+        ' ': [],
+        '.': [[[2.5,6.5],[2.5,7]]],
+        ',': [[[2.5,6],[2,7.5]]],
+        '!': [[[2.5,0],[2.5,4.5]], [[2.5,6.5],[2.5,7]]],
+        '?': [[[0,1],[1,0],[4,0],[5,1],[5,2],[4,3],[2.5,3],[2.5,4.5]], [[2.5,6.5],[2.5,7]]],
+        '-': [[[1,3.5],[4,3.5]]],
+        "'": [[[2.5,0],[2.5,2]]],
+        ':': [[[2.5,2],[2.5,2.5]], [[2.5,5.5],[2.5,6]]],
+        '/': [[[0,7],[5,0]]],
+        '(': [[[3,0],[1.5,1],[1,3.5],[1.5,6],[3,7]]],
+        ')': [[[2,0],[3.5,1],[4,3.5],[3.5,6],[2,7]]]
+    },
+
+    // Render text as SVG path
+    renderText(text, x, y, height, color = '#000', strokeWidth = 1.5) {
+        const scale = height / this.charHeight;
+        const charW = this.charWidth * scale;
+        const spacing = charW * 0.2;
+        let paths = [];
+        let curX = x;
+
+        for (const char of text.toUpperCase()) {
+            const glyph = this.glyphs[char];
+            if (glyph) {
+                for (const stroke of glyph) {
+                    if (stroke.length > 0) {
+                        const d = stroke.map((pt, i) =>
+                            `${i === 0 ? 'M' : 'L'}${curX + pt[0] * scale},${y + pt[1] * scale}`
+                        ).join(' ');
+                        paths.push(d);
+                    }
+                }
+            }
+            curX += charW + spacing;
+        }
+
+        if (paths.length === 0) return '';
+        return `<path d="${paths.join(' ')}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    },
+
+    // Measure text width
+    measureText(text, height) {
+        const scale = height / this.charHeight;
+        const charW = this.charWidth * scale;
+        const spacing = charW * 0.2;
+        return text.length * (charW + spacing) - spacing;
+    },
+
+    // Render text centered at position
+    renderCentered(text, centerX, y, height, color = '#000', strokeWidth = 1.5) {
+        const width = this.measureText(text, height);
+        return this.renderText(text, centerX - width / 2, y, height, color, strokeWidth);
+    }
+};
+
 // Seeded Random Number Generator (Mulberry32)
 class SeededRandom {
     constructor(seed) {
@@ -99,7 +202,9 @@ const Themes = {
         startColor: '#4CAF50',
         endColor: '#FF5722',
         borderPattern: 'simple',
-        decorations: []
+        decorations: [],
+        character: 'explorer',
+        goal: 'treasure'
     },
     ocean: {
         name: 'Ocean',
@@ -110,7 +215,9 @@ const Themes = {
         startColor: '#00BCD4',
         endColor: '#FF6B35',
         borderPattern: 'waves',
-        decorations: ['fish', 'bubble', 'seaweed', 'shell']
+        decorations: ['fish', 'bubble', 'seaweed', 'shell'],
+        character: 'diver',
+        goal: 'treasureChest'
     },
     space: {
         name: 'Space',
@@ -121,7 +228,9 @@ const Themes = {
         startColor: '#00ff88',
         endColor: '#ff6b6b',
         borderPattern: 'stars',
-        decorations: ['star', 'planet', 'rocket', 'moon']
+        decorations: ['star', 'planet', 'rocket', 'moon'],
+        character: 'astronaut',
+        goal: 'spaceStation'
     },
     garden: {
         name: 'Garden',
@@ -132,7 +241,9 @@ const Themes = {
         startColor: '#FF69B4',
         endColor: '#FFD700',
         borderPattern: 'vines',
-        decorations: ['flower', 'butterfly', 'bee', 'leaf']
+        decorations: ['flower', 'butterfly', 'bee', 'leaf'],
+        character: 'gardener',
+        goal: 'flowerGarden'
     },
     candy: {
         name: 'Candy',
@@ -143,7 +254,9 @@ const Themes = {
         startColor: '#FF1493',
         endColor: '#FFD700',
         borderPattern: 'candy',
-        decorations: ['lollipop', 'cupcake', 'star', 'heart']
+        decorations: ['lollipop', 'cupcake', 'star', 'heart'],
+        character: 'gingerbread',
+        goal: 'candyCastle'
     },
     jungle: {
         name: 'Jungle',
@@ -154,7 +267,9 @@ const Themes = {
         startColor: '#8B4513',
         endColor: '#FFD700',
         borderPattern: 'leaves',
-        decorations: ['palm', 'bird', 'monkey', 'snake']
+        decorations: ['palm', 'bird', 'monkey', 'snake'],
+        character: 'jungleKid',
+        goal: 'temple'
     }
 };
 
@@ -305,6 +420,208 @@ const ArtGenerators = {
         const s = size * 0.4;
         return `<path d="M${x-s},${y} Q${x-s*0.5},${y-s*0.3} ${x},${y} Q${x+s*0.5},${y+s*0.3} ${x+s},${y}" fill="none" stroke="currentColor" stroke-width="2"/>
                 <circle cx="${x+s*0.9}" cy="${y-s*0.05}" r="${s*0.08}" fill="currentColor"/>`;
+    }
+};
+
+// =============================================================================
+// CHARACTER ART GENERATORS - Theme-specific characters for start room
+// =============================================================================
+
+const CharacterArt = {
+    // Classic theme
+    explorer: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.4},${y-s*0.85} L${x-s*0.5},${y-s*0.5} L${x+s*0.5},${y-s*0.5} L${x+s*0.4},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y-s*0.15}" x2="${x}" y2="${y+s*0.5}" stroke="currentColor" stroke-width="2"/>
+                <line x1="${x-s*0.35}" y1="${y+s*0.1}" x2="${x+s*0.35}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    // Ocean theme
+    diver: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.4}" r="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.25}" y="${y-s*0.6}" width="${s*0.5}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y+s*0.2}" rx="${s*0.3}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x+s*0.5}" cy="${y-s*0.2}" rx="${s*0.15}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.25},${y+s*0.6} L${x-s*0.4},${y+s} L${x-s*0.1},${y+s}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.25},${y+s*0.6} L${x+s*0.4},${y+s} L${x+s*0.1},${y+s}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    mermaid: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.6}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.3},${y-s*0.8} Q${x-s*0.5},${y-s} ${x-s*0.3},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.3},${y-s*0.8} Q${x+s*0.5},${y-s} ${x+s*0.3},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y}" rx="${s*0.25}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x},${y+s*0.35} Q${x-s*0.2},${y+s*0.6} ${x},${y+s*0.8} Q${x+s*0.2},${y+s} ${x+s*0.4},${y+s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.3},${y+s*0.8} L${x+s*0.5},${y+s*0.6} M${x+s*0.3},${y+s*0.8} L${x+s*0.5},${y+s}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Space theme
+    astronaut: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.45}" fill="none" stroke="currentColor" stroke-width="2"/>
+                <circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.35}" y="${y}" width="${s*0.7}" height="${s*0.7}" rx="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.55}" y="${y+s*0.1}" width="${s*0.2}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x+s*0.35}" y="${y+s*0.1}" width="${s*0.2}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.2}" y1="${y+s*0.7}" x2="${x-s*0.2}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.2}" y1="${y+s*0.7}" x2="${x+s*0.2}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    robot: (x, y, size) => {
+        const s = size * 0.4;
+        return `<rect x="${x-s*0.35}" y="${y-s*0.8}" width="${s*0.7}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y-s}" x2="${x}" y2="${y-s*0.8}" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x}" cy="${y-s*1.1}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x-s*0.15}" cy="${y-s*0.6}" r="${s*0.08}" fill="currentColor"/>
+                <circle cx="${x+s*0.15}" cy="${y-s*0.6}" r="${s*0.08}" fill="currentColor"/>
+                <rect x="${x-s*0.3}" y="${y-s*0.25}" width="${s*0.6}" height="${s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.3}" y1="${y}" x2="${x-s*0.5}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.5}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.15}" y1="${y+s*0.35}" x2="${x-s*0.15}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.35}" x2="${x+s*0.15}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    // Garden theme
+    gardener: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.45},${y-s*0.7} Q${x},${y-s} ${x+s*0.45},${y-s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y-s*0.2}" x2="${x}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x},${y} L${x+s*0.5},${y-s*0.2}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.5}" y1="${y-s*0.4}" x2="${x+s*0.5}" y2="${y+s*0.2}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.15}" y1="${y+s*0.4}" x2="${x-s*0.25}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.4}" x2="${x+s*0.25}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    // Candy theme
+    gingerbread: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.55}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x-s*0.12}" cy="${y-s*0.6}" r="${s*0.06}" fill="currentColor"/>
+                <circle cx="${x+s*0.12}" cy="${y-s*0.6}" r="${s*0.06}" fill="currentColor"/>
+                <path d="M${x-s*0.1},${y-s*0.4} Q${x},${y-s*0.3} ${x+s*0.1},${y-s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y+s*0.15}" rx="${s*0.3}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x}" cy="${y}" r="${s*0.06}" fill="currentColor"/>
+                <circle cx="${x}" cy="${y+s*0.2}" r="${s*0.06}" fill="currentColor"/>
+                <line x1="${x-s*0.3}" y1="${y}" x2="${x-s*0.55}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.55}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    // Jungle theme
+    jungleKid: (x, y, size) => {
+        const s = size * 0.4;
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.3},${y-s*0.7} Q${x-s*0.4},${y-s*0.5} ${x-s*0.2},${y-s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.3},${y-s*0.7} Q${x+s*0.4},${y-s*0.5} ${x+s*0.2},${y-s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y-s*0.2}" x2="${x}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.3}" y1="${y}" x2="${x+s*0.3}" y2="${y}" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.3},${y} L${x-s*0.45},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.5}" y2="${y-s*0.1}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.5}" y1="${y-s*0.3}" x2="${x+s*0.5}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.12}" y1="${y+s*0.4}" x2="${x-s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.12}" y1="${y+s*0.4}" x2="${x+s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>`;
+    }
+};
+
+// =============================================================================
+// GOAL ART GENERATORS - Theme-specific goals for end room
+// =============================================================================
+
+const GoalArt = {
+    // Classic theme
+    treasure: (x, y, size) => {
+        const s = size * 0.4;
+        return `<rect x="${x-s*0.5}" y="${y-s*0.1}" width="${s}" height="${s*0.7}" rx="${s*0.05}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.5},${y-s*0.1} Q${x-s*0.55},${y-s*0.4} ${x-s*0.3},${y-s*0.5} L${x+s*0.3},${y-s*0.5} Q${x+s*0.55},${y-s*0.4} ${x+s*0.5},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.5}" y1="${y+s*0.15}" x2="${x+s*0.5}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x}" cy="${y+s*0.15}" r="${s*0.12}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    // Ocean theme
+    treasureChest: (x, y, size) => {
+        const s = size * 0.4;
+        return `<rect x="${x-s*0.6}" y="${y}" width="${s*1.2}" height="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.6},${y} Q${x-s*0.65},${y-s*0.3} ${x-s*0.4},${y-s*0.4} L${x+s*0.4},${y-s*0.4} Q${x+s*0.65},${y-s*0.3} ${x+s*0.6},${y}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x-s*0.6}" y1="${y+s*0.25}" x2="${x+s*0.6}" y2="${y+s*0.25}" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.1}" y="${y+s*0.1}" width="${s*0.2}" height="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x-s*0.3}" cy="${y-s*0.55}" r="${s*0.1}" fill="currentColor"/>
+                <circle cx="${x+s*0.2}" cy="${y-s*0.6}" r="${s*0.08}" fill="currentColor"/>
+                <circle cx="${x}" cy="${y-s*0.5}" r="${s*0.12}" fill="currentColor"/>`;
+    },
+
+    // Space theme
+    spaceStation: (x, y, size) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.6}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.15}" y="${y-s*0.6}" width="${s*0.3}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.15}" y="${y+s*0.1}" width="${s*0.3}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y-s*0.6}" rx="${s*0.2}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y+s*0.6}" rx="${s*0.2}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.8}" y="${y-s*0.08}" width="${s*0.25}" height="${s*0.16}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x+s*0.55}" y="${y-s*0.08}" width="${s*0.25}" height="${s*0.16}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Garden theme
+    beehive: (x, y, size) => {
+        const s = size * 0.4;
+        let svg = '';
+        for (let i = 0; i < 4; i++) {
+            const w = s * (0.8 - i * 0.15);
+            const yy = y - s * 0.5 + i * s * 0.35;
+            svg += `<ellipse cx="${x}" cy="${yy}" rx="${w}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+        }
+        svg += `<circle cx="${x}" cy="${y+s*0.5}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+        return svg;
+    },
+
+    flowerGarden: (x, y, size) => {
+        const s = size * 0.35;
+        let svg = '';
+        const positions = [[-0.4,-0.3], [0.4,-0.2], [0,0.3], [-0.3,0.5], [0.35,0.5]];
+        for (const [px, py] of positions) {
+            const fx = x + px * s;
+            const fy = y + py * s;
+            for (let i = 0; i < 5; i++) {
+                const angle = i * Math.PI * 2 / 5 - Math.PI / 2;
+                const ppx = fx + Math.cos(angle) * s * 0.2;
+                const ppy = fy + Math.sin(angle) * s * 0.2;
+                svg += `<circle cx="${ppx}" cy="${ppy}" r="${s*0.12}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+            }
+            svg += `<circle cx="${fx}" cy="${fy}" r="${s*0.08}" fill="currentColor"/>`;
+        }
+        return svg;
+    },
+
+    // Candy theme
+    candyCastle: (x, y, size) => {
+        const s = size * 0.4;
+        return `<rect x="${x-s*0.5}" y="${y-s*0.2}" width="${s}" height="${s*0.8}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.7}" y="${y-s*0.6}" width="${s*0.35}" height="${s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x+s*0.35}" y="${y-s*0.6}" width="${s*0.35}" height="${s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.7},${y-s*0.6} L${x-s*0.52},${y-s*0.9} L${x-s*0.35},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.35},${y-s*0.6} L${x+s*0.52},${y-s*0.9} L${x+s*0.7},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x-s*0.52}" cy="${y-s*0.95}" r="${s*0.08}" fill="currentColor"/>
+                <circle cx="${x+s*0.52}" cy="${y-s*0.95}" r="${s*0.08}" fill="currentColor"/>
+                <rect x="${x-s*0.12}" y="${y+s*0.2}" width="${s*0.24}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Jungle theme
+    temple: (x, y, size) => {
+        const s = size * 0.4;
+        return `<rect x="${x-s*0.6}" y="${y+s*0.2}" width="${s*1.2}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.45}" y="${y-s*0.1}" width="${s*0.9}" height="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.3}" y="${y-s*0.35}" width="${s*0.6}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.35},${y-s*0.35} L${x},${y-s*0.7} L${x+s*0.35},${y-s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.08}" y="${y+s*0.3}" width="${s*0.16}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.6}" y1="${y+s*0.35}" x2="${x-s*0.6}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.6}" y1="${y+s*0.35}" x2="${x+s*0.6}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1.5"/>`;
     }
 };
 
@@ -520,11 +837,9 @@ class Maze {
     }
 
     createEntranceExit() {
-        // Calculate room size based on maze dimensions - larger for bigger mazes
+        // Calculate room size - keep it small (2x2 for most, 3x3 for very large)
         const minDim = Math.min(this.width, this.height);
-        let roomSize = Math.max(2, Math.ceil(minDim / 10));
-        // Cap at reasonable size
-        roomSize = Math.min(roomSize, Math.floor(minDim / 4));
+        let roomSize = minDim >= 30 ? 3 : 2;
 
         if (!this.findValidStartEnd(roomSize)) return;
 
@@ -697,12 +1012,19 @@ class Maze {
 
     toSVG(showSolution = false, printMode = false) {
         const cellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(this.width, this.height))));
-        const padding = 50; // More padding for labels
         const strokeWidth = Math.max(1.5, cellSize / 8);
         const mazeWidth = this.width * cellSize;
         const mazeHeight = this.height * cellSize;
-        const svgWidth = mazeWidth + padding * 2;
-        const svgHeight = mazeHeight + padding * 2;
+
+        // Calculate margins for title, quest, and START/END labels
+        const titleHeight = this.story && this.story.title ? 20 : 0;
+        const questHeight = this.story && this.story.quest ? 24 : 0;
+        const sidePadding = 35; // Space for START/END on sides
+        const topPadding = 20 + titleHeight;
+        const bottomPadding = 16 + questHeight;
+
+        const svgWidth = mazeWidth + sidePadding * 2;
+        const svgHeight = mazeHeight + topPadding + bottomPadding;
 
         // Print mode: black walls on white background
         const theme = printMode ? {
@@ -714,15 +1036,23 @@ class Maze {
             endColor: '#000'
         } : this.theme;
 
+        const textColor = printMode ? '#000' : this.theme.wallColor;
+
         let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" style="background:${theme.bgColor}">`;
 
         // Background
         svg += `<rect width="${svgWidth}" height="${svgHeight}" fill="${theme.bgColor}"/>`;
 
-        // Border pattern (gray in print mode)
+        // Border pattern (gray in print mode) - full page
         if (this.theme.borderPattern && BorderPatterns[this.theme.borderPattern]) {
             const borderColor = printMode ? '#aaa' : this.theme.wallColor;
-            svg += `<g color="${borderColor}">${BorderPatterns[this.theme.borderPattern](svgWidth, svgHeight, padding, this.rng)}</g>`;
+            svg += `<g color="${borderColor}">${BorderPatterns[this.theme.borderPattern](svgWidth, svgHeight, sidePadding, this.rng)}</g>`;
+        }
+
+        // Title at top (vector font)
+        if (this.story && this.story.title) {
+            const titleSize = Math.min(14, Math.max(10, svgWidth / 25));
+            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, 14, titleSize, textColor, 1.5);
         }
 
         // Cell backgrounds (white for maze area)
@@ -730,8 +1060,8 @@ class Maze {
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 if (!this.cells[y][x].blocked) {
-                    const cx = padding + x * cellSize;
-                    const cy = padding + y * cellSize;
+                    const cx = sidePadding + x * cellSize;
+                    const cy = topPadding + y * cellSize;
                     svg += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}"/>`;
                 }
             }
@@ -744,8 +1074,8 @@ class Maze {
             const artColor = printMode ? '#888' : this.theme.wallColor;
             svg += `<g color="${artColor}">`;
             for (const region of cornerRegions) {
-                const cx = padding + region.cx * cellSize;
-                const cy = padding + region.cy * cellSize;
+                const cx = sidePadding + region.cx * cellSize;
+                const cy = topPadding + region.cy * cellSize;
                 const artType = this.rng.choice(this.theme.decorations);
                 if (ArtGenerators[artType]) {
                     svg += ArtGenerators[artType](cx, cy, region.size * cellSize * 0.6, this.rng);
@@ -759,11 +1089,29 @@ class Maze {
             let pathD = '';
             for (let i = 0; i < this.solution.length; i++) {
                 const p = this.solution[i];
-                const cx = padding + p.x * cellSize + cellSize / 2;
-                const cy = padding + p.y * cellSize + cellSize / 2;
+                const cx = sidePadding + p.x * cellSize + cellSize / 2;
+                const cy = topPadding + p.y * cellSize + cellSize / 2;
                 pathD += i === 0 ? `M${cx},${cy}` : ` L${cx},${cy}`;
             }
             svg += `<path d="${pathD}" fill="none" stroke="${theme.solutionColor}" stroke-width="${cellSize * 0.3}" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>`;
+        }
+
+        // Character art in start room
+        if (this.startPos && this.theme.character && CharacterArt[this.theme.character]) {
+            const roomSize = this.startRoomSize || 2;
+            const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
+            const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
+            const artColor = printMode ? '#000' : this.theme.wallColor;
+            svg += `<g color="${artColor}">${CharacterArt[this.theme.character](cx, cy, roomSize * cellSize * 0.8)}</g>`;
+        }
+
+        // Goal art in end room
+        if (this.endPos && this.theme.goal && GoalArt[this.theme.goal]) {
+            const roomSize = this.endRoomSize || 2;
+            const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize;
+            const cy = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
+            const artColor = printMode ? '#000' : this.theme.wallColor;
+            svg += `<g color="${artColor}">${GoalArt[this.theme.goal](cx, cy, roomSize * cellSize * 0.8)}</g>`;
         }
 
         // Room decorations (gray in print mode)
@@ -771,8 +1119,8 @@ class Maze {
             const artColor = printMode ? '#888' : this.theme.wallColor;
             svg += `<g color="${artColor}">`;
             for (const room of this.rooms) {
-                const cx = padding + (room.x + room.w / 2) * cellSize;
-                const cy = padding + (room.y + room.h / 2) * cellSize;
+                const cx = sidePadding + (room.x + room.w / 2) * cellSize;
+                const cy = topPadding + (room.y + room.h / 2) * cellSize;
                 const artType = this.rng.choice(this.theme.decorations);
                 if (ArtGenerators[artType]) {
                     svg += ArtGenerators[artType](cx, cy, Math.min(room.w, room.h) * cellSize, this.rng);
@@ -783,7 +1131,7 @@ class Maze {
 
         // Walls
         if (this.curvedWalls) {
-            svg += this.renderCurvedWalls(cellSize, padding, strokeWidth, theme.wallColor);
+            svg += this.renderCurvedWalls(cellSize, sidePadding, topPadding, strokeWidth, theme.wallColor);
         } else {
             svg += `<g stroke="${theme.wallColor}" stroke-width="${strokeWidth}" stroke-linecap="round">`;
             for (let y = 0; y < this.height; y++) {
@@ -791,8 +1139,8 @@ class Maze {
                     const cell = this.cells[y][x];
                     if (cell.blocked) continue;
 
-                    const cx = padding + x * cellSize;
-                    const cy = padding + y * cellSize;
+                    const cx = sidePadding + x * cellSize;
+                    const cy = topPadding + y * cellSize;
 
                     const northBlocked = y > 0 && this.cells[y-1][x].blocked;
                     const southBlocked = y < this.height - 1 && this.cells[y+1][x].blocked;
@@ -816,38 +1164,67 @@ class Maze {
             svg += '</g>';
         }
 
-        // Start/End markers - always black, labels outside maze
-        const markerColor = '#000';
-        const fontSize = Math.max(10, Math.floor(padding * 0.35));
-        const arrowSize = Math.max(8, Math.floor(padding * 0.25));
+        // START/END labels using vector font
+        const labelSize = Math.min(10, Math.max(6, sidePadding * 0.25));
 
         if (this.startPos) {
             const roomSize = this.startRoomSize || 2;
-            const roomCenterY = padding + (this.startPos.y + roomSize / 2) * cellSize;
-
-            // Arrow pointing into maze from outside (west side)
-            const arrowX = padding - arrowSize - 6;
+            const roomCenterY = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
+            // Arrow pointing right into maze
+            const arrowX = 4;
             const arrowY = roomCenterY;
-            svg += `<polygon points="${arrowX},${arrowY - arrowSize/2} ${arrowX},${arrowY + arrowSize/2} ${arrowX + arrowSize},${arrowY}" fill="${markerColor}"/>`;
-            svg += `<text x="${arrowX - 6}" y="${arrowY + fontSize/3}" text-anchor="end" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="${markerColor}">START</text>`;
+            const arrowW = 6;
+            svg += `<polygon points="${arrowX + arrowW},${arrowY - 4} ${arrowX + arrowW},${arrowY + 4} ${arrowX + arrowW + 5},${arrowY}" fill="${textColor}"/>`;
+            // START label vertically centered
+            svg += VectorFont.renderText('START', arrowX, arrowY - labelSize / 2 - 8, labelSize, textColor, 1);
         }
 
         if (this.endPos) {
             const roomSize = this.endRoomSize || 2;
-            const roomCenterY = padding + (this.endPos.y + roomSize / 2) * cellSize;
-
-            // Arrow pointing out of maze to outside (east side)
-            const arrowX = padding + this.width * cellSize + 6;
+            const roomCenterY = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
+            // Arrow pointing right out of maze
+            const arrowX = svgWidth - 15;
             const arrowY = roomCenterY;
-            svg += `<polygon points="${arrowX},${arrowY - arrowSize/2} ${arrowX},${arrowY + arrowSize/2} ${arrowX + arrowSize},${arrowY}" fill="${markerColor}"/>`;
-            svg += `<text x="${arrowX + arrowSize + 6}" y="${arrowY + fontSize/3}" text-anchor="start" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="${markerColor}">END</text>`;
+            svg += `<polygon points="${arrowX},${arrowY - 4} ${arrowX},${arrowY + 4} ${arrowX + 6},${arrowY}" fill="${textColor}"/>`;
+            // END label
+            const endWidth = VectorFont.measureText('END', labelSize);
+            svg += VectorFont.renderText('END', svgWidth - endWidth - 4, arrowY - labelSize / 2 - 8, labelSize, textColor, 1);
+        }
+
+        // Quest at bottom (vector font, word-wrapped if needed)
+        if (this.story && this.story.quest) {
+            const questSize = Math.min(8, Math.max(5, svgWidth / 50));
+            const questY = svgHeight - questHeight + 4;
+            const maxWidth = svgWidth - 24;
+
+            // Simple word wrap
+            const words = this.story.quest.split(' ');
+            let lines = [];
+            let currentLine = '';
+
+            for (const word of words) {
+                const testLine = currentLine ? currentLine + ' ' + word : word;
+                const testWidth = VectorFont.measureText(testLine, questSize);
+                if (testWidth > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            if (currentLine) lines.push(currentLine);
+
+            // Render lines centered
+            for (let i = 0; i < lines.length && i < 2; i++) {
+                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, questY + i * (questSize + 3), questSize, textColor, 1);
+            }
         }
 
         svg += '</svg>';
         return svg;
     }
 
-    renderCurvedWalls(cellSize, padding, strokeWidth, wallColor) {
+    renderCurvedWalls(cellSize, sidePadding, topPadding, strokeWidth, wallColor) {
         const r = cellSize / 2; // Curve radius
         let paths = [];
 
@@ -856,8 +1233,8 @@ class Maze {
                 const cell = this.cells[y][x];
                 if (cell.blocked) continue;
 
-                const cx = padding + x * cellSize;
-                const cy = padding + y * cellSize;
+                const cx = sidePadding + x * cellSize;
+                const cy = topPadding + y * cellSize;
                 const midX = cx + cellSize / 2;
                 const midY = cy + cellSize / 2;
 
@@ -1047,41 +1424,251 @@ const EnhancedSentenceCache = {
 
 // Pre-populate with enhanced sentences
 const enhancedSentences = [
-    // Ocean theme enhancements
-    ["Help the diver collect the pearl and reach the treasure chest!",
-     "Dive deep with the brave diver to find the shimmering pearl and discover the legendary treasure chest!"],
-    ["Help the mermaid avoid the jellyfish and reach the coral palace!",
-     "Guide the graceful mermaid through stinging jellyfish swarms to the magnificent coral palace!"],
+    // =========================================================================
+    // OCEAN THEME
+    // =========================================================================
+    // Simple (Level 1-3)
+    ["Help the diver find the treasure chest!",
+     "Join the brave diver on an underwater adventure to discover the legendary treasure chest!"],
+    ["Help the mermaid find the coral palace!",
+     "Swim with the beautiful mermaid through crystal waters to her majestic coral palace!"],
+    ["Help the sailor find the sunken ship!",
+     "Set sail with the bold sailor to explore the mysterious sunken ship!"],
     ["Help the sea turtle find the shell!",
      "Join the wise sea turtle on a quest to find the precious ancient shell!"],
 
-    // Space theme enhancements
+    // Collect (Level 4-5)
+    ["Help the diver collect the pearl and reach the treasure chest!",
+     "Dive deep with the brave diver to find the shimmering pearl and discover the legendary treasure chest!"],
+    ["Help the mermaid collect the starfish and reach the coral palace!",
+     "Glide through the waves with the graceful mermaid, gathering sparkly starfish on the way to the coral palace!"],
+    ["Help the sailor collect the treasure map and reach the sunken ship!",
+     "Navigate the seas with the clever sailor, finding the ancient treasure map that leads to the sunken ship!"],
+    ["Help the sea turtle collect the shell and reach the coral palace!",
+     "Paddle along with the gentle sea turtle, collecting beautiful shells on the journey to the coral palace!"],
+
+    // Avoid (Level 4-5)
+    ["Help the diver avoid the jellyfish and reach the treasure chest!",
+     "Guide the careful diver around stinging jellyfish swarms to reach the glittering treasure chest!"],
+    ["Help the mermaid avoid the shark and reach the coral palace!",
+     "Help the swift mermaid outsmart the circling sharks on her way to the sparkling coral palace!"],
+    ["Help the sailor avoid the whirlpool and reach the sunken ship!",
+     "Steer the skillful sailor around dangerous whirlpools to explore the legendary sunken ship!"],
+    ["Help the sea turtle avoid the jellyfish and reach the coral palace!",
+     "Guide the wise sea turtle safely past the jellyfish to the beautiful coral palace!"],
+
+    // CollectTwo (Level 6-7)
+    ["Help the diver collect the pearl and starfish, then reach the treasure chest!",
+     "Embark on an epic dive to gather the lustrous pearl and colorful starfish before claiming the treasure chest!"],
+    ["Help the mermaid collect the shell and treasure map, then reach the sunken ship!",
+     "Join the adventurous mermaid collecting precious shells and an ancient map leading to the sunken ship!"],
+
+    // Full (Level 8-10)
+    ["Help the diver collect the pearl and starfish, avoid the shark, and reach the treasure chest!",
+     "Brave the deep ocean with the courageous diver, gathering pearls and starfish while evading hungry sharks to claim the treasure!"],
+    ["Help the mermaid collect the shell and pearl, avoid the jellyfish, and reach the coral palace!",
+     "Swim through treacherous waters with the clever mermaid, finding shells and pearls while dodging jellyfish to reach the coral palace!"],
+
+    // =========================================================================
+    // SPACE THEME
+    // =========================================================================
+    // Simple (Level 1-3)
+    ["Help the astronaut find the space station!",
+     "Blast off with the brave astronaut on a mission to reach the orbiting space station!"],
+    ["Help the robot find the warp gate!",
+     "Power up the friendly robot and guide it to the shimmering warp gate!"],
+    ["Help the alien find the moon base!",
+     "Help the curious alien navigate through space to the mysterious moon base!"],
+    ["Help the space cadet find the rocket ship!",
+     "Join the young space cadet on an exciting mission to find the rocket ship!"],
+
+    // Collect (Level 4-5)
     ["Help the astronaut collect the fuel cell and reach the space station!",
      "Navigate through the cosmos with the courageous astronaut, gathering fuel cells to reach the orbiting space station!"],
-    ["Help the robot avoid the asteroid and reach the warp gate!",
-     "Steer the clever robot through a dangerous asteroid field to the glowing warp gate!"],
+    ["Help the robot collect the star crystal and reach the warp gate!",
+     "Guide the determined robot through asteroid fields, collecting glowing star crystals to power the warp gate!"],
+    ["Help the alien collect the moon rock and reach the moon base!",
+     "Travel the stars with the friendly alien, gathering rare moon rocks on the way to the secret moon base!"],
 
-    // Garden theme enhancements
+    // Avoid (Level 4-5)
+    ["Help the astronaut avoid the asteroid and reach the space station!",
+     "Pilot through dangerous asteroid fields with the skilled astronaut to dock at the space station!"],
+    ["Help the robot avoid the black hole and reach the warp gate!",
+     "Steer the clever robot through a dangerous asteroid field to the glowing warp gate!"],
+    ["Help the alien avoid the space pirate and reach the moon base!",
+     "Help the quick-thinking alien dodge space pirates on the journey to the hidden moon base!"],
+
+    // CollectTwo (Level 6-7)
+    ["Help the astronaut collect the fuel cell and star crystal, then reach the space station!",
+     "Embark on a cosmic mission to gather fuel cells and rare star crystals before reaching the gleaming space station!"],
+    ["Help the robot collect the moon rock and space map, then reach the warp gate!",
+     "Guide the resourceful robot through space, collecting moon rocks and ancient maps to activate the warp gate!"],
+
+    // Full (Level 8-10)
+    ["Help the astronaut collect the fuel cell and star crystal, avoid the black hole, and reach the space station!",
+     "Navigate the treacherous void with the fearless astronaut, gathering vital supplies while avoiding deadly black holes to reach safety!"],
+    ["Help the robot collect the moon rock and space map, avoid the asteroid, and reach the warp gate!",
+     "Guide the brave robot through cosmic hazards, collecting precious cargo while dodging asteroids to activate the warp gate!"],
+
+    // =========================================================================
+    // GARDEN THEME
+    // =========================================================================
+    // Simple (Level 1-3)
+    ["Help the bee find the beehive!",
+     "Buzz along with the happy bee to find its cozy beehive home!"],
+    ["Help the butterfly find the flower garden!",
+     "Flutter with the colorful butterfly to the beautiful flower garden!"],
+    ["Help the ladybug find the mushroom house!",
+     "Crawl with the friendly ladybug to discover the magical mushroom house!"],
+    ["Help the gardener find the greenhouse!",
+     "Walk through the garden path with the cheerful gardener to reach the sunny greenhouse!"],
+
+    // Collect (Level 4-5)
+    ["Help the bee collect the nectar and reach the beehive!",
+     "Buzz from flower to flower with the busy bee, gathering sweet nectar for the hive!"],
+    ["Help the butterfly collect the pollen and reach the flower garden!",
+     "Float through the meadow with the gentle butterfly, carrying golden pollen to the flower garden!"],
+    ["Help the ladybug collect the dewdrop and reach the mushroom house!",
+     "Scurry along with the thirsty ladybug, finding sparkling dewdrops on the path to the mushroom house!"],
+
+    // Avoid (Level 4-5)
+    ["Help the bee avoid the spider and reach the beehive!",
+     "Help the careful bee dodge the sneaky spider webs on the flight back to the hive!"],
+    ["Help the butterfly avoid the bird and reach the flower garden!",
+     "Guide the nimble butterfly past hungry birds to the safety of the flower garden!"],
+    ["Help the ladybug avoid the frog and reach the mushroom house!",
+     "Help the clever ladybug sneak past the jumping frog to reach the cozy mushroom house!"],
+
+    // CollectTwo (Level 6-7)
     ["Help the bee collect the nectar and pollen, then reach the beehive!",
      "Buzz along with the busy bee, gathering sweet nectar and golden pollen before returning to the cozy beehive!"],
+    ["Help the butterfly collect the dewdrop and flower, then reach the flower garden!",
+     "Dance through the air with the graceful butterfly, gathering dewdrops and flowers for the garden!"],
+
+    // Full (Level 8-10)
+    ["Help the bee collect the nectar and pollen, avoid the spider, and reach the beehive!",
+     "Join the determined bee on a perilous journey through spider webs, gathering nectar and pollen for the hungry hive!"],
     ["Help the butterfly avoid the spider and reach the flower garden!",
      "Flutter carefully with the beautiful butterfly, dodging sneaky spiders to reach the blooming flower garden!"],
 
-    // Jungle theme enhancements
+    // =========================================================================
+    // JUNGLE THEME
+    // =========================================================================
+    // Simple (Level 1-3)
+    ["Help the explorer find the hidden temple!",
+     "Venture into the wild jungle with the daring explorer to discover the ancient hidden temple!"],
+    ["Help the baby monkey find the treetop village!",
+     "Swing through the vines with the playful baby monkey to reach the treetop village!"],
+    ["Help the parrot find the waterfall!",
+     "Fly through the canopy with the colorful parrot to find the thundering waterfall!"],
+    ["Help the tiger cub find the jungle den!",
+     "Prowl through the undergrowth with the curious tiger cub to find its cozy jungle den!"],
+
+    // Collect (Level 4-5)
     ["Help the explorer collect the golden idol and reach the hidden temple!",
      "Venture deep into the wilderness with the daring explorer, seeking the legendary golden idol in the mysterious hidden temple!"],
+    ["Help the baby monkey collect the banana and reach the treetop village!",
+     "Swing branch to branch with the hungry monkey, grabbing ripe bananas on the way to the treetop village!"],
+    ["Help the parrot collect the feather and reach the waterfall!",
+     "Soar through the jungle with the proud parrot, collecting colorful feathers near the misty waterfall!"],
+
+    // Avoid (Level 4-5)
+    ["Help the explorer avoid the snake and reach the hidden temple!",
+     "Guide the cautious explorer past slithering snakes to discover the secrets of the hidden temple!"],
+    ["Help the baby monkey avoid the crocodile and reach the treetop village!",
+     "Help the clever monkey swing high above the snapping crocodiles to the safety of the village!"],
     ["Help the baby monkey avoid the snake and reach the treetop village!",
      "Swing through the vines with the playful baby monkey, staying clear of slithering snakes on the way to the treetop village!"],
 
-    // Candy theme enhancements
+    // CollectTwo (Level 6-7)
+    ["Help the explorer collect the golden idol and ancient map, then reach the hidden temple!",
+     "Embark on an epic expedition, finding the golden idol and deciphering the ancient map to unlock the hidden temple!"],
+    ["Help the baby monkey collect the banana and coconut, then reach the treetop village!",
+     "Join the hungry monkey gathering tropical treats before climbing to the treetop village!"],
+
+    // Full (Level 8-10)
+    ["Help the explorer collect the golden idol and ancient map, avoid the snake, and reach the hidden temple!",
+     "Brave the dangerous jungle with the fearless explorer, gathering treasures while avoiding deadly snakes to reach the temple!"],
+    ["Help the baby monkey collect the banana and coconut, avoid the crocodile, and reach the treetop village!",
+     "Adventure through the treetops with the brave monkey, collecting fruit while dodging crocodiles below!"],
+
+    // =========================================================================
+    // CANDY THEME
+    // =========================================================================
+    // Simple (Level 1-3)
+    ["Help the gingerbread kid find the candy castle!",
+     "Skip along the sugar-coated path with the gingerbread kid to the magnificent candy castle!"],
+    ["Help the candy fairy find the lollipop forest!",
+     "Fly with the sparkly candy fairy to discover the magical lollipop forest!"],
+    ["Help the sugar plum find the chocolate fountain!",
+     "Dance through candy land with the sweet sugar plum to the bubbling chocolate fountain!"],
+
+    // Collect (Level 4-5)
+    ["Help the gingerbread kid collect the gumdrop and reach the candy castle!",
+     "Run through the frosting fields with the gingerbread kid, collecting colorful gumdrops on the way to the candy castle!"],
+    ["Help the candy fairy collect the lollipop and reach the candy castle!",
+     "Sprinkle magic dust with the candy fairy while collecting sparkling lollipops on the path to the magnificent candy castle!"],
     ["Help the candy fairy collect the gumdrop and reach the candy castle!",
      "Sprinkle magic dust with the candy fairy while collecting sparkling gumdrops on the path to the magnificent candy castle!"],
 
-    // Classic theme enhancements
+    // Avoid (Level 4-5)
+    ["Help the gingerbread kid avoid the candy witch and reach the candy castle!",
+     "Dash through the candy forest with the quick gingerbread kid, avoiding the tricky candy witch!"],
+    ["Help the candy fairy avoid the sour worm and reach the lollipop forest!",
+     "Fly swiftly with the clever candy fairy, dodging sour worms to reach the sweet lollipop forest!"],
+
+    // CollectTwo (Level 6-7)
+    ["Help the gingerbread kid collect the gumdrop and lollipop, then reach the candy castle!",
+     "Journey through candy land with the gingerbread kid, filling pockets with gumdrops and lollipops before reaching the castle!"],
+    ["Help the candy fairy collect the chocolate coin and peppermint, then reach the candy castle!",
+     "Sprinkle magic as the fairy gathers golden chocolate coins and cool peppermints for the candy castle!"],
+
+    // Full (Level 8-10)
+    ["Help the gingerbread kid collect the gumdrop and lollipop, avoid the candy witch, and reach the candy castle!",
+     "Race through the sugary kingdom with the brave gingerbread kid, grabbing treats while outsmarting the candy witch!"],
+    ["Help the candy fairy collect the chocolate coin and peppermint, avoid the sour worm, and reach the candy castle!",
+     "Embark on a sweet adventure with the candy fairy, collecting treasures while avoiding sour worms to reach the castle!"],
+
+    // =========================================================================
+    // CLASSIC THEME
+    // =========================================================================
+    // Simple (Level 1-3)
     ["Help the explorer find the treasure!",
      "Embark on an exciting journey with the brave explorer to discover the hidden treasure!"],
+    ["Help the adventurer find the exit!",
+     "Guide the determined adventurer through twisting passages to freedom!"],
+    ["Help the traveler find the castle!",
+     "Journey with the weary traveler through the maze to the grand castle!"],
+    ["Help the knight find the dragon's lair!",
+     "March with the brave knight through the labyrinth to face the dragon!"],
+
+    // Collect (Level 4-5)
+    ["Help the explorer collect the key and reach the treasure!",
+     "Search with the clever explorer for the golden key that unlocks the legendary treasure!"],
+    ["Help the adventurer collect the compass and reach the exit!",
+     "Navigate with the resourceful adventurer, using the magic compass to find the way out!"],
+    ["Help the knight collect the sword and reach the dragon's lair!",
+     "Arm the courageous knight with the enchanted sword on the quest to the dragon's lair!"],
+
+    // Avoid (Level 4-5)
+    ["Help the explorer avoid the trap and reach the treasure!",
+     "Guide the careful explorer around cunning traps to claim the glittering treasure!"],
+    ["Help the adventurer avoid the monster and reach the exit!",
+     "Lead the swift adventurer past lurking monsters to escape the maze!"],
     ["Guide the adventurer to the exit!",
-     "Lead the resourceful adventurer through twisting passages to find the way out!"]
+     "Lead the resourceful adventurer through twisting passages to find the way out!"],
+
+    // CollectTwo (Level 6-7)
+    ["Help the explorer collect the key and map, then reach the treasure!",
+     "Embark on a grand quest to find the ancient key and faded map leading to untold riches!"],
+    ["Help the knight collect the sword and shield, then reach the dragon's lair!",
+     "Prepare the noble knight with legendary sword and sturdy shield for the ultimate battle!"],
+
+    // Full (Level 8-10)
+    ["Help the explorer collect the key and map, avoid the trap, and reach the treasure!",
+     "Navigate the perilous maze with the daring explorer, gathering clues while dodging traps to claim the treasure!"],
+    ["Help the knight collect the sword and shield, avoid the monster, and reach the dragon's lair!",
+     "Guide the valiant knight through monster-infested passages, arming for the epic confrontation with the dragon!"]
 ];
 
 // Initialize enhanced cache
