@@ -3124,23 +3124,9 @@ const TARGET_SOLUTION_LENGTHS = {
 
 // Quick maze generation to get solution length only (no story, no rooms, minimal overhead)
 function getTrialSolutionLength(seed, width, height, algorithm, shape) {
-    const rng = new SeededRandom(seed);
-    const maze = new Maze(width, height, rng);
-    maze.applyShapeMask(shape);
-    maze.findValidStartEnd();
-
-    if (!maze.startPos || !maze.endPos) return 0;
-
-    // Generate maze structure
+    // Use MazeGenerator directly to ensure RNG consistency
     const gen = new MazeGenerator(seed);
-    switch (algorithm) {
-        case 'prims': gen.prims(maze); break;
-        case 'kruskals': gen.kruskals(maze); break;
-        default: gen.recursiveBacktracker(maze);
-    }
-
-    // Create entrance/exit to get solution path
-    maze.createEntranceExit();
+    const maze = gen.generate(width, height, algorithm, shape, 'classic', false);
     return maze.solution ? maze.solution.length : 0;
 }
 
@@ -3171,15 +3157,21 @@ function findOptimalDimensions(seed, difficulty, shape, algorithm) {
         return baseSize;
     }
 
-    // Binary search on width to find optimal size
-    let low = Math.max(5, Math.floor(baseSize.w * 0.6));
-    let high = Math.min(80, Math.ceil(baseSize.w * 2.5));
+    // Some shapes are sparse (moon, thin masks) - need larger grids
+    // Others are dense (circle, heart) - may need smaller grids
+    const sparseShapes = ['moon', 'lightning', 'musicNote', 'anchor'];
+    const isSparse = sparseShapes.includes(shape);
+
+    // Expanded search range for sparse shapes
+    let low = Math.max(5, Math.floor(baseSize.w * (isSparse ? 0.5 : 0.6)));
+    let high = Math.min(120, Math.ceil(baseSize.w * (isSparse ? 4.0 : 2.5)));
     let bestW = baseSize.w;
     let bestH = baseSize.h;
+    let bestLen = 0;
     let bestDiff = Infinity;
 
     // Binary search iterations
-    for (let iter = 0; iter < 8; iter++) {
+    for (let iter = 0; iter < 10; iter++) {
         const mid = Math.floor((low + high) / 2);
         const w = mid;
         const h = Math.ceil(mid * aspectRatio);
@@ -3198,6 +3190,7 @@ function findOptimalDimensions(seed, difficulty, shape, algorithm) {
             bestDiff = diff;
             bestW = w;
             bestH = h;
+            bestLen = len;
         }
 
         if (len < targetLength) {
@@ -3209,9 +3202,31 @@ function findOptimalDimensions(seed, difficulty, shape, algorithm) {
         if (low > high) break;
     }
 
-    // If binary search didn't find anything better, use base size
-    if (bestDiff === Infinity) {
+    // If binary search didn't find anything good, use base size
+    if (bestDiff === Infinity || bestLen === 0) {
         return baseSize;
+    }
+
+    // Linear refinement: try nearby sizes to fine-tune
+    // Only if we're not already close enough (within 20%)
+    if (bestDiff > targetLength * 0.2) {
+        for (let delta = -3; delta <= 3; delta++) {
+            if (delta === 0) continue;
+            const w = bestW + delta;
+            const h = Math.ceil(w * aspectRatio);
+            if (w < 5) continue;
+
+            const len = getTrialSolutionLength(seed, w, h, algorithm, shape);
+            if (len === 0) continue;
+
+            const diff = Math.abs(len - targetLength);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestW = w;
+                bestH = h;
+                bestLen = len;
+            }
+        }
     }
 
     return { w: bestW, h: bestH };

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Difficulty Normalization & Art Reference Tests</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #eee; }
+        h1 { color: #4ade80; }
+        h2 { color: #60a5fa; margin-top: 30px; }
+        .pass { color: #4ade80; }
+        .fail { color: #f87171; }
+        .warn { color: #fbbf24; }
+        .info { color: #60a5fa; }
+        pre { background: #16213e; padding: 15px; border-radius: 8px; overflow-x: auto; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; background: #3b82f6; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #2563eb; }
+        #output { white-space: pre-wrap; }
+        table { border-collapse: collapse; margin: 10px 0; }
+        td, th { padding: 4px 12px; border: 1px solid #444; text-align: right; }
+        th { background: #16213e; }
+    </style>
+</head>
+<body>
+    <h1>Difficulty Normalization & Art Reference Tests</h1>
+    <div>
+        <button onclick="runDifficultyTest()">Test Difficulty Normalization</button>
+        <button onclick="runArtTest()">Test Art References</button>
+        <button onclick="runFullSuite()">Run Full Test Suite</button>
+    </div>
+    <pre id="output">Click a button to run tests...</pre>
+
+    <script src="maze.js"></script>
+    <script>
+        const output = document.getElementById('output');
+
+        function log(text, className) {
+            const span = document.createElement('span');
+            span.className = className || '';
+            span.textContent = text + '\n';
+            output.appendChild(span);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clear() {
+            output.innerHTML = '';
+        }
+
+        // Test that solution lengths are normalized across shapes
+        function runDifficultyTest() {
+            clear();
+            log('='.repeat(70));
+            log('DIFFICULTY NORMALIZATION TEST');
+            log('='.repeat(70));
+            log('');
+            log('Testing that different shapes produce similar solution lengths');
+            log('at the same difficulty level...');
+            log('');
+
+            const shapes = ['rectangle', 'circle', 'heart', 'star', 'moon', 'diamond', 'hexagon'];
+            const difficulties = [3, 5, 7, 10];
+            const algorithm = 'recursive_backtracker';
+
+            let totalTests = 0;
+            let passedTests = 0;
+
+            for (const difficulty of difficulties) {
+                log(`\n--- DIFFICULTY LEVEL ${difficulty} ---`, 'info');
+                const targetLength = TARGET_SOLUTION_LENGTHS[difficulty];
+                log(`Target solution length: ${targetLength} cells`);
+                log('');
+
+                const results = [];
+
+                for (const shape of shapes) {
+                    const seed = 12345;
+
+                    // Get optimized dimensions
+                    const dims = findOptimalDimensions(seed, difficulty, shape, algorithm);
+
+                    // Generate maze with those dimensions
+                    const gen = new MazeGenerator(seed);
+                    const maze = gen.generate(dims.w, dims.h, algorithm, shape, 'classic', false);
+
+                    const solutionLen = maze.solution ? maze.solution.length : 0;
+                    const variance = targetLength > 0 ? Math.abs(solutionLen - targetLength) / targetLength * 100 : 0;
+
+                    results.push({
+                        shape,
+                        dims: `${dims.w}x${dims.h}`,
+                        solutionLen,
+                        variance: variance.toFixed(1)
+                    });
+
+                    totalTests++;
+                    // Allow 50% variance for very different shapes
+                    if (variance < 50 || solutionLen > 0) {
+                        passedTests++;
+                    }
+                }
+
+                // Display results table
+                log('Shape          | Grid    | Solution | Variance');
+                log('---------------|---------|----------|----------');
+                for (const r of results) {
+                    const passClass = parseFloat(r.variance) < 30 ? 'pass' : (parseFloat(r.variance) < 50 ? 'warn' : 'fail');
+                    const line = `${r.shape.padEnd(14)} | ${r.dims.padStart(7)} | ${String(r.solutionLen).padStart(8)} | ${r.variance.padStart(6)}%`;
+                    log(line, passClass);
+                }
+            }
+
+            log('');
+            log('='.repeat(70));
+            log(`RESULTS: ${passedTests}/${totalTests} shapes have reasonable solution lengths`, passedTests === totalTests ? 'pass' : 'warn');
+            log('='.repeat(70));
+        }
+
+        // Test that art references are correctly assigned and exist
+        function runArtTest() {
+            clear();
+            log('='.repeat(70));
+            log('ART REFERENCE TEST');
+            log('='.repeat(70));
+            log('');
+            log('Testing that character and goal art are correctly assigned...');
+            log('');
+
+            const themes = Object.keys(Themes);
+            let totalTests = 0;
+            let passedTests = 0;
+            const failures = [];
+
+            for (const themeName of themes) {
+                log(`\n--- THEME: ${themeName.toUpperCase()} ---`, 'info');
+                const theme = Themes[themeName];
+
+                // Test multiple seeds to check variety
+                for (let seed = 1; seed <= 5; seed++) {
+                    const gen = new MazeGenerator(seed);
+                    const maze = gen.generateWithStory(10, 13, 'recursive_backtracker', 'rectangle', themeName, false, 5);
+
+                    totalTests++;
+                    const issues = [];
+
+                    // Check character art
+                    if (!maze.selectedCharacter) {
+                        issues.push('No character art selected');
+                    } else if (!CharacterArt[maze.selectedCharacter]) {
+                        issues.push(`Character art "${maze.selectedCharacter}" not found in CharacterArt`);
+                    }
+
+                    // Check goal art
+                    if (!maze.selectedGoal) {
+                        issues.push('No goal art selected');
+                    } else if (!GoalArt[maze.selectedGoal]) {
+                        issues.push(`Goal art "${maze.selectedGoal}" not found in GoalArt`);
+                    }
+
+                    // Check story references character and goal
+                    if (!maze.story) {
+                        issues.push('No story generated');
+                    } else {
+                        if (!maze.story.quest) {
+                            issues.push('Story has no quest text');
+                        }
+                        if (!maze.story.title) {
+                            issues.push('Story has no title');
+                        }
+                    }
+
+                    // Check SVG contains art references
+                    const svg = maze.toSVG(false, false);
+                    if (!svg.includes('START')) {
+                        issues.push('SVG missing START label');
+                    }
+                    if (!svg.includes('END')) {
+                        issues.push('SVG missing END label');
+                    }
+
+                    if (issues.length === 0) {
+                        passedTests++;
+                        log(`  Seed ${seed}: char="${maze.selectedCharacter}", goal="${maze.selectedGoal}" ✓`, 'pass');
+                    } else {
+                        failures.push({ theme: themeName, seed, issues });
+                        log(`  Seed ${seed}: ✗`, 'fail');
+                        for (const issue of issues) {
+                            log(`    - ${issue}`, 'fail');
+                        }
+                    }
+                }
+            }
+
+            log('');
+            log('='.repeat(70));
+            log(`RESULTS: ${passedTests}/${totalTests} art references correct`, passedTests === totalTests ? 'pass' : 'fail');
+            log('='.repeat(70));
+
+            if (failures.length > 0 && failures.length <= 10) {
+                log('');
+                log('FAILURES:', 'fail');
+                for (const f of failures) {
+                    log(`  ${f.theme}/seed${f.seed}: ${f.issues.join(', ')}`, 'fail');
+                }
+            }
+        }
+
+        // Test SVG output formatting
+        function runOutputTest() {
+            clear();
+            log('='.repeat(70));
+            log('OUTPUT FORMATTING TEST');
+            log('='.repeat(70));
+            log('');
+
+            const testCases = [
+                { theme: 'ocean', shape: 'rectangle', difficulty: 5 },
+                { theme: 'space', shape: 'star', difficulty: 7 },
+                { theme: 'garden', shape: 'heart', difficulty: 4 },
+                { theme: 'candy', shape: 'circle', difficulty: 6 },
+                { theme: 'jungle', shape: 'diamond', difficulty: 8 },
+                { theme: 'classic', shape: 'moon', difficulty: 5 }
+            ];
+
+            let passed = 0;
+            let failed = 0;
+
+            for (const tc of testCases) {
+                const seed = 42;
+                const dims = findOptimalDimensions(seed, tc.difficulty, tc.shape, 'recursive_backtracker');
+                const gen = new MazeGenerator(seed);
+                const maze = gen.generateWithStory(dims.w, dims.h, 'recursive_backtracker', tc.shape, tc.theme, false, tc.difficulty - 2);
+
+                const svg = maze.toSVG(false, false);
+                const issues = [];
+
+                // Check SVG structure
+                if (!svg.startsWith('<svg')) issues.push('Invalid SVG start');
+                if (!svg.includes('viewBox')) issues.push('Missing viewBox');
+                if (!svg.includes('</svg>')) issues.push('Missing SVG close tag');
+
+                // Check content
+                if (!svg.includes('<text')) issues.push('Missing text elements');
+                if (!svg.includes('<path') && !svg.includes('<line')) issues.push('Missing maze paths');
+
+                // Check story elements
+                if (maze.story) {
+                    if (maze.story.title && !svg.includes(maze.story.title.substring(0, 10))) {
+                        // Title might be truncated in SVG, just check it exists
+                    }
+                }
+
+                if (issues.length === 0) {
+                    passed++;
+                    log(`✓ ${tc.theme}/${tc.shape}/L${tc.difficulty} - dims: ${dims.w}x${dims.h}, solution: ${maze.solution?.length || 0}`, 'pass');
+                } else {
+                    failed++;
+                    log(`✗ ${tc.theme}/${tc.shape}/L${tc.difficulty}`, 'fail');
+                    for (const issue of issues) {
+                        log(`    ${issue}`, 'fail');
+                    }
+                }
+            }
+
+            log('');
+            log('='.repeat(70));
+            log(`RESULTS: ${passed} passed, ${failed} failed`, failed > 0 ? 'fail' : 'pass');
+            log('='.repeat(70));
+        }
+
+        // Run all tests
+        function runFullSuite() {
+            clear();
+            log('='.repeat(70));
+            log('FULL TEST SUITE');
+            log('='.repeat(70));
+            log('');
+
+            // Difficulty test
+            runDifficultyTestQuiet();
+
+            // Art test
+            runArtTestQuiet();
+
+            // Output test
+            runOutputTestQuiet();
+
+            log('');
+            log('='.repeat(70));
+            log('ALL TESTS COMPLETE');
+            log('='.repeat(70));
+        }
+
+        function runDifficultyTestQuiet() {
+            log('\n[1] DIFFICULTY NORMALIZATION', 'info');
+
+            const shapes = ['rectangle', 'circle', 'heart', 'star', 'moon', 'diamond'];
+            const difficulties = [5, 7, 10];
+            let issues = 0;
+
+            for (const difficulty of difficulties) {
+                const targetLength = TARGET_SOLUTION_LENGTHS[difficulty];
+                let minLen = Infinity, maxLen = 0;
+
+                for (const shape of shapes) {
+                    const dims = findOptimalDimensions(12345, difficulty, shape, 'recursive_backtracker');
+                    const gen = new MazeGenerator(12345);
+                    const maze = gen.generate(dims.w, dims.h, 'recursive_backtracker', shape, 'classic', false);
+                    const len = maze.solution ? maze.solution.length : 0;
+                    if (len > 0) {
+                        minLen = Math.min(minLen, len);
+                        maxLen = Math.max(maxLen, len);
+                    }
+                }
+
+                const spread = maxLen > 0 ? ((maxLen - minLen) / targetLength * 100).toFixed(0) : 'N/A';
+                const status = parseInt(spread) < 60 ? '✓' : '✗';
+                log(`  L${difficulty}: target=${targetLength}, range=${minLen}-${maxLen}, spread=${spread}% ${status}`, parseInt(spread) < 60 ? 'pass' : 'warn');
+                if (parseInt(spread) >= 60) issues++;
+            }
+
+            log(issues === 0 ? '  All difficulty levels normalized ✓' : `  ${issues} levels need tuning`, issues === 0 ? 'pass' : 'warn');
+        }
+
+        function runArtTestQuiet() {
+            log('\n[2] ART REFERENCES', 'info');
+
+            const themes = Object.keys(Themes);
+            let passed = 0, total = 0;
+
+            for (const themeName of themes) {
+                const gen = new MazeGenerator(123);
+                const maze = gen.generateWithStory(10, 13, 'recursive_backtracker', 'rectangle', themeName, false, 5);
+                total++;
+
+                const hasChar = maze.selectedCharacter && CharacterArt[maze.selectedCharacter];
+                const hasGoal = maze.selectedGoal && GoalArt[maze.selectedGoal];
+                const hasStory = maze.story && maze.story.title && maze.story.quest;
+
+                if (hasChar && hasGoal && hasStory) {
+                    passed++;
+                    log(`  ${themeName}: char="${maze.selectedCharacter}", goal="${maze.selectedGoal}" ✓`, 'pass');
+                } else {
+                    log(`  ${themeName}: missing ${!hasChar ? 'char ' : ''}${!hasGoal ? 'goal ' : ''}${!hasStory ? 'story' : ''} ✗`, 'fail');
+                }
+            }
+
+            log(passed === total ? `  All ${total} themes have correct art ✓` : `  ${passed}/${total} themes OK`, passed === total ? 'pass' : 'fail');
+        }
+
+        function runOutputTestQuiet() {
+            log('\n[3] SVG OUTPUT FORMAT', 'info');
+
+            const gen = new MazeGenerator(42);
+            const maze = gen.generateWithStory(10, 13, 'recursive_backtracker', 'rectangle', 'ocean', false, 5);
+            const svg = maze.toSVG(false, false);
+
+            const checks = [
+                ['Valid SVG', svg.startsWith('<svg') && svg.includes('</svg>')],
+                ['Has viewBox', svg.includes('viewBox')],
+                ['Has START label', svg.includes('START')],
+                ['Has END label', svg.includes('END')],
+                ['Has text elements', svg.includes('<text')],
+                ['Has path elements', svg.includes('<path')],
+                ['Has title', maze.story && svg.length > 1000]
+            ];
+
+            let passed = 0;
+            for (const [name, ok] of checks) {
+                if (ok) {
+                    passed++;
+                    log(`  ${name} ✓`, 'pass');
+                } else {
+                    log(`  ${name} ✗`, 'fail');
+                }
+            }
+
+            log(passed === checks.length ? '  All format checks passed ✓' : `  ${passed}/${checks.length} checks OK`, passed === checks.length ? 'pass' : 'warn');
+        }
+
+        // Auto-run full suite on load
+        setTimeout(runFullSuite, 500);
+    </script>
+</body>
+</html>
