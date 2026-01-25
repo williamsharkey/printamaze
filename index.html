@@ -205,10 +205,18 @@
     <script>
         const BATCH_SIZE = 12;
         const DEBOUNCE_MS = 200;
+        // Difficulty scaling - level 10 is now much harder (was 29x37, now 45x58)
         const ageDifficulty = {
-            3: { w: 5, h: 6 }, 4: { w: 7, h: 9 }, 5: { w: 9, h: 12 }, 6: { w: 11, h: 14 },
-            7: { w: 13, h: 17 }, 8: { w: 15, h: 19 }, 9: { w: 17, h: 22 }, 10: { w: 21, h: 27 },
-            11: { w: 25, h: 32 }, 12: { w: 29, h: 37 }
+            3: { w: 5, h: 6 },     // Level 1 - very easy
+            4: { w: 7, h: 9 },     // Level 2
+            5: { w: 10, h: 13 },   // Level 3
+            6: { w: 13, h: 17 },   // Level 4
+            7: { w: 17, h: 22 },   // Level 5
+            8: { w: 21, h: 27 },   // Level 6
+            9: { w: 27, h: 35 },   // Level 7
+            10: { w: 33, h: 43 },  // Level 8
+            11: { w: 39, h: 50 },  // Level 9
+            12: { w: 45, h: 58 }   // Level 10 - expert
         };
 
         let loadedCount = 0;

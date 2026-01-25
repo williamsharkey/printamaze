@@ -453,46 +453,84 @@ class Maze {
         }
     }
 
-    findValidStartEnd() {
-        const unblocked = [];
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if (!this.cells[y][x].blocked) {
-                    unblocked.push({ x, y });
+    findValidStartEnd(roomSize = 1) {
+        // Find position for start room (top-left area)
+        for (let y = 0; y <= this.height - roomSize; y++) {
+            for (let x = 0; x <= this.width - roomSize; x++) {
+                let allClear = true;
+                for (let dy = 0; dy < roomSize && allClear; dy++) {
+                    for (let dx = 0; dx < roomSize && allClear; dx++) {
+                        if (this.cells[y + dy][x + dx].blocked) allClear = false;
+                    }
+                }
+                if (allClear) {
+                    this.startPos = { x, y };
+                    break;
+                }
+            }
+            if (this.startPos) break;
+        }
+
+        // Find position for end room (bottom-right area)
+        for (let y = this.height - roomSize; y >= 0; y--) {
+            for (let x = this.width - roomSize; x >= 0; x--) {
+                let allClear = true;
+                for (let dy = 0; dy < roomSize && allClear; dy++) {
+                    for (let dx = 0; dx < roomSize && allClear; dx++) {
+                        if (this.cells[y + dy][x + dx].blocked) allClear = false;
+                    }
+                }
+                if (allClear) {
+                    this.endPos = { x, y };
+                    break;
+                }
+            }
+            if (this.endPos) break;
+        }
+
+        return this.startPos && this.endPos;
+    }
+
+    carveRoom(x, y, size) {
+        // Remove interior walls to create open room
+        for (let dy = 0; dy < size; dy++) {
+            for (let dx = 0; dx < size; dx++) {
+                const cell = this.cells[y + dy][x + dx];
+                if (dy > 0) {
+                    cell.walls.north = false;
+                    this.cells[y + dy - 1][x + dx].walls.south = false;
+                }
+                if (dx > 0) {
+                    cell.walls.west = false;
+                    this.cells[y + dy][x + dx - 1].walls.east = false;
                 }
             }
         }
-
-        if (unblocked.length < 2) return false;
-
-        // Find cells closest to top-left and bottom-right
-        unblocked.sort((a, b) => (a.x + a.y) - (b.x + b.y));
-        this.startPos = unblocked[0];
-
-        unblocked.sort((a, b) => (b.x + b.y) - (a.x + a.y));
-        this.endPos = unblocked[0];
-
-        return true;
     }
 
     createEntranceExit() {
-        if (!this.findValidStartEnd()) return;
+        // Calculate room size based on maze dimensions (larger mazes get larger rooms)
+        const roomSize = Math.max(1, Math.min(3, Math.ceil(Math.min(this.width, this.height) / 8)));
 
-        // Open start entrance
-        const start = this.cells[this.startPos.y][this.startPos.x];
-        if (this.startPos.x === 0 || (this.startPos.x > 0 && this.cells[this.startPos.y][this.startPos.x - 1].blocked)) {
-            start.walls.west = false;
-        } else if (this.startPos.y === 0 || (this.startPos.y > 0 && this.cells[this.startPos.y - 1][this.startPos.x].blocked)) {
-            start.walls.north = false;
+        if (!this.findValidStartEnd(roomSize)) return;
+
+        this.startRoomSize = roomSize;
+        this.endRoomSize = roomSize;
+
+        // Carve start and end rooms if size > 1
+        if (roomSize > 1) {
+            this.carveRoom(this.startPos.x, this.startPos.y, roomSize);
+            this.carveRoom(this.endPos.x, this.endPos.y, roomSize);
         }
 
-        // Open end exit
-        const end = this.cells[this.endPos.y][this.endPos.x];
-        if (this.endPos.x === this.width - 1 || (this.endPos.x < this.width - 1 && this.cells[this.endPos.y][this.endPos.x + 1].blocked)) {
-            end.walls.east = false;
-        } else if (this.endPos.y === this.height - 1 || (this.endPos.y < this.height - 1 && this.cells[this.endPos.y + 1][this.endPos.x].blocked)) {
-            end.walls.south = false;
-        }
+        // Open start entrance (west wall)
+        const startCell = this.cells[this.startPos.y][this.startPos.x];
+        startCell.walls.west = false;
+
+        // Open end exit (east wall of bottom-right cell of room)
+        const endExitX = this.endPos.x + roomSize - 1;
+        const endExitY = this.endPos.y + roomSize - 1;
+        this.cells[endExitY][endExitX].walls.east = false;
 
         this.solution = this.findPath(this.startPos, this.endPos);
     }
@@ -693,28 +731,33 @@ class Maze {
         }
         svg += '</g>';
 
-        // Start/End markers
+        // Start/End markers - always black, labels outside maze
+        const markerColor = '#000';
+        const fontSize = Math.max(8, Math.floor(cellSize * 0.5));
+        const arrowSize = Math.max(6, Math.floor(cellSize * 0.4));
+
         if (this.startPos) {
-            const sx = padding + this.startPos.x * cellSize + cellSize / 2;
-            const sy = padding + this.startPos.y * cellSize + cellSize / 2;
-            const r = cellSize * 0.3;
-            svg += `<circle cx="${sx}" cy="${sy}" r="${r}" fill="${theme.startColor}"/>`;
-            svg += `<text x="${sx}" y="${sy + cellSize + 8}" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="bold" fill="${theme.startColor}">START</text>`;
+            const roomSize = this.startRoomSize || 1;
+            const roomCenterX = padding + (this.startPos.x + roomSize / 2) * cellSize;
+            const roomCenterY = padding + (this.startPos.y + roomSize / 2) * cellSize;
+
+            // Arrow pointing into maze from outside (west side)
+            const arrowX = padding - arrowSize - 4;
+            const arrowY = roomCenterY;
+            svg += `<polygon points="${arrowX},${arrowY - arrowSize/2} ${arrowX},${arrowY + arrowSize/2} ${arrowX + arrowSize},${arrowY}" fill="${markerColor}"/>`;
+            svg += `<text x="${arrowX - 4}" y="${arrowY + fontSize/3}" text-anchor="end" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="${markerColor}">START</text>`;
         }
 
         if (this.endPos) {
-            const ex = padding + this.endPos.x * cellSize + cellSize / 2;
-            const ey = padding + this.endPos.y * cellSize + cellSize / 2;
-            const r = cellSize * 0.3;
-            // Star marker
-            const points = [];
-            for (let i = 0; i < 10; i++) {
-                const angle = Math.PI / 2 + i * Math.PI / 5;
-                const rad = i % 2 === 0 ? r : r * 0.4;
-                points.push(`${ex + rad * Math.cos(angle)},${ey - rad * Math.sin(angle)}`);
-            }
-            svg += `<polygon points="${points.join(' ')}" fill="${theme.endColor}"/>`;
-            svg += `<text x="${ex}" y="${ey + cellSize + 8}" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="bold" fill="${theme.endColor}">END</text>`;
+            const roomSize = this.endRoomSize || 1;
+            const roomCenterX = padding + (this.endPos.x + roomSize / 2) * cellSize;
+            const roomCenterY = padding + (this.endPos.y + roomSize / 2) * cellSize;
+
+            // Arrow pointing out of maze to outside (east side)
+            const arrowX = padding + this.width * cellSize + 4;
+            const arrowY = roomCenterY;
+            svg += `<polygon points="${arrowX},${arrowY - arrowSize/2} ${arrowX},${arrowY + arrowSize/2} ${arrowX + arrowSize},${arrowY}" fill="${markerColor}"/>`;
+            svg += `<text x="${arrowX + arrowSize + 4}" y="${arrowY + fontSize/3}" text-anchor="start" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="${markerColor}">END</text>`;
         }
 
         svg += '</svg>';
