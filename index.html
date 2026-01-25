@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MazeJS</title>
+    <title>Print A Maze</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -169,7 +169,7 @@
 </head>
 <body>
     <header class="header">
-        <h1>MazeJS</h1>
+        <h1>Print A Maze</h1>
         <select id="theme">
             <option value="classic">Classic</option>
             <option value="ocean">Ocean</option>
@@ -295,9 +295,11 @@
             footer.className = 'card-footer';
             const levelNum = settings.difficulty - 2;
             const isFav = isFavorited(seed, settings);
+            const isEnhanced = maze.story && maze.story.isEnhanced;
             footer.innerHTML = `
                 <div class="card-info"><strong>${settings.theme}</strong> &bull; Level ${levelNum}</div>
                 <div class="card-actions">
+                    ${isEnhanced ? '<span title="Enhanced story" style="font-size:14px;opacity:0.8">✨</span>' : ''}
                     <button class="favorite-btn ${isFav ? 'favorited' : ''}" onclick="event.stopPropagation();toggleFavorite(${seed},this)" title="Favorite">&#9829;</button>
                     <button onclick="event.stopPropagation();showSolution(${seed})" title="Solution">&#128269;</button>
                     <button onclick="event.stopPropagation();printMaze(window.mazeCache[${seed}])" title="Print">&#128424;</button>

@@ -204,7 +204,9 @@ const Themes = {
         borderPattern: 'simple',
         decorations: [],
         character: 'explorer',
-        goal: 'treasure'
+        characterName: 'explorer',  // Name used in stories
+        goal: 'treasure',
+        goalName: 'treasure'  // Name used in stories
     },
     ocean: {
         name: 'Ocean',
@@ -217,7 +219,9 @@ const Themes = {
         borderPattern: 'waves',
         decorations: ['fish', 'bubble', 'seaweed', 'shell'],
         character: 'diver',
-        goal: 'treasureChest'
+        characterName: 'diver',
+        goal: 'treasureChest',
+        goalName: 'treasure chest'
     },
     space: {
         name: 'Space',
@@ -230,7 +234,9 @@ const Themes = {
         borderPattern: 'stars',
         decorations: ['star', 'planet', 'rocket', 'moon'],
         character: 'astronaut',
-        goal: 'spaceStation'
+        characterName: 'astronaut',
+        goal: 'spaceStation',
+        goalName: 'space station'
     },
     garden: {
         name: 'Garden',
@@ -242,8 +248,10 @@ const Themes = {
         endColor: '#FFD700',
         borderPattern: 'vines',
         decorations: ['flower', 'butterfly', 'bee', 'leaf'],
-        character: 'gardener',
-        goal: 'flowerGarden'
+        character: 'bee',
+        characterName: 'bee',
+        goal: 'beehive',
+        goalName: 'beehive'
     },
     candy: {
         name: 'Candy',
@@ -256,7 +264,9 @@ const Themes = {
         borderPattern: 'candy',
         decorations: ['lollipop', 'cupcake', 'star', 'heart'],
         character: 'gingerbread',
-        goal: 'candyCastle'
+        characterName: 'gingerbread kid',
+        goal: 'candyCastle',
+        goalName: 'candy castle'
     },
     jungle: {
         name: 'Jungle',
@@ -269,7 +279,9 @@ const Themes = {
         borderPattern: 'leaves',
         decorations: ['palm', 'bird', 'monkey', 'snake'],
         character: 'jungleKid',
-        goal: 'temple'
+        characterName: 'explorer',
+        goal: 'temple',
+        goalName: 'hidden temple'
     }
 };
 
@@ -1040,39 +1052,98 @@ class Maze {
     }
 
     findValidStartEnd(roomSize = 1) {
-        // Find position for start room (top-left area, on perimeter)
+        // Collect ALL valid perimeter positions for rooms
+        const perimeterPositions = [];
+
+        // Check if a position can hold a room of given size
+        const canPlaceRoom = (x, y) => {
+            if (x < 0 || y < 0 || x + roomSize > this.width || y + roomSize > this.height) return false;
+            for (let dy = 0; dy < roomSize; dy++) {
+                for (let dx = 0; dx < roomSize; dx++) {
+                    if (this.cells[y + dy][x + dx].blocked) return false;
+                }
+            }
+            return true;
+        };
+
+        // Check if position is on perimeter (room touches edge)
+        const isOnPerimeter = (x, y) => {
+            return x === 0 || y === 0 || x + roomSize >= this.width || y + roomSize >= this.height;
+        };
+
+        // Collect all valid perimeter positions
         for (let y = 0; y <= this.height - roomSize; y++) {
             for (let x = 0; x <= this.width - roomSize; x++) {
-                let allClear = true;
-                for (let dy = 0; dy < roomSize && allClear; dy++) {
-                    for (let dx = 0; dx < roomSize && allClear; dx++) {
-                        if (this.cells[y + dy][x + dx].blocked) allClear = false;
-                    }
-                }
-                if (allClear) {
-                    this.startPos = { x, y };
-                    break;
+                if (canPlaceRoom(x, y) && isOnPerimeter(x, y)) {
+                    // Determine which edge(s) this position touches
+                    const edges = [];
+                    if (y === 0) edges.push('top');
+                    if (y + roomSize >= this.height) edges.push('bottom');
+                    if (x === 0) edges.push('left');
+                    if (x + roomSize >= this.width) edges.push('right');
+                    perimeterPositions.push({ x, y, edges });
                 }
             }
-            if (this.startPos) break;
         }
 
-        // Find position for end room (bottom-right area)
-        for (let y = this.height - roomSize; y >= 0; y--) {
-            for (let x = this.width - roomSize; x >= 0; x--) {
-                let allClear = true;
-                for (let dy = 0; dy < roomSize && allClear; dy++) {
-                    for (let dx = 0; dx < roomSize && allClear; dx++) {
-                        if (this.cells[y + dy][x + dx].blocked) allClear = false;
-                    }
-                }
-                if (allClear) {
-                    this.endPos = { x, y };
-                    break;
+        if (perimeterPositions.length < 2) {
+            // Fallback: just find any two positions
+            for (let y = 0; y <= this.height - roomSize && !this.startPos; y++) {
+                for (let x = 0; x <= this.width - roomSize && !this.startPos; x++) {
+                    if (canPlaceRoom(x, y)) this.startPos = { x, y };
                 }
             }
-            if (this.endPos) break;
+            for (let y = this.height - roomSize; y >= 0 && !this.endPos; y--) {
+                for (let x = this.width - roomSize; x >= 0 && !this.endPos; x--) {
+                    if (canPlaceRoom(x, y) && (x !== this.startPos?.x || y !== this.startPos?.y)) {
+                        this.endPos = { x, y };
+                    }
+                }
+            }
+            return this.startPos && this.endPos;
         }
+
+        // Shuffle positions for randomness
+        const shuffled = this.rng.shuffle([...perimeterPositions]);
+
+        // Pick start position randomly
+        this.startPos = shuffled[0];
+
+        // Pick end position - prefer one that's far from start and on different edge
+        const minDistance = Math.max(this.width, this.height) * 0.4;
+        let bestEnd = null;
+        let bestScore = -1;
+
+        for (let i = 1; i < shuffled.length; i++) {
+            const pos = shuffled[i];
+            const dist = Math.abs(pos.x - this.startPos.x) + Math.abs(pos.y - this.startPos.y);
+
+            // Score: distance + bonus for different edges
+            let score = dist;
+            const startEdges = this.startPos.edges || [];
+            const posEdges = pos.edges || [];
+            const sharedEdges = startEdges.filter(e => posEdges.includes(e)).length;
+            if (sharedEdges === 0) score += minDistance; // Bonus for different edge
+
+            if (dist >= minDistance && score > bestScore) {
+                bestScore = score;
+                bestEnd = pos;
+            }
+        }
+
+        // Fallback to any distant position
+        if (!bestEnd) {
+            for (let i = 1; i < shuffled.length; i++) {
+                const pos = shuffled[i];
+                const dist = Math.abs(pos.x - this.startPos.x) + Math.abs(pos.y - this.startPos.y);
+                if (dist > bestScore) {
+                    bestScore = dist;
+                    bestEnd = pos;
+                }
+            }
+        }
+
+        this.endPos = bestEnd || shuffled[1];
 
         return this.startPos && this.endPos;
     }
@@ -1308,10 +1379,19 @@ class Maze {
             svg += `<g color="${borderColor}">${BorderPatterns[this.theme.borderPattern](svgWidth, svgHeight, sidePadding, this.rng)}</g>`;
         }
 
-        // Title at top (vector font)
+        // Title at top (vector font) - auto-scale to fit
         if (this.story && this.story.title) {
-            const titleSize = Math.min(14, Math.max(10, svgWidth / 25));
-            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, 14, titleSize, textColor, 1.5);
+            const maxTitleWidth = svgWidth - 32; // Leave margin from borders
+            let titleSize = Math.min(14, Math.max(10, svgWidth / 25));
+            // Scale down if title is too wide
+            let titleWidth = VectorFont.measureText(this.story.title, titleSize);
+            while (titleWidth > maxTitleWidth && titleSize > 6) {
+                titleSize -= 0.5;
+                titleWidth = VectorFont.measureText(this.story.title, titleSize);
+            }
+            // Position 0.3 line heights lower (14 + 0.3 * titleSize)
+            const titleY = 14 + titleSize * 0.3;
+            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, textColor, 1.2);
         }
 
         // Cell backgrounds (white for maze area)
@@ -1355,22 +1435,27 @@ class Maze {
             svg += `<path d="${pathD}" fill="none" stroke="${theme.solutionColor}" stroke-width="${cellSize * 0.3}" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>`;
         }
 
-        // Character art in start room
+        // Character art in start room - 30% smaller overall, thinner lines
         if (this.startPos && this.theme.character && CharacterArt[this.theme.character]) {
             const roomSize = this.startRoomSize || 2;
             const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
             const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
             const artColor = printMode ? '#000' : this.theme.wallColor;
-            svg += `<g color="${artColor}">${CharacterArt[this.theme.character](cx, cy, roomSize * cellSize * 0.8)}</g>`;
+            // 30% smaller: 0.8 * 0.7 = 0.56, thinner strokes via transform
+            const artSize = roomSize * cellSize * 0.56;
+            svg += `<g color="${artColor}" style="stroke-width:0.8">${CharacterArt[this.theme.character](cx, cy, artSize)}</g>`;
         }
 
-        // Goal art in end room
+        // Goal art in end room - 10% smaller, half line height left
         if (this.endPos && this.theme.goal && GoalArt[this.theme.goal]) {
             const roomSize = this.endRoomSize || 2;
-            const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize;
+            // Shift half a line height (cellSize * 0.5) to the left
+            const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize - cellSize * 0.5;
             const cy = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
             const artColor = printMode ? '#000' : this.theme.wallColor;
-            svg += `<g color="${artColor}">${GoalArt[this.theme.goal](cx, cy, roomSize * cellSize * 0.8)}</g>`;
+            // 10% smaller: 0.8 * 0.9 = 0.72, thinner strokes
+            const artSize = roomSize * cellSize * 0.72;
+            svg += `<g color="${artColor}" style="stroke-width:0.8">${GoalArt[this.theme.goal](cx, cy, artSize)}</g>`;
         }
 
         // Room decorations (gray in print mode)
@@ -1424,36 +1509,41 @@ class Maze {
         }
 
         // START/END labels using vector font
-        const labelSize = Math.min(10, Math.max(6, sidePadding * 0.25));
+        const baseLabelSize = Math.min(10, Math.max(6, sidePadding * 0.25));
 
         if (this.startPos) {
             const roomSize = this.startRoomSize || 2;
             const roomCenterY = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
+            // START is 30% smaller
+            const startLabelSize = baseLabelSize * 0.7;
             // Arrow pointing right into maze
             const arrowX = 4;
             const arrowY = roomCenterY;
-            const arrowW = 6;
-            svg += `<polygon points="${arrowX + arrowW},${arrowY - 4} ${arrowX + arrowW},${arrowY + 4} ${arrowX + arrowW + 5},${arrowY}" fill="${textColor}"/>`;
+            const arrowW = 5;
+            svg += `<polygon points="${arrowX + arrowW},${arrowY - 3} ${arrowX + arrowW},${arrowY + 3} ${arrowX + arrowW + 4},${arrowY}" fill="${textColor}"/>`;
             // START label vertically centered
-            svg += VectorFont.renderText('START', arrowX, arrowY - labelSize / 2 - 8, labelSize, textColor, 1);
+            svg += VectorFont.renderText('START', arrowX, arrowY - startLabelSize / 2 - 7, startLabelSize, textColor, 0.8);
         }
 
         if (this.endPos) {
             const roomSize = this.endRoomSize || 2;
             const roomCenterY = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
-            // Arrow pointing right out of maze
-            const arrowX = svgWidth - 15;
+            // END is 10% smaller
+            const endLabelSize = baseLabelSize * 0.9;
+            // Shift half a line height to the left
+            const arrowX = svgWidth - 15 - cellSize * 0.5;
             const arrowY = roomCenterY;
-            svg += `<polygon points="${arrowX},${arrowY - 4} ${arrowX},${arrowY + 4} ${arrowX + 6},${arrowY}" fill="${textColor}"/>`;
-            // END label
-            const endWidth = VectorFont.measureText('END', labelSize);
-            svg += VectorFont.renderText('END', svgWidth - endWidth - 4, arrowY - labelSize / 2 - 8, labelSize, textColor, 1);
+            svg += `<polygon points="${arrowX},${arrowY - 3} ${arrowX},${arrowY + 3} ${arrowX + 5},${arrowY}" fill="${textColor}"/>`;
+            // END label - also shifted left
+            const endWidth = VectorFont.measureText('END', endLabelSize);
+            svg += VectorFont.renderText('END', arrowX - endWidth - 2, arrowY - endLabelSize / 2 - 7, endLabelSize, textColor, 0.9);
         }
 
-        // Quest at bottom (vector font, word-wrapped if needed)
+        // Quest at bottom (vector font, word-wrapped if needed) - 1.4 line heights higher
         if (this.story && this.story.quest) {
             const questSize = Math.min(8, Math.max(5, svgWidth / 50));
-            const questY = svgHeight - questHeight + 4;
+            // Move 1.4 line heights higher (subtract 1.4 * questSize)
+            const questY = svgHeight - questHeight + 4 - questSize * 1.4;
             const maxWidth = svgWidth - 24;
 
             // Simple word wrap
@@ -1927,7 +2017,74 @@ const enhancedSentences = [
     ["Help the explorer collect the key and map, avoid the trap, and reach the treasure!",
      "Navigate the perilous maze with the daring explorer, gathering clues while dodging traps to claim the treasure!"],
     ["Help the knight collect the sword and shield, avoid the monster, and reach the dragon's lair!",
-     "Guide the valiant knight through monster-infested passages, arming for the epic confrontation with the dragon!"]
+     "Guide the valiant knight through monster-infested passages, arming for the epic confrontation with the dragon!"],
+
+    // =========================================================================
+    // EXACT THEME MATCHES (character+goal from Themes)
+    // These match exactly what the story generator produces
+    // =========================================================================
+
+    // Classic: explorer -> treasure
+    ["Help the explorer find the treasure!",
+     "Join the brave explorer on a daring quest through the winding maze to find the legendary treasure!"],
+    ["Help the explorer collect the key and reach the treasure!",
+     "Guide the clever explorer through twisting passages, finding the golden key that unlocks the magnificent treasure!"],
+    ["Help the explorer collect the map and reach the treasure!",
+     "Navigate the mysterious maze with the resourceful explorer, following the ancient map to the hidden treasure!"],
+    ["Help the explorer avoid the trap and reach the treasure!",
+     "Lead the careful explorer around cunning traps to claim the glittering treasure!"],
+
+    // Ocean: diver -> treasure chest
+    ["Help the diver find the treasure chest!",
+     "Dive into the deep blue with the courageous diver on a quest to discover the legendary treasure chest!"],
+    ["Help the diver collect the pearl and reach the treasure chest!",
+     "Plunge into the ocean depths with the skilled diver, gathering precious pearls on the way to the treasure chest!"],
+    ["Help the diver avoid the jellyfish and reach the treasure chest!",
+     "Navigate the dangerous waters with the nimble diver, dodging stinging jellyfish to find the treasure chest!"],
+    ["Help the diver avoid the shark and reach the treasure chest!",
+     "Swim swiftly with the brave diver, evading hungry sharks to reach the sunken treasure chest!"],
+
+    // Space: astronaut -> space station
+    ["Help the astronaut find the space station!",
+     "Blast off on an epic journey with the fearless astronaut to reach the orbiting space station!"],
+    ["Help the astronaut collect the fuel cell and reach the space station!",
+     "Float through the cosmos with the determined astronaut, gathering vital fuel cells to dock at the space station!"],
+    ["Help the astronaut avoid the asteroid and reach the space station!",
+     "Navigate the asteroid field with the skilled astronaut, dodging space rocks to reach the gleaming space station!"],
+    ["Help the astronaut avoid the black hole and reach the space station!",
+     "Steer through the void with the brave astronaut, avoiding the pull of black holes to reach safety at the space station!"],
+
+    // Garden: bee -> beehive
+    ["Help the bee find the beehive!",
+     "Buzz through the garden with the busy little bee, finding the way back to the cozy beehive!"],
+    ["Help the bee collect the nectar and reach the beehive!",
+     "Fly from flower to flower with the diligent bee, gathering sweet nectar to bring home to the beehive!"],
+    ["Help the bee collect the pollen and reach the beehive!",
+     "Dance through the meadow with the hardworking bee, collecting golden pollen for the hungry beehive!"],
+    ["Help the bee avoid the spider and reach the beehive!",
+     "Fly carefully with the clever bee, dodging sticky spider webs on the journey home to the beehive!"],
+
+    // Candy: gingerbread kid -> candy castle
+    ["Help the gingerbread kid find the candy castle!",
+     "Skip along the sugar-coated path with the cheerful gingerbread kid to the magnificent candy castle!"],
+    ["Help the gingerbread kid collect the gumdrop and reach the candy castle!",
+     "Dance through candy land with the sweet gingerbread kid, collecting colorful gumdrops on the way to the candy castle!"],
+    ["Help the gingerbread kid collect the candy cane and reach the candy castle!",
+     "Prance through the frosting fields with the jolly gingerbread kid, grabbing striped candy canes before reaching the candy castle!"],
+    ["Help the gingerbread kid avoid the sour candy and reach the candy castle!",
+     "Run quickly with the clever gingerbread kid, steering clear of sour candies on the sweet path to the candy castle!"],
+
+    // Jungle: explorer -> hidden temple
+    ["Help the explorer find the hidden temple!",
+     "Venture into the wild jungle with the daring explorer, hacking through vines to discover the ancient hidden temple!"],
+    ["Help the explorer collect the golden idol and reach the hidden temple!",
+     "Trek through the dense jungle with the brave explorer, claiming the legendary golden idol on the path to the hidden temple!"],
+    ["Help the explorer collect the ancient map and reach the hidden temple!",
+     "Navigate the untamed wilderness with the resourceful explorer, deciphering the ancient map to find the hidden temple!"],
+    ["Help the explorer avoid the snake and reach the hidden temple!",
+     "Creep through the jungle undergrowth with the alert explorer, avoiding slithering snakes on the quest to the hidden temple!"],
+    ["Help the explorer avoid the quicksand and reach the hidden temple!",
+     "Tread carefully with the wise explorer, skirting deadly quicksand pits to reach the mysterious hidden temple!"]
 ];
 
 // Initialize enhanced cache
@@ -1951,6 +2108,7 @@ class StoryGenerator {
 
     generateQuest(themeName, difficulty = 5) {
         const vocab = ThemeVocabulary[themeName] || ThemeVocabulary.classic;
+        const theme = Themes[themeName] || Themes.classic;
 
         // Select template type based on difficulty
         let templateType;
@@ -1972,16 +2130,21 @@ class StoryGenerator {
         const item1 = items[0];
         const item2 = items[1] || items[0];
 
+        // Use theme's character/goal names to match the artwork
+        const character = theme.characterName || this.rng.choice(vocab.characters);
+        const goal = theme.goalName || this.rng.choice(vocab.goals);
+
         // Fill template
         let story = template
-            .replace('{character}', this.rng.choice(vocab.characters))
+            .replace('{character}', character)
             .replace('{item1}', item1)
             .replace('{item2}', item2)
             .replace('{danger}', this.rng.choice(vocab.dangers))
-            .replace('{goal}', this.rng.choice(vocab.goals));
+            .replace('{goal}', goal);
 
         // Check for enhanced version
         const enhanced = EnhancedSentenceCache.get(story, this.rng);
+        const isEnhanced = !!enhanced;
         if (enhanced) {
             story = enhanced;
         }
@@ -1990,6 +2153,7 @@ class StoryGenerator {
             title: this.generateTitle(themeName),
             quest: story,
             templateType,
+            isEnhanced,
             items: templateType === 'full' || templateType === 'collectTwo' ? [item1, item2] :
                    templateType === 'collect' ? [item1] : []
         };
