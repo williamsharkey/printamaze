@@ -3105,6 +3105,119 @@ class MazeGenerator {
 }
 
 // =============================================================================
+// SOLUTION-LENGTH BASED DIFFICULTY NORMALIZATION
+// =============================================================================
+
+// Target solution lengths for each difficulty level (calibrated for rectangles)
+const TARGET_SOLUTION_LENGTHS = {
+    3: 12,    // Very easy
+    4: 20,    // Easy
+    5: 35,    // Moderate
+    6: 55,    // Medium
+    7: 80,    // Medium-hard
+    8: 110,   // Hard
+    9: 150,   // Very hard
+    10: 200,  // Expert
+    11: 260,  // Master
+    12: 330   // Extreme
+};
+
+// Quick maze generation to get solution length only (no story, no rooms, minimal overhead)
+function getTrialSolutionLength(seed, width, height, algorithm, shape) {
+    const rng = new SeededRandom(seed);
+    const maze = new Maze(width, height, rng);
+    maze.applyShapeMask(shape);
+    maze.findValidStartEnd();
+
+    if (!maze.startPos || !maze.endPos) return 0;
+
+    // Generate maze structure
+    const gen = new MazeGenerator(seed);
+    switch (algorithm) {
+        case 'prims': gen.prims(maze); break;
+        case 'kruskals': gen.kruskals(maze); break;
+        default: gen.recursiveBacktracker(maze);
+    }
+
+    // Create entrance/exit to get solution path
+    maze.createEntranceExit();
+    return maze.solution ? maze.solution.length : 0;
+}
+
+// Binary search to find optimal dimensions for target solution length
+// Returns { w, h } that produces closest solution length to target
+function findOptimalDimensions(seed, difficulty, shape, algorithm) {
+    const targetLength = TARGET_SOLUTION_LENGTHS[difficulty];
+
+    // Base dimensions for this difficulty (aspect ratio ~1.3)
+    const baseSizes = {
+        3: { w: 5, h: 6 },
+        4: { w: 7, h: 9 },
+        5: { w: 10, h: 13 },
+        6: { w: 13, h: 17 },
+        7: { w: 17, h: 22 },
+        8: { w: 21, h: 27 },
+        9: { w: 27, h: 35 },
+        10: { w: 33, h: 43 },
+        11: { w: 39, h: 50 },
+        12: { w: 45, h: 58 }
+    };
+
+    const baseSize = baseSizes[difficulty];
+    const aspectRatio = baseSize.h / baseSize.w;
+
+    // For rectangle, just use base size
+    if (shape === 'rectangle') {
+        return baseSize;
+    }
+
+    // Binary search on width to find optimal size
+    let low = Math.max(5, Math.floor(baseSize.w * 0.6));
+    let high = Math.min(80, Math.ceil(baseSize.w * 2.5));
+    let bestW = baseSize.w;
+    let bestH = baseSize.h;
+    let bestDiff = Infinity;
+
+    // Binary search iterations
+    for (let iter = 0; iter < 8; iter++) {
+        const mid = Math.floor((low + high) / 2);
+        const w = mid;
+        const h = Math.ceil(mid * aspectRatio);
+
+        const len = getTrialSolutionLength(seed, w, h, algorithm, shape);
+
+        if (len === 0) {
+            // Shape doesn't fit at this size, try larger
+            low = mid + 1;
+            continue;
+        }
+
+        const diff = Math.abs(len - targetLength);
+
+        if (diff < bestDiff) {
+            bestDiff = diff;
+            bestW = w;
+            bestH = h;
+        }
+
+        if (len < targetLength) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+
+        if (low > high) break;
+    }
+
+    // If binary search didn't find anything better, use base size
+    if (bestDiff === Infinity) {
+        return baseSize;
+    }
+
+    return { w: bestW, h: bestH };
+}
+
+// =============================================================================
 // DEBUG OUTPUT HELPERS
 // =============================================================================
 

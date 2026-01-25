@@ -312,6 +312,7 @@
     <!-- Action menu - click outside buttons to dismiss -->
     <div id="actionMenu" onclick="closeActionMenu()">
         <div class="action-buttons" onclick="event.stopPropagation()">
+            <button class="action-btn" id="menuHeartBtn" onclick="toggleFavoriteFromMenu()">♥ Save to Favorites</button>
             <button class="action-btn" onclick="printColor()">🖨️ Print Color</button>
             <button class="action-btn" onclick="printBW()">📄 Print B&W</button>
             <button class="action-btn" onclick="saveToCameraRoll()">📷 Save to Photos</button>
@@ -425,7 +426,8 @@
         }
 
         function createMazeFrame(params, idx) {
-            const dims = DIFFICULTY_SIZES[currentDifficulty];
+            // Use solution-length-based difficulty normalization
+            const dims = findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
             const levelNum = currentDifficulty - 2;
 
             const gen = new MazeGenerator(params.seed);
@@ -586,9 +588,10 @@
             } else {
                 noFavs.style.display = 'none';
                 favs.forEach(fav => {
-                    const dims = DIFFICULTY_SIZES[fav.difficulty] || DIFFICULTY_SIZES[4];
+                    // Use solution-length-based difficulty normalization
+                    const dims = findOptimalDimensions(fav.seed, fav.difficulty || 4, fav.shape, fav.algorithm);
                     const gen = new MazeGenerator(fav.seed);
-                    const maze = gen.generateWithStory(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme, false, fav.difficulty - 2);
+                    const maze = gen.generateWithStory(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme, false, (fav.difficulty || 4) - 2);
 
                     const item = document.createElement('div');
                     item.className = 'fav-item';
@@ -649,11 +652,55 @@
 
         // Action menu
         function openActionMenu() {
+            updateMenuHeartButton();
             document.getElementById('actionMenu').classList.add('open');
         }
 
         function closeActionMenu() {
             document.getElementById('actionMenu').classList.remove('open');
+        }
+
+        function toggleFavoriteFromMenu() {
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            // Find the heart button on the current maze frame
+            const frame = document.querySelector(`.maze-frame[data-seed="${activeMazeId}"]`);
+            const heartBtn = frame ? frame.querySelector('.heart-btn') : null;
+
+            // Toggle favorite
+            let favs = getFavorites();
+            const idx = favs.findIndex(f => f.seed === activeMazeId);
+            const menuBtn = document.getElementById('menuHeartBtn');
+
+            if (idx >= 0) {
+                favs.splice(idx, 1);
+                if (heartBtn) heartBtn.classList.remove('favorited');
+                if (menuBtn) menuBtn.textContent = '♥ Save to Favorites';
+            } else {
+                favs.unshift({
+                    seed: activeMazeId,
+                    theme: cached.params.theme,
+                    shape: cached.params.shape,
+                    algorithm: cached.params.algorithm,
+                    difficulty: cached.difficulty,
+                    savedAt: Date.now()
+                });
+                if (heartBtn) heartBtn.classList.add('favorited');
+                if (menuBtn) menuBtn.textContent = '♥ Saved!';
+            }
+            saveFavorites(favs);
+
+            // Close menu after a brief moment
+            setTimeout(closeActionMenu, 300);
+        }
+
+        function updateMenuHeartButton() {
+            const menuBtn = document.getElementById('menuHeartBtn');
+            if (menuBtn && activeMazeId) {
+                const isFav = isFavorited(activeMazeId);
+                menuBtn.textContent = isFav ? '♥ Saved!' : '♥ Save to Favorites';
+            }
         }
 
         // Print mode - use overlay instead of new tab for iOS compatibility
