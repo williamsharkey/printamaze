@@ -202,7 +202,7 @@ const Themes = {
         startColor: '#4CAF50',
         endColor: '#FF5722',
         borderPattern: 'simple',
-        decorations: [],
+        decorations: ['compass', 'torch', 'key', 'coin'],
         character: 'explorer',
         characterName: 'explorer',  // Name used in stories
         goal: 'treasure',
@@ -432,6 +432,41 @@ const ArtGenerators = {
         const s = size * 0.4;
         return `<path d="M${x-s},${y} Q${x-s*0.5},${y-s*0.3} ${x},${y} Q${x+s*0.5},${y+s*0.3} ${x+s},${y}" fill="none" stroke="currentColor" stroke-width="2"/>
                 <circle cx="${x+s*0.9}" cy="${y-s*0.05}" r="${s*0.08}" fill="currentColor"/>`;
+    },
+
+    // Classic theme decorations
+    compass: (x, y, size, rng) => {
+        const s = size * 0.35;
+        return `<circle cx="${x}" cy="${y}" r="${s}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x}" cy="${y}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y-s*0.9}" x2="${x}" y2="${y-s*0.3}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y+s*0.3}" x2="${x}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.9}" y1="${y}" x2="${x-s*0.3}" y2="${y}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.9}" y2="${y}" stroke="currentColor" stroke-width="1"/>
+                <polygon points="${x},${y-s*0.7} ${x-s*0.15},${y} ${x+s*0.15},${y}" fill="currentColor"/>`;
+    },
+
+    torch: (x, y, size, rng) => {
+        const s = size * 0.4;
+        return `<rect x="${x-s*0.15}" y="${y-s*0.2}" width="${s*0.3}" height="${s*0.8}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x-s*0.3},${y-s*0.2} L${x},${y-s*0.8} L${x+s*0.3},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    key: (x, y, size, rng) => {
+        const s = size * 0.4;
+        return `<circle cx="${x-s*0.3}" cy="${y}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x-s*0.3}" cy="${y}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y}" x2="${x+s*0.7}" y2="${y}" stroke="currentColor" stroke-width="2"/>
+                <line x1="${x+s*0.4}" y1="${y}" x2="${x+s*0.4}" y2="${y+s*0.25}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x+s*0.6}" y1="${y}" x2="${x+s*0.6}" y2="${y+s*0.2}" stroke="currentColor" stroke-width="1.5"/>`;
+    },
+
+    coin: (x, y, size, rng) => {
+        const s = size * 0.35;
+        return `<circle cx="${x}" cy="${y}" r="${s}" fill="none" stroke="currentColor" stroke-width="2"/>
+                <circle cx="${x}" cy="${y}" r="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <text x="${x}" y="${y+s*0.25}" font-size="${s*0.8}" text-anchor="middle" fill="currentColor" style="font-family:serif;font-weight:bold">$</text>`;
     }
 };
 
@@ -1508,35 +1543,28 @@ class Maze {
             svg += '</g>';
         }
 
-        // START/END labels using vector font
-        const baseLabelSize = Math.min(10, Math.max(6, sidePadding * 0.25));
+        // START/END labels positioned under the character/goal art in the rooms
+        // (Since start/end positions are randomized, labels go under the art, not on sides)
+        const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
 
         if (this.startPos) {
             const roomSize = this.startRoomSize || 2;
-            const roomCenterY = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
-            // START is 30% smaller
-            const startLabelSize = baseLabelSize * 0.7;
-            // Arrow pointing right into maze
-            const arrowX = 4;
-            const arrowY = roomCenterY;
-            const arrowW = 5;
-            svg += `<polygon points="${arrowX + arrowW},${arrowY - 3} ${arrowX + arrowW},${arrowY + 3} ${arrowX + arrowW + 4},${arrowY}" fill="${textColor}"/>`;
-            // START label vertically centered
-            svg += VectorFont.renderText('START', arrowX, arrowY - startLabelSize / 2 - 7, startLabelSize, textColor, 0.8);
+            const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
+            const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
+            // Position "START" below the character art
+            const artBottom = cy + roomSize * cellSize * 0.28; // Approximate bottom of art
+            const startWidth = VectorFont.measureText('START', labelSize);
+            svg += VectorFont.renderText('START', cx - startWidth / 2, artBottom + 2, labelSize, textColor, 0.7);
         }
 
         if (this.endPos) {
             const roomSize = this.endRoomSize || 2;
-            const roomCenterY = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
-            // END is 10% smaller
-            const endLabelSize = baseLabelSize * 0.9;
-            // Shift half a line height to the left
-            const arrowX = svgWidth - 15 - cellSize * 0.5;
-            const arrowY = roomCenterY;
-            svg += `<polygon points="${arrowX},${arrowY - 3} ${arrowX},${arrowY + 3} ${arrowX + 5},${arrowY}" fill="${textColor}"/>`;
-            // END label - also shifted left
-            const endWidth = VectorFont.measureText('END', endLabelSize);
-            svg += VectorFont.renderText('END', arrowX - endWidth - 2, arrowY - endLabelSize / 2 - 7, endLabelSize, textColor, 0.9);
+            const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize;
+            const cy = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
+            // Position "END" below the goal art
+            const artBottom = cy + roomSize * cellSize * 0.36; // Approximate bottom of art
+            const endWidth = VectorFont.measureText('END', labelSize);
+            svg += VectorFont.renderText('END', cx - endWidth / 2, artBottom + 2, labelSize, textColor, 0.7);
         }
 
         // Quest at bottom (vector font, word-wrapped if needed) - 1.4 line heights higher
@@ -2857,50 +2885,45 @@ function getLayoutMetrics(maze) {
         };
     }
 
-    // START label bounds
+    // START label bounds (now positioned under character art in room)
     let startBounds = null;
     if (maze.startPos) {
         const roomSize = maze.startRoomSize || 2;
-        const roomCenterY = topPadding + (maze.startPos.y + roomSize / 2) * cellSize;
-        const baseLabelSize = Math.min(10, Math.max(6, sidePadding * 0.25));
-        const startLabelSize = baseLabelSize * 0.7;
-        const arrowX = 4;
-        const arrowY = roomCenterY;
-        const startWidth = VectorFont.measureText('START', startLabelSize);
-        const startY = arrowY - startLabelSize / 2 - 7;
+        const cx = sidePadding + (maze.startPos.x + roomSize / 2) * cellSize;
+        const cy = topPadding + (maze.startPos.y + roomSize / 2) * cellSize;
+        const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
+        const startWidth = VectorFont.measureText('START', labelSize);
+        const artBottom = cy + roomSize * cellSize * 0.28;
+        const startX = cx - startWidth / 2;
+        const startY = artBottom + 2;
 
         startBounds = {
-            left: arrowX,
+            left: startX,
             top: startY,
-            right: arrowX + startWidth,
-            bottom: startY + startLabelSize,
-            arrowRight: arrowX + 5 + 4, // arrow tip
-            arrowY: arrowY,
-            size: startLabelSize
+            right: startX + startWidth,
+            bottom: startY + labelSize,
+            size: labelSize
         };
     }
 
-    // END label bounds
+    // END label bounds (now positioned under goal art in room)
     let endBounds = null;
     if (maze.endPos) {
         const roomSize = maze.endRoomSize || 2;
-        const roomCenterY = topPadding + (maze.endPos.y + roomSize / 2) * cellSize;
-        const baseLabelSize = Math.min(10, Math.max(6, sidePadding * 0.25));
-        const endLabelSize = baseLabelSize * 0.9;
-        const arrowX = svgWidth - 15 - cellSize * 0.5;
-        const arrowY = roomCenterY;
-        const endWidth = VectorFont.measureText('END', endLabelSize);
-        const endX = arrowX - endWidth - 2;
-        const endY = arrowY - endLabelSize / 2 - 7;
+        const cx = sidePadding + (maze.endPos.x + roomSize / 2) * cellSize;
+        const cy = topPadding + (maze.endPos.y + roomSize / 2) * cellSize;
+        const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
+        const endWidth = VectorFont.measureText('END', labelSize);
+        const artBottom = cy + roomSize * cellSize * 0.36;
+        const endX = cx - endWidth / 2;
+        const endY = artBottom + 2;
 
         endBounds = {
             left: endX,
             top: endY,
-            right: arrowX + 5, // arrow tip
-            bottom: endY + endLabelSize,
-            arrowLeft: arrowX,
-            arrowY: arrowY,
-            size: endLabelSize
+            right: endX + endWidth,
+            bottom: endY + labelSize,
+            size: labelSize
         };
     }
 
@@ -2982,66 +3005,49 @@ function testMazeBoundingBoxes(maze) {
         }
     }
 
-    // Check START within border (on left side, can be outside maze)
+    // Check START label within border (now inside start room, under character art)
     if (metrics.startBounds) {
-        if (metrics.startBounds.left < metrics.borderBounds.left) {
+        if (!rectInside(metrics.startBounds, metrics.borderBounds)) {
             issues.push({
                 element: 'start',
                 type: 'outside_border',
                 bounds: metrics.startBounds,
                 border: metrics.borderBounds,
-                detail: `START extends left of border: ${metrics.startBounds.left.toFixed(1)} < ${metrics.borderBounds.left}`
+                detail: `START extends outside border`
             });
         }
-        if (metrics.startBounds.top < metrics.borderBounds.top || metrics.startBounds.bottom > metrics.borderBounds.bottom) {
+        // START label should be within or near the maze area (it's inside a room)
+        if (metrics.startBounds.bottom > metrics.mazeBounds.bottom + 5) {
             issues.push({
                 element: 'start',
-                type: 'outside_border_vertical',
-                bounds: metrics.startBounds,
-                border: metrics.borderBounds,
-                detail: `START extends vertically outside border`
-            });
-        }
-        // START should not overlap maze
-        if (metrics.startBounds.right > metrics.mazeBounds.left) {
-            issues.push({
-                element: 'start',
-                type: 'overlaps_maze',
+                type: 'below_maze',
                 bounds: metrics.startBounds,
                 maze: metrics.mazeBounds,
-                detail: `START overlaps maze: right edge ${metrics.startBounds.right.toFixed(1)} > maze left ${metrics.mazeBounds.left}`
+                detail: `START label extends too far below maze: ${metrics.startBounds.bottom.toFixed(1)} > ${metrics.mazeBounds.bottom}`
             });
         }
     }
 
-    // Check END within border (on right side)
+    // Check END label within border (now inside end room, under goal art)
+    // Check END label within border (now inside end room, under goal art)
     if (metrics.endBounds) {
-        if (metrics.endBounds.right > metrics.borderBounds.right) {
+        if (!rectInside(metrics.endBounds, metrics.borderBounds)) {
             issues.push({
                 element: 'end',
                 type: 'outside_border',
                 bounds: metrics.endBounds,
                 border: metrics.borderBounds,
-                detail: `END extends right of border: ${metrics.endBounds.right.toFixed(1)} > ${metrics.borderBounds.right}`
+                detail: `END extends outside border`
             });
         }
-        if (metrics.endBounds.top < metrics.borderBounds.top || metrics.endBounds.bottom > metrics.borderBounds.bottom) {
+        // END label should be within or near the maze area (it's inside a room)
+        if (metrics.endBounds.bottom > metrics.mazeBounds.bottom + 5) {
             issues.push({
                 element: 'end',
-                type: 'outside_border_vertical',
-                bounds: metrics.endBounds,
-                border: metrics.borderBounds,
-                detail: `END extends vertically outside border`
-            });
-        }
-        // END should not overlap maze
-        if (metrics.endBounds.left < metrics.mazeBounds.right) {
-            issues.push({
-                element: 'end',
-                type: 'overlaps_maze',
+                type: 'below_maze',
                 bounds: metrics.endBounds,
                 maze: metrics.mazeBounds,
-                detail: `END overlaps maze: left edge ${metrics.endBounds.left.toFixed(1)} < maze right ${metrics.mazeBounds.right}`
+                detail: `END label extends too far below maze: ${metrics.endBounds.bottom.toFixed(1)} > ${metrics.mazeBounds.bottom}`
             });
         }
     }

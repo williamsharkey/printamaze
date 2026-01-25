@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Maze Bounding Box Tests</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #eee; }
+        h1 { color: #4ade80; }
+        .pass { color: #4ade80; }
+        .fail { color: #f87171; }
+        .warn { color: #fbbf24; }
+        pre { background: #16213e; padding: 15px; border-radius: 8px; overflow-x: auto; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+        #output { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Maze Bounding Box Tests</h1>
+    <div>
+        <button onclick="runQuickTest()">Quick Test (1 of each)</button>
+        <button onclick="runFullTest()">Full Test (all configs)</button>
+        <button onclick="testCurrentMaze()">Test Single Maze</button>
+    </div>
+    <pre id="output">Click a button to run tests...</pre>
+
+    <script src="maze.js"></script>
+    <script>
+        const output = document.getElementById('output');
+
+        function log(text, className) {
+            const span = document.createElement('span');
+            span.className = className || '';
+            span.textContent = text + '\n';
+            output.appendChild(span);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clear() {
+            output.innerHTML = '';
+        }
+
+        function runQuickTest() {
+            clear();
+            log('='.repeat(70));
+            log('QUICK BOUNDING BOX TEST');
+            log('='.repeat(70));
+            log('');
+
+            const themes = Object.keys(Themes);
+            const shapes = Object.keys(ShapeMasks);
+            const difficulties = [3, 5, 7, 10];
+            let passed = 0;
+            let failed = 0;
+            const failures = [];
+
+            for (const themeName of themes) {
+                for (const shape of shapes) {
+                    for (const difficulty of difficulties) {
+                        const seed = 12345 + difficulty;
+                        const gen = new MazeGenerator(seed);
+                        const dims = {
+                            3: { w: 5, h: 6 },
+                            5: { w: 10, h: 13 },
+                            7: { w: 17, h: 22 },
+                            10: { w: 33, h: 43 }
+                        }[difficulty];
+
+                        const maze = gen.generate(dims.w, dims.h, 'recursive_backtracker', shape, themeName, false);
+                        const storyGen = new StoryGenerator(new SeededRandom(seed));
+                        maze.story = storyGen.generateQuest(themeName, difficulty);
+
+                        const result = testMazeBoundingBoxes(maze);
+
+                        if (result.passed) {
+                            passed++;
+                            log(`✓ ${themeName}/${shape}/L${difficulty}`, 'pass');
+                        } else {
+                            failed++;
+                            failures.push({ config: `${themeName}/${shape}/L${difficulty}`, result });
+                            log(`✗ ${themeName}/${shape}/L${difficulty}`, 'fail');
+                            for (const issue of result.issues) {
+                                log(`    ${issue.element}: ${issue.detail}`, 'fail');
+                            }
+                        }
+                    }
+                }
+            }
+
+            log('');
+            log('='.repeat(70));
+            log(`RESULTS: ${passed} passed, ${failed} failed`, failed > 0 ? 'fail' : 'pass');
+            log('='.repeat(70));
+
+            if (failures.length > 0) {
+                log('');
+                log('DETAILED FAILURES:', 'warn');
+                for (const f of failures.slice(0, 10)) {
+                    log(`\n[${f.config}]`, 'fail');
+                    const m = f.result.metrics;
+                    log(`  SVG: ${m.svgWidth.toFixed(0)}x${m.svgHeight.toFixed(0)}`);
+                    log(`  Border inner: L${m.borderBounds.left} T${m.borderBounds.top} R${m.borderBounds.right} B${m.borderBounds.bottom}`);
+                    log(`  Maze area: L${m.mazeBounds.left} T${m.mazeBounds.top} R${m.mazeBounds.right} B${m.mazeBounds.bottom}`);
+                    if (m.titleBounds) log(`  Title: L${m.titleBounds.left.toFixed(1)} T${m.titleBounds.top.toFixed(1)} R${m.titleBounds.right.toFixed(1)} B${m.titleBounds.bottom.toFixed(1)}`);
+                    if (m.questBounds) log(`  Quest: L${m.questBounds.left.toFixed(1)} T${m.questBounds.top.toFixed(1)} R${m.questBounds.right.toFixed(1)} B${m.questBounds.bottom.toFixed(1)}`);
+                    if (m.startBounds) log(`  START: L${m.startBounds.left.toFixed(1)} T${m.startBounds.top.toFixed(1)} R${m.startBounds.right.toFixed(1)} B${m.startBounds.bottom.toFixed(1)}`);
+                    if (m.endBounds) log(`  END: L${m.endBounds.left.toFixed(1)} T${m.endBounds.top.toFixed(1)} R${m.endBounds.right.toFixed(1)} B${m.endBounds.bottom.toFixed(1)}`);
+                }
+            }
+        }
+
+        function runFullTest() {
+            clear();
+            log('Running full test suite (this may take a moment)...');
+            log('');
+            setTimeout(() => {
+                const results = runBoundingBoxTests();
+                log('\nFull test complete.');
+            }, 100);
+        }
+
+        function testCurrentMaze() {
+            clear();
+            log('Testing a sample maze...\n');
+
+            const seed = Math.floor(Math.random() * 10000);
+            const themes = Object.keys(Themes);
+            const theme = themes[Math.floor(Math.random() * themes.length)];
+
+            const gen = new MazeGenerator(seed);
+            const maze = gen.generate(10, 13, 'recursive_backtracker', 'rectangle', theme, false);
+            const storyGen = new StoryGenerator(new SeededRandom(seed));
+            maze.story = storyGen.generateQuest(theme, 5);
+
+            const metrics = getLayoutMetrics(maze);
+            const result = testMazeBoundingBoxes(maze);
+
+            log(`Seed: ${seed}`);
+            log(`Theme: ${theme}`);
+            log(`Title: "${maze.story.title}"`);
+            log(`Quest: "${maze.story.quest}"`);
+            log('');
+            log('METRICS:');
+            log(`  SVG size: ${metrics.svgWidth.toFixed(0)} x ${metrics.svgHeight.toFixed(0)}`);
+            log(`  Cell size: ${metrics.cellSize}`);
+            log(`  Side padding: ${metrics.sidePadding}`);
+            log(`  Top padding: ${metrics.topPadding}`);
+            log('');
+            log('BOUNDING BOXES:');
+            log(`  Border inner: L${metrics.borderBounds.left} T${metrics.borderBounds.top} R${metrics.borderBounds.right} B${metrics.borderBounds.bottom}`);
+            log(`  Maze: L${metrics.mazeBounds.left} T${metrics.mazeBounds.top.toFixed(0)} R${metrics.mazeBounds.right} B${metrics.mazeBounds.bottom.toFixed(0)}`);
+            if (metrics.titleBounds) {
+                log(`  Title: L${metrics.titleBounds.left.toFixed(1)} T${metrics.titleBounds.top.toFixed(1)} R${metrics.titleBounds.right.toFixed(1)} B${metrics.titleBounds.bottom.toFixed(1)}`);
+            }
+            if (metrics.questBounds) {
+                log(`  Quest: L${metrics.questBounds.left.toFixed(1)} T${metrics.questBounds.top.toFixed(1)} R${metrics.questBounds.right.toFixed(1)} B${metrics.questBounds.bottom.toFixed(1)}`);
+            }
+            if (metrics.startBounds) {
+                log(`  START: L${metrics.startBounds.left.toFixed(1)} T${metrics.startBounds.top.toFixed(1)} R${metrics.startBounds.right.toFixed(1)} B${metrics.startBounds.bottom.toFixed(1)}`);
+            }
+            if (metrics.endBounds) {
+                log(`  END: L${metrics.endBounds.left.toFixed(1)} T${metrics.endBounds.top.toFixed(1)} R${metrics.endBounds.right.toFixed(1)} B${metrics.endBounds.bottom.toFixed(1)}`);
+            }
+            log('');
+
+            if (result.passed) {
+                log('RESULT: ✓ PASSED', 'pass');
+            } else {
+                log('RESULT: ✗ FAILED', 'fail');
+                for (const issue of result.issues) {
+                    log(`  ${issue.element}: ${issue.detail}`, 'fail');
+                }
+            }
+        }
+
+        // Override console.log for runBoundingBoxTests
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const text = args.join(' ');
+            if (text.includes('✗')) {
+                log(text, 'fail');
+            } else if (text.includes('✓') || text.includes('passed')) {
+                log(text, 'pass');
+            } else {
+                log(text);
+            }
+        };
+    </script>
+</body>
+</html>
