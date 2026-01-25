@@ -1446,7 +1446,7 @@ class Maze {
         if (this.shape !== 'rectangle' && this.theme.decorations && this.theme.decorations.length > 0) {
             const cornerRegions = this.findCornerRegions();
             const artColor = printMode ? '#888' : this.theme.wallColor;
-            svg += `<g color="${artColor}">`;
+            svg += `<g style="color:${artColor}; stroke:${artColor}; fill:${artColor}">`;
             for (const region of cornerRegions) {
                 const cx = sidePadding + region.cx * cellSize;
                 const cy = topPadding + region.cy * cellSize;
@@ -1494,9 +1494,9 @@ class Maze {
         }
 
         // Room decorations (gray in print mode)
-        if (this.theme.decorations && this.theme.decorations.length > 0) {
+        if (this.theme.decorations && this.theme.decorations.length > 0 && this.rooms && this.rooms.length > 0) {
             const artColor = printMode ? '#888' : this.theme.wallColor;
-            svg += `<g color="${artColor}">`;
+            svg += `<g style="color:${artColor}; stroke:${artColor}; fill:${artColor}">`;
             for (const room of this.rooms) {
                 const cx = sidePadding + (room.x + room.w / 2) * cellSize;
                 const cy = topPadding + (room.y + room.h / 2) * cellSize;
@@ -1551,27 +1551,30 @@ class Maze {
             const roomSize = this.startRoomSize || 2;
             const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
             const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
-            // Position "START" below the character art
+            // Position "START" below the character art - 0.6 line heights larger
+            const startLabelSize = labelSize * 1.6;
             const artBottom = cy + roomSize * cellSize * 0.28; // Approximate bottom of art
-            const startWidth = VectorFont.measureText('START', labelSize);
-            svg += VectorFont.renderText('START', cx - startWidth / 2, artBottom + 2, labelSize, textColor, 0.7);
+            const startWidth = VectorFont.measureText('START', startLabelSize);
+            svg += VectorFont.renderText('START', cx - startWidth / 2, artBottom + 2, startLabelSize, textColor, 0.7);
         }
 
         if (this.endPos) {
             const roomSize = this.endRoomSize || 2;
             const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize;
             const cy = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
-            // Position "END" below the goal art
+            // Position "END" below the goal art - 0.7 line heights higher, 0.9 line heights left
             const artBottom = cy + roomSize * cellSize * 0.36; // Approximate bottom of art
             const endWidth = VectorFont.measureText('END', labelSize);
-            svg += VectorFont.renderText('END', cx - endWidth / 2, artBottom + 2, labelSize, textColor, 0.7);
+            const endX = cx - endWidth / 2 - labelSize * 0.9; // Shift left by 0.9 line heights
+            const endY = artBottom + 2 - labelSize * 0.7; // Move up by 0.7 line heights
+            svg += VectorFont.renderText('END', endX, endY, labelSize, textColor, 0.7);
         }
 
-        // Quest at bottom (vector font, word-wrapped if needed) - 1.4 line heights higher
+        // Quest at bottom (vector font, word-wrapped if needed) - 1.8 line heights higher
         if (this.story && this.story.quest) {
             const questSize = Math.min(8, Math.max(5, svgWidth / 50));
-            // Move 1.4 line heights higher (subtract 1.4 * questSize)
-            const questY = svgHeight - questHeight + 4 - questSize * 1.4;
+            // Move 1.8 line heights higher (subtract 1.8 * questSize)
+            const questY = svgHeight - questHeight + 4 - questSize * 1.8;
             const maxWidth = svgWidth - 24;
 
             // Simple word wrap
@@ -2848,7 +2851,7 @@ function getLayoutMetrics(maze) {
     let questBounds = null;
     if (maze.story && maze.story.quest) {
         const questSize = Math.min(8, Math.max(5, svgWidth / 50));
-        const questY = svgHeight - questHeight + 4 - questSize * 1.4;
+        const questY = svgHeight - questHeight + 4 - questSize * 1.8;
         const maxWidth = svgWidth - 24;
 
         // Calculate word wrap
@@ -2885,14 +2888,15 @@ function getLayoutMetrics(maze) {
         };
     }
 
-    // START label bounds (now positioned under character art in room)
+    // START label bounds (now positioned under character art in room) - 0.6 line heights larger
     let startBounds = null;
     if (maze.startPos) {
         const roomSize = maze.startRoomSize || 2;
         const cx = sidePadding + (maze.startPos.x + roomSize / 2) * cellSize;
         const cy = topPadding + (maze.startPos.y + roomSize / 2) * cellSize;
         const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
-        const startWidth = VectorFont.measureText('START', labelSize);
+        const startLabelSize = labelSize * 1.6; // 0.6 line heights larger
+        const startWidth = VectorFont.measureText('START', startLabelSize);
         const artBottom = cy + roomSize * cellSize * 0.28;
         const startX = cx - startWidth / 2;
         const startY = artBottom + 2;
@@ -2901,12 +2905,12 @@ function getLayoutMetrics(maze) {
             left: startX,
             top: startY,
             right: startX + startWidth,
-            bottom: startY + labelSize,
-            size: labelSize
+            bottom: startY + startLabelSize,
+            size: startLabelSize
         };
     }
 
-    // END label bounds (now positioned under goal art in room)
+    // END label bounds (now positioned under goal art in room) - 0.7 higher, 0.9 left
     let endBounds = null;
     if (maze.endPos) {
         const roomSize = maze.endRoomSize || 2;
@@ -2915,8 +2919,8 @@ function getLayoutMetrics(maze) {
         const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
         const endWidth = VectorFont.measureText('END', labelSize);
         const artBottom = cy + roomSize * cellSize * 0.36;
-        const endX = cx - endWidth / 2;
-        const endY = artBottom + 2;
+        const endX = cx - endWidth / 2 - labelSize * 0.9; // Shift left by 0.9 line heights
+        const endY = artBottom + 2 - labelSize * 0.7; // Move up by 0.7 line heights
 
         endBounds = {
             left: endX,
