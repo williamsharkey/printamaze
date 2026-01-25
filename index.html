@@ -2,437 +2,449 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Print A Maze</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
+        html, body {
+            height: 100%;
+            overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
+            background: #000;
+            touch-action: pan-y;
         }
-        .header {
+
+        /* Favorites section - pull down to reveal */
+        #favoritesSection {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            background: white;
-            padding: 8px 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
+            transform: translateY(-100%);
+            background: #1a1a1a;
+            max-height: 60vh;
+            overflow-y: auto;
+            z-index: 50;
+            padding: 20px;
+            padding-top: max(20px, env(safe-area-inset-top));
+            transition: transform 0.3s ease;
         }
-        .header h1 { font-size: 18px; color: #333; }
-        .header select, .header input {
-            padding: 6px 10px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 13px;
-        }
-        .seed-input { width: 70px; opacity: 0.5; font-size: 11px !important; }
-        .seed-input:focus { opacity: 1; }
-        .toggle-label { display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; }
-        .toggle-label input { cursor: pointer; }
-        .tab-btn {
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background: white;
-            cursor: pointer;
-            font-size: 13px;
-        }
-        .tab-btn.active { background: #333; color: white; border-color: #333; }
-        .favorite-btn { color: #ccc; }
-        .favorite-btn.favorited { color: #f39c12; }
-        .gallery {
-            padding: 70px 12px 20px;
+        #favoritesSection.open { transform: translateY(0); }
+        #favoritesSection h2 { color: #fff; font-size: 16px; margin-bottom: 15px; }
+        .fav-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 16px;
-            max-width: 1400px;
-            margin: 0 auto;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
         }
-        .maze-card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            overflow: hidden;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .maze-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-        }
-        .maze-display {
+        .fav-item {
             aspect-ratio: 8.5/11;
-            background: white;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .fav-item svg { width: 100%; height: 100%; }
+        .no-favs { color: #666; font-size: 14px; text-align: center; padding: 30px; }
+
+        /* Main maze container with snap scroll */
+        #mazeContainer {
+            height: 100%;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .maze-frame {
+            height: 100vh;
+            height: 100dvh;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 8px;
-            cursor: pointer;
-            overflow: hidden;
+            position: relative;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         }
-        .maze-display svg {
+
+        .maze-svg-container {
             width: 100%;
             height: 100%;
-            display: block;
-        }
-        .card-footer {
-            padding: 8px 12px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            border-top: 1px solid #eee;
+            justify-content: center;
+            padding: 10px;
         }
-        .card-info { font-size: 12px; color: #666; }
-        .card-info strong { color: #333; }
-        .card-actions { display: flex; gap: 8px; }
-        .card-actions button {
+
+        .maze-svg-container svg {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+        }
+
+        /* Heart favorite button - upper left */
+        .heart-btn {
+            position: absolute;
+            top: max(15px, env(safe-area-inset-top));
+            left: max(15px, env(safe-area-inset-left));
+            width: 44px;
+            height: 44px;
             background: none;
             border: none;
+            font-size: 28px;
             cursor: pointer;
-            font-size: 18px;
-            padding: 4px;
-            opacity: 0.6;
-            transition: opacity 0.2s;
+            opacity: 0.3;
+            z-index: 10;
+            -webkit-tap-highlight-color: transparent;
         }
-        .card-actions button:hover { opacity: 1; }
-        .loading-more { text-align: center; padding: 40px; color: #888; }
-        .solution-overlay {
+        .heart-btn.favorited { opacity: 1; color: #e74c3c; }
+
+        /* Level indicator - subtle */
+        .level-indicator {
+            position: absolute;
+            bottom: max(15px, env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 6px;
+            z-index: 10;
+        }
+        .level-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+        }
+        .level-dot.active { background: rgba(255,255,255,0.8); }
+
+        /* Action menu overlay */
+        #actionMenu {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 200;
+            background: rgba(0,0,0,0.7);
             display: none;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            z-index: 100;
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
         }
-        .solution-overlay.open { display: flex; }
-        .solution-modal {
-            background: white;
-            border-radius: 16px;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow: auto;
-            position: relative;
-            padding: 20px;
+        #actionMenu.open { display: flex; }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 200px;
         }
-        .solution-modal .close-btn {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: #f0f0f0;
+
+        .action-btn {
+            padding: 14px 20px;
             border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+            border-radius: 12px;
+            font-size: 16px;
             cursor: pointer;
-            font-size: 18px;
+            background: #fff;
+            color: #333;
+            font-weight: 500;
+            -webkit-tap-highlight-color: transparent;
         }
-        @media (max-width: 600px) {
-            .header { flex-wrap: wrap; gap: 6px; }
-            .gallery { grid-template-columns: 1fr; }
+        .action-btn:active { background: #eee; }
+        .action-btn.close-btn {
+            background: transparent;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
         }
-        @page { size: letter portrait; margin: 0.3in; }
-        @media print {
-            .header, .card-footer, .loading-more, #favoritesGallery, #noFavorites { display: none !important; }
-            body { background: white; margin: 0; padding: 0; }
-            .gallery { display: block; padding: 0; margin: 0; }
-            .maze-card {
-                box-shadow: none;
-                page-break-after: always;
-                page-break-inside: avoid;
-                margin: 0;
-                padding: 0;
-                border-radius: 0;
-            }
-            .maze-display {
-                width: 100%;
-                height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            .maze-display svg {
-                max-width: 7.4in;
-                max-height: 9.4in;
-                width: 100%;
-                height: auto;
-            }
+
+        /* Solution overlay */
+        #solutionOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 150;
+            padding: 20px;
         }
+        #solutionOverlay.open { display: flex; }
+        #solutionOverlay svg { max-width: 100%; max-height: 100%; }
+        #solutionOverlay .close-btn {
+            position: absolute;
+            top: max(15px, env(safe-area-inset-top));
+            right: max(15px, env(safe-area-inset-right));
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        /* Debug panel */
+        #debugPanel {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.9);
+            color: #fff;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 11px;
+            z-index: 200;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+
+        /* Swipe hint on first load */
+        .swipe-hint {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.5);
+            font-size: 12px;
+            text-align: center;
+            z-index: 5;
+            animation: fadeOut 3s forwards 2s;
+        }
+        @keyframes fadeOut { to { opacity: 0; } }
     </style>
 </head>
 <body>
-    <header class="header">
-        <h1>Print A Maze</h1>
-        <select id="theme">
-            <option value="random" selected>Random</option>
-            <option value="classic">Classic</option>
-            <option value="ocean">Ocean</option>
-            <option value="space">Space</option>
-            <option value="garden">Garden</option>
-            <option value="candy">Candy</option>
-            <option value="jungle">Jungle</option>
-        </select>
-        <select id="shape">
-            <option value="rectangle">Rectangle</option>
-            <option value="circle">Circle</option>
-            <option value="heart">Heart</option>
-            <option value="star">Star</option>
-            <option value="hexagon">Hexagon</option>
-        </select>
-        <select id="difficulty">
-            <option value="3">Level 1</option>
-            <option value="4" selected>Level 2</option>
-            <option value="5">Level 3</option>
-            <option value="6">Level 4</option>
-            <option value="7">Level 5</option>
-            <option value="8">Level 6</option>
-            <option value="9">Level 7</option>
-            <option value="10">Level 8</option>
-            <option value="11">Level 9</option>
-            <option value="12">Level 10</option>
-        </select>
-        <select id="algorithm">
-            <option value="recursive_backtracker">Winding</option>
-            <option value="prims">Branching</option>
-            <option value="kruskals">Random</option>
-        </select>
-        <input type="number" class="seed-input" id="seed" value="1" min="1" max="99999" title="Seed">
-        <label class="toggle-label"><input type="checkbox" id="printMode"> Print Mode</label>
-        <button class="tab-btn" id="galleryTab" onclick="showGallery()">Gallery</button>
-        <button class="tab-btn" id="favoritesTab" onclick="showFavorites()">Favorites</button>
-    </header>
+    <!-- Favorites - pull down to reveal -->
+    <div id="favoritesSection">
+        <h2>Saved Mazes</h2>
+        <div id="favGrid" class="fav-grid"></div>
+        <div id="noFavs" class="no-favs">No saved mazes yet. Tap the heart to save one!</div>
+    </div>
 
-    <div id="debugPanel" style="display:none;background:#222;color:#fff;padding:15px;font-family:monospace;font-size:12px;">
-        <strong>Debug: START/END Position Tweaks</strong>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px;">
-            <div>
-                <label>START Scale: <span id="startScaleVal">0.67</span></label>
-                <input type="range" id="startScale" min="0.1" max="1" step="0.01" value="0.67" style="width:100%">
-            </div>
-            <div>
-                <label>START Y Offset: <span id="startYVal">0.7</span></label>
-                <input type="range" id="startY" min="-2" max="3" step="0.1" value="0.7" style="width:100%">
-            </div>
-            <div>
-                <label>END Scale: <span id="endScaleVal">0.61</span></label>
-                <input type="range" id="endScale" min="0.1" max="1" step="0.01" value="0.61" style="width:100%">
-            </div>
-            <div>
-                <label>END X Offset (chars): <span id="endXVal">2.8</span></label>
-                <input type="range" id="endX" min="-2" max="5" step="0.1" value="2.8" style="width:100%">
-            </div>
-            <div>
-                <label>END Y Offset: <span id="endYVal">0</span></label>
-                <input type="range" id="endY" min="-2" max="3" step="0.1" value="0" style="width:100%">
-            </div>
-        </div>
-        <div style="margin-top:10px;">
-            <code id="debugCode">// Current values:
-startLabelSize = labelSize * 0.67;
-startY = artBottom + 2 - startLabelSize * 0.7;
-endLabelSize = labelSize * 0.61;
-endX = cx - endWidth/2 - letterWidth * 2.8;
-endY = artBottom + 2 - endLabelSize * 0;</code>
+    <!-- Main scrolling maze container -->
+    <div id="mazeContainer"></div>
+
+    <!-- Action menu -->
+    <div id="actionMenu">
+        <div class="action-buttons">
+            <button class="action-btn" onclick="printColor()">🖨️ Print Color</button>
+            <button class="action-btn" onclick="printBW()">📄 Print B&W</button>
+            <button class="action-btn" onclick="saveToCameraRoll()">📷 Save to Photos</button>
+            <button class="action-btn" onclick="showSolution()">🔍 Show Solution</button>
+            <button class="action-btn" id="debugBtn" style="display:none" onclick="showDebugInfo()">🔧 Debug Info</button>
+            <button class="action-btn close-btn" onclick="closeActionMenu()">✕ Close</button>
         </div>
     </div>
 
-    <main class="gallery" id="gallery"></main>
-    <main class="gallery" id="favoritesGallery" style="display:none"></main>
-    <div class="loading-more" id="loading">Loading more mazes...</div>
-    <div class="loading-more" id="noFavorites" style="display:none">No favorites yet. Click the heart on a maze to add it!</div>
-
-    <div class="solution-overlay" id="solution-overlay" onclick="if(event.target===this)closeSolution()">
-        <div class="solution-modal">
-            <button class="close-btn" onclick="closeSolution()">&times;</button>
-            <div id="solution-display"></div>
-        </div>
+    <!-- Solution overlay -->
+    <div id="solutionOverlay">
+        <button class="close-btn" onclick="closeSolution()">✕</button>
+        <div id="solutionDisplay"></div>
     </div>
+
+    <!-- Debug panel -->
+    <div id="debugPanel">
+        <strong>Debug Info</strong>
+        <pre id="debugContent"></pre>
+    </div>
+
+    <!-- Swipe hint -->
+    <div class="swipe-hint" id="swipeHint">← Swipe to change difficulty →</div>
 
     <script src="maze.js"></script>
     <script>
-        const BATCH_SIZE = 12;
-        const DEBOUNCE_MS = 200;
-        // Difficulty scaling - level 10 is now much harder (was 29x37, now 45x58)
-        const ageDifficulty = {
-            3: { w: 5, h: 6 },     // Level 1 - very easy
-            4: { w: 7, h: 9 },     // Level 2
-            5: { w: 10, h: 13 },   // Level 3
-            6: { w: 13, h: 17 },   // Level 4
-            7: { w: 17, h: 22 },   // Level 5
-            8: { w: 21, h: 27 },   // Level 6
-            9: { w: 27, h: 35 },   // Level 7
-            10: { w: 33, h: 43 },  // Level 8
-            11: { w: 39, h: 50 },  // Level 9
-            12: { w: 45, h: 58 }   // Level 10 - expert
+        const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle'];
+        const ALL_SHAPES = ['rectangle', 'circle', 'heart', 'star', 'hexagon'];
+        const ALL_ALGORITHMS = ['recursive_backtracker', 'prims', 'kruskals'];
+        const DIFFICULTY_SIZES = {
+            3: { w: 5, h: 6 },
+            4: { w: 7, h: 9 },
+            5: { w: 10, h: 13 },
+            6: { w: 13, h: 17 },
+            7: { w: 17, h: 22 },
+            8: { w: 21, h: 27 },
+            9: { w: 27, h: 35 },
+            10: { w: 33, h: 43 },
+            11: { w: 39, h: 50 },
+            12: { w: 45, h: 58 }
         };
 
-        let loadedCount = 0;
-        let debounceTimer = null;
-        let isLoading = false;
+        let currentDifficulty = 4;
+        let mazeParams = []; // Array of {seed, theme, shape, algorithm} per position
+        let currentIndex = 0;
+        let activeMazeId = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
 
-        function getSettings() {
-            return {
-                theme: document.getElementById('theme').value,
-                shape: document.getElementById('shape').value,
-                difficulty: parseInt(document.getElementById('difficulty').value),
-                algorithm: document.getElementById('algorithm').value,
-                baseSeed: parseInt(document.getElementById('seed').value) || 1
-            };
-        }
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Show debug button if debug mode
+            if (localStorage.getItem('debug')) {
+                document.getElementById('debugBtn').style.display = 'block';
+            }
 
-        function debounceRegenerate() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                loadedCount = 0;
-                document.getElementById('gallery').innerHTML = '';
-                loadMoreMazes();
-            }, DEBOUNCE_MS);
-        }
+            // Generate initial mazes
+            generateMazeParams(20);
+            renderMazes();
 
-        const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle'];
+            // Hide swipe hint after first interaction
+            document.getElementById('mazeContainer').addEventListener('scroll', () => {
+                document.getElementById('swipeHint').style.display = 'none';
+            }, { once: true });
 
-        function loadMoreMazes() {
-            if (isLoading) return;
-            isLoading = true;
+            // Infinite scroll
+            const container = document.getElementById('mazeContainer');
+            container.addEventListener('scroll', handleScroll);
 
-            const s = getSettings();
-            const dims = ageDifficulty[s.difficulty] || ageDifficulty[4];
-            const gallery = document.getElementById('gallery');
-            const levelNum = s.difficulty - 2; // 1-10
+            // Swipe detection for difficulty change
+            container.addEventListener('touchstart', handleTouchStart, { passive: true });
+            container.addEventListener('touchend', handleTouchEnd, { passive: true });
 
-            for (let i = 0; i < BATCH_SIZE; i++) {
-                const seed = s.baseSeed + loadedCount;
-                const gen = new MazeGenerator(seed);
-                // Pick random theme if "random" selected, using seed for determinism
+            // Pull down for favorites
+            let pullStartY = 0;
+            container.addEventListener('touchstart', e => {
+                if (container.scrollTop <= 0) {
+                    pullStartY = e.touches[0].clientY;
+                }
+            }, { passive: true });
+            container.addEventListener('touchmove', e => {
+                if (container.scrollTop <= 0 && pullStartY > 0) {
+                    const pullDist = e.touches[0].clientY - pullStartY;
+                    if (pullDist > 80) {
+                        showFavorites();
+                        pullStartY = 0;
+                    }
+                }
+            }, { passive: true });
+        });
+
+        function generateMazeParams(count) {
+            const startIdx = mazeParams.length;
+            for (let i = 0; i < count; i++) {
+                const seed = startIdx + i + 1;
                 const rng = new SeededRandom(seed);
-                const actualTheme = s.theme === 'random' ? ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)] : s.theme;
-                const maze = gen.generateWithStory(dims.w, dims.h, s.algorithm, s.shape, actualTheme, false, levelNum);
-                const cardSettings = { ...s, theme: actualTheme, originalTheme: s.theme };
-                gallery.appendChild(createCard(maze, seed, cardSettings));
-                loadedCount++;
+                mazeParams.push({
+                    seed,
+                    theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
+                    shape: ALL_SHAPES[Math.floor(rng.next() * ALL_SHAPES.length)],
+                    algorithm: ALL_ALGORITHMS[Math.floor(rng.next() * ALL_ALGORITHMS.length)]
+                });
             }
-            isLoading = false;
         }
 
-        function createCard(maze, seed, settings) {
-            const card = document.createElement('div');
-            card.className = 'maze-card';
+        function renderMazes() {
+            const container = document.getElementById('mazeContainer');
+            container.innerHTML = '';
 
-            // SVG now contains title and quest - no separate divs needed
-            const display = document.createElement('div');
-            display.className = 'maze-display';
-            display.innerHTML = maze.toSVG(false, getPrintMode());
-            display.onclick = () => printMaze(maze);
-            card.appendChild(display);
+            mazeParams.forEach((params, idx) => {
+                const frame = createMazeFrame(params, idx);
+                container.appendChild(frame);
+            });
+        }
 
-            const footer = document.createElement('div');
-            footer.className = 'card-footer';
-            const levelNum = settings.difficulty - 2;
-            const isFav = isFavorited(seed, settings);
-            const isEnhanced = maze.story && maze.story.isEnhanced;
-            footer.innerHTML = `
-                <div class="card-info"><strong>${settings.theme}</strong> &bull; Level ${levelNum}</div>
-                <div class="card-actions">
-                    ${isEnhanced ? '<span title="Enhanced story" style="font-size:14px;opacity:0.8">✨</span>' : ''}
-                    <button class="favorite-btn ${isFav ? 'favorited' : ''}" onclick="event.stopPropagation();toggleFavoriteByCache(${seed},this)" title="Favorite">&#9829;</button>
-                    <button onclick="event.stopPropagation();showSolution(${seed})" title="Solution">&#128269;</button>
-                    <button onclick="event.stopPropagation();printMaze(window.mazeCache[${seed}].maze)" title="Print">&#128424;</button>
-                    <button onclick="event.stopPropagation();downloadMaze(window.mazeCache[${seed}].maze,${seed})" title="Download">&#128190;</button>
-                    <button onclick="event.stopPropagation();showDebug(${seed})" title="Debug">&#128736;</button>
-                </div>
-            `;
-            card.appendChild(footer);
+        function createMazeFrame(params, idx) {
+            const dims = DIFFICULTY_SIZES[currentDifficulty];
+            const levelNum = currentDifficulty - 2;
 
+            const gen = new MazeGenerator(params.seed);
+            const maze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
+
+            // Store maze for later use
             window.mazeCache = window.mazeCache || {};
-            window.mazeCache[seed] = { maze, settings };
+            window.mazeCache[params.seed] = { maze, params, difficulty: currentDifficulty };
 
-            return card;
+            const frame = document.createElement('div');
+            frame.className = 'maze-frame';
+            frame.dataset.seed = params.seed;
+            frame.dataset.idx = idx;
+
+            // Heart button
+            const heart = document.createElement('button');
+            heart.className = 'heart-btn' + (isFavorited(params.seed) ? ' favorited' : '');
+            heart.innerHTML = '♥';
+            heart.onclick = (e) => {
+                e.stopPropagation();
+                toggleFavorite(params.seed, heart);
+            };
+            frame.appendChild(heart);
+
+            // Maze SVG
+            const svgContainer = document.createElement('div');
+            svgContainer.className = 'maze-svg-container';
+            svgContainer.innerHTML = maze.toSVG(false, false);
+            svgContainer.onclick = (e) => {
+                if (e.target.closest('.heart-btn')) return;
+                activeMazeId = params.seed;
+                openActionMenu();
+            };
+            frame.appendChild(svgContainer);
+
+            // Level dots
+            const levelIndicator = document.createElement('div');
+            levelIndicator.className = 'level-indicator';
+            for (let i = 3; i <= 12; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'level-dot' + (i === currentDifficulty ? ' active' : '');
+                levelIndicator.appendChild(dot);
+            }
+            frame.appendChild(levelIndicator);
+
+            return frame;
         }
 
-        // Debug modal for compact representation
-        function showDebug(seed) {
-            const cached = window.mazeCache[seed];
-            if (!cached) return;
-            const maze = cached.maze || cached; // Support both old and new cache format
+        function handleScroll() {
+            const container = document.getElementById('mazeContainer');
+            const scrollPos = container.scrollTop;
+            const frameHeight = window.innerHeight;
+            currentIndex = Math.round(scrollPos / frameHeight);
 
-            const debugOutput = generateMazeDebugOutput(maze);
-            const modal = document.createElement('div');
-            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px';
-            modal.onclick = e => { if (e.target === modal) document.body.removeChild(modal); };
-
-            const content = document.createElement('div');
-            content.style.cssText = 'background:white;border-radius:8px;max-width:800px;max-height:90vh;overflow:auto;padding:20px;position:relative';
-            content.innerHTML = `
-                <button onclick="this.parentElement.parentElement.remove()" style="position:absolute;top:10px;right:10px;border:none;background:#f0f0f0;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px">&times;</button>
-                <h3 style="margin-bottom:10px">Maze Debug Output</h3>
-                <pre style="background:#f5f5f5;padding:12px;border-radius:4px;font-size:11px;line-height:1.4;overflow-x:auto;white-space:pre-wrap;word-break:break-all">${escapeHtml(debugOutput)}</pre>
-                <button onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent)" style="margin-top:10px;padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Copy to Clipboard</button>
-            `;
-            modal.appendChild(content);
-            document.body.appendChild(modal);
-        }
-
-        function escapeHtml(text) {
-            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        }
-
-        function showSolution(seed) {
-            const cached = window.mazeCache[seed];
-            if (cached) {
-                const maze = cached.maze || cached;
-                document.getElementById('solution-display').innerHTML = maze.toSVG(true, getPrintMode());
-                document.getElementById('solution-overlay').classList.add('open');
+            // Load more mazes when near the end
+            if (currentIndex >= mazeParams.length - 5) {
+                generateMazeParams(10);
+                const existingFrames = container.children.length;
+                for (let i = existingFrames; i < mazeParams.length; i++) {
+                    container.appendChild(createMazeFrame(mazeParams[i], i));
+                }
             }
         }
 
-        function closeSolution() {
-            document.getElementById('solution-overlay').classList.remove('open');
+        function handleTouchStart(e) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
         }
 
-        function printMaze(maze) {
-            const w = window.open('', '_blank');
-            const title = maze.story && maze.story.title ? maze.story.title : 'Maze';
+        function handleTouchEnd(e) {
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
 
-            // Title and quest are now rendered inside the SVG
-            w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(title)}</title>
-                <style>
-                    @page{size:letter;margin:0.4in}
-                    body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
-                    svg{max-width:7.2in;max-height:9.2in;width:100%;height:auto}
-                </style></head><body>
-                ${maze.toSVG(false, getPrintMode())}
-            </body></html>`);
-            w.document.close();
-            setTimeout(() => w.print(), 100);
+            // Only trigger if horizontal swipe is dominant
+            if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY) * 2) {
+                if (deltaX < 0 && currentDifficulty < 12) {
+                    // Swipe left - increase difficulty
+                    changeDifficulty(currentDifficulty + 1);
+                } else if (deltaX > 0 && currentDifficulty > 3) {
+                    // Swipe right - decrease difficulty
+                    changeDifficulty(currentDifficulty - 1);
+                }
+            }
         }
 
-        function downloadMaze(maze, seed) {
-            const blob = new Blob([maze.toSVG(false, getPrintMode())], { type: 'image/svg+xml' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `maze-${seed}.svg`;
-            a.click();
-        }
+        function changeDifficulty(newDifficulty) {
+            currentDifficulty = newDifficulty;
+            const container = document.getElementById('mazeContainer');
+            const scrollPos = container.scrollTop;
 
-        // Print Mode
-        function getPrintMode() {
-            return document.getElementById('printMode').checked;
-        }
+            // Re-render all mazes at new difficulty
+            renderMazes();
 
-        function savePrintMode(enabled) {
-            localStorage.setItem('mazejs-printMode', enabled ? 'true' : 'false');
-        }
-
-        function loadPrintMode() {
-            const saved = localStorage.getItem('mazejs-printMode');
-            return saved === 'true';
+            // Restore scroll position
+            container.scrollTop = scrollPos;
         }
 
         // Favorites
@@ -446,153 +458,236 @@ endY = artBottom + 2 - endLabelSize * 0;</code>
             localStorage.setItem('mazejs-favorites', JSON.stringify(favs));
         }
 
-        function isFavorited(seed, settings) {
-            const favs = getFavorites();
-            return favs.some(f => f.seed === seed && f.theme === settings.theme &&
-                f.shape === settings.shape && f.difficulty === settings.difficulty &&
-                f.algorithm === settings.algorithm);
+        function isFavorited(seed) {
+            return getFavorites().some(f => f.seed === seed);
         }
 
-        function toggleFavoriteByCache(seed, btn) {
+        function toggleFavorite(seed, btn) {
             const cached = window.mazeCache[seed];
             if (!cached) return;
-            const settings = cached.settings || cached;
+
             let favs = getFavorites();
-            const idx = favs.findIndex(f => f.seed === seed && f.theme === settings.theme &&
-                f.shape === settings.shape && f.difficulty === settings.difficulty &&
-                f.algorithm === settings.algorithm);
+            const idx = favs.findIndex(f => f.seed === seed);
 
             if (idx >= 0) {
                 favs.splice(idx, 1);
                 btn.classList.remove('favorited');
             } else {
-                favs.push({
+                favs.unshift({ // Add to beginning (most recent first)
                     seed,
-                    theme: settings.theme,
-                    shape: settings.shape,
-                    difficulty: settings.difficulty,
-                    algorithm: settings.algorithm
+                    theme: cached.params.theme,
+                    shape: cached.params.shape,
+                    algorithm: cached.params.algorithm,
+                    difficulty: cached.difficulty,
+                    savedAt: Date.now()
                 });
                 btn.classList.add('favorited');
             }
             saveFavorites(favs);
         }
 
-        // Tab switching
-        let currentView = 'gallery';
-
-        function showGallery() {
-            currentView = 'gallery';
-            document.getElementById('gallery').style.display = '';
-            document.getElementById('favoritesGallery').style.display = 'none';
-            document.getElementById('loading').style.display = '';
-            document.getElementById('noFavorites').style.display = 'none';
-            document.getElementById('galleryTab').classList.add('active');
-            document.getElementById('favoritesTab').classList.remove('active');
-        }
-
         function showFavorites() {
-            currentView = 'favorites';
-            document.getElementById('gallery').style.display = 'none';
-            document.getElementById('favoritesGallery').style.display = '';
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('galleryTab').classList.remove('active');
-            document.getElementById('favoritesTab').classList.add('active');
-            renderFavorites();
-        }
-
-        function renderFavorites() {
-            const container = document.getElementById('favoritesGallery');
-            container.innerHTML = '';
+            const section = document.getElementById('favoritesSection');
+            const grid = document.getElementById('favGrid');
+            const noFavs = document.getElementById('noFavs');
             const favs = getFavorites();
 
-            if (favs.length === 0) {
-                document.getElementById('noFavorites').style.display = '';
-                return;
-            }
-            document.getElementById('noFavorites').style.display = 'none';
+            grid.innerHTML = '';
 
-            for (const fav of favs) {
-                const dims = ageDifficulty[fav.difficulty] || ageDifficulty[4];
-                const levelNum = fav.difficulty - 2;
-                const gen = new MazeGenerator(fav.seed);
-                const maze = gen.generateWithStory(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme, false, levelNum);
-                window.mazeCache[fav.seed] = { maze, settings: fav };
-                container.appendChild(createCard(maze, fav.seed, fav));
+            if (favs.length === 0) {
+                noFavs.style.display = 'block';
+            } else {
+                noFavs.style.display = 'none';
+                favs.forEach(fav => {
+                    const dims = DIFFICULTY_SIZES[fav.difficulty] || DIFFICULTY_SIZES[4];
+                    const gen = new MazeGenerator(fav.seed);
+                    const maze = gen.generateWithStory(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme, false, fav.difficulty - 2);
+
+                    const item = document.createElement('div');
+                    item.className = 'fav-item';
+                    item.innerHTML = maze.toSVG(false, false);
+                    item.onclick = () => {
+                        closeFavorites();
+                        scrollToSeed(fav.seed);
+                    };
+                    grid.appendChild(item);
+                });
+            }
+
+            section.classList.add('open');
+
+            // Close on tap outside
+            setTimeout(() => {
+                document.addEventListener('click', closeFavoritesOnOutsideClick);
+            }, 100);
+        }
+
+        function closeFavorites() {
+            document.getElementById('favoritesSection').classList.remove('open');
+            document.removeEventListener('click', closeFavoritesOnOutsideClick);
+        }
+
+        function closeFavoritesOnOutsideClick(e) {
+            if (!e.target.closest('#favoritesSection')) {
+                closeFavorites();
             }
         }
 
-        // Setup
-        document.querySelectorAll('#theme,#shape,#difficulty,#algorithm,#seed').forEach(el => {
-            el.addEventListener('change', debounceRegenerate);
-            el.addEventListener('input', debounceRegenerate);
-        });
+        function scrollToSeed(seed) {
+            // Find or create the maze with this seed
+            let idx = mazeParams.findIndex(p => p.seed === seed);
+            if (idx === -1) {
+                // Add it
+                const fav = getFavorites().find(f => f.seed === seed);
+                if (fav) {
+                    mazeParams.unshift({ seed, theme: fav.theme, shape: fav.shape, algorithm: fav.algorithm });
+                    renderMazes();
+                    idx = 0;
+                }
+            }
+            if (idx >= 0) {
+                document.getElementById('mazeContainer').children[idx].scrollIntoView({ behavior: 'smooth' });
+            }
+        }
 
-        // Print mode toggle
-        const printModeCheckbox = document.getElementById('printMode');
-        printModeCheckbox.checked = loadPrintMode();
-        printModeCheckbox.addEventListener('change', () => {
-            savePrintMode(printModeCheckbox.checked);
-            debounceRegenerate();
-            if (currentView === 'favorites') renderFavorites();
-        });
+        // Action menu
+        function openActionMenu() {
+            document.getElementById('actionMenu').classList.add('open');
+        }
 
-        // Tab default state
-        document.getElementById('galleryTab').classList.add('active');
+        function closeActionMenu() {
+            document.getElementById('actionMenu').classList.remove('open');
+        }
 
-        // Infinite scroll
-        new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting && currentView === 'gallery') loadMoreMazes();
-        }, { threshold: 0.1 }).observe(document.getElementById('loading'));
+        function printColor() {
+            closeActionMenu();
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
 
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSolution(); });
+            const w = window.open('', '_blank');
+            const title = cached.maze.story?.title || 'Maze';
+            w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+                <style>
+                    @page{size:letter;margin:0.4in}
+                    body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+                    svg{max-width:7.2in;max-height:9.2in;width:100%;height:auto}
+                </style></head><body>
+                ${cached.maze.toSVG(false, false)}
+            </body></html>`);
+            w.document.close();
+            setTimeout(() => w.print(), 100);
+        }
 
-        // Debug panel - only show if localStorage.debug is set
-        if (localStorage.getItem('debug')) {
+        function printBW() {
+            closeActionMenu();
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            const w = window.open('', '_blank');
+            const title = cached.maze.story?.title || 'Maze';
+            w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+                <style>
+                    @page{size:letter;margin:0.4in}
+                    body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+                    svg{max-width:7.2in;max-height:9.2in;width:100%;height:auto}
+                </style></head><body>
+                ${cached.maze.toSVG(false, true)}
+            </body></html>`);
+            w.document.close();
+            setTimeout(() => w.print(), 100);
+        }
+
+        function saveToCameraRoll() {
+            closeActionMenu();
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            // Render SVG to high-res PNG
+            const svgString = cached.maze.toSVG(false, false);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // High resolution for print quality
+            const scale = 4;
+            canvas.width = 850 * scale;  // 8.5 inches at 100dpi * scale
+            canvas.height = 1100 * scale; // 11 inches at 100dpi * scale
+
+            const img = new Image();
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+
+            img.onload = () => {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Center the maze
+                const imgAspect = img.width / img.height;
+                const canvasAspect = canvas.width / canvas.height;
+                let drawW, drawH, drawX, drawY;
+
+                if (imgAspect > canvasAspect) {
+                    drawW = canvas.width * 0.9;
+                    drawH = drawW / imgAspect;
+                } else {
+                    drawH = canvas.height * 0.9;
+                    drawW = drawH * imgAspect;
+                }
+                drawX = (canvas.width - drawW) / 2;
+                drawY = (canvas.height - drawH) / 2;
+
+                ctx.drawImage(img, drawX, drawY, drawW, drawH);
+                URL.revokeObjectURL(url);
+
+                // Download as PNG
+                canvas.toBlob(blob => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `maze-${activeMazeId}.png`;
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                }, 'image/png');
+            };
+            img.src = url;
+        }
+
+        function showSolution() {
+            closeActionMenu();
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            document.getElementById('solutionDisplay').innerHTML = cached.maze.toSVG(true, false);
+            document.getElementById('solutionOverlay').classList.add('open');
+        }
+
+        function closeSolution() {
+            document.getElementById('solutionOverlay').classList.remove('open');
+        }
+
+        function showDebugInfo() {
+            closeActionMenu();
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            const debug = generateMazeDebugOutput(cached.maze);
+            document.getElementById('debugContent').textContent = debug;
             document.getElementById('debugPanel').style.display = 'block';
 
-            // Wire up sliders
-            const sliders = ['startScale', 'startY', 'endScale', 'endX', 'endY'];
-            sliders.forEach(id => {
-                const slider = document.getElementById(id);
-                const valSpan = document.getElementById(id + 'Val');
-                slider.addEventListener('input', () => {
-                    valSpan.textContent = slider.value;
-                    updateDebugCode();
-                    // Store values globally for maze.js to use
-                    window.debugLabelSettings = {
-                        startScale: parseFloat(document.getElementById('startScale').value),
-                        startY: parseFloat(document.getElementById('startY').value),
-                        endScale: parseFloat(document.getElementById('endScale').value),
-                        endX: parseFloat(document.getElementById('endX').value),
-                        endY: parseFloat(document.getElementById('endY').value)
-                    };
-                    debounceRegenerate();
-                });
-            });
-
-            function updateDebugCode() {
-                const ss = document.getElementById('startScale').value;
-                const sy = document.getElementById('startY').value;
-                const es = document.getElementById('endScale').value;
-                const ex = document.getElementById('endX').value;
-                const ey = document.getElementById('endY').value;
-                document.getElementById('debugCode').textContent = `// Current values:
-startLabelSize = labelSize * ${ss};
-startY = artBottom + 2 - startLabelSize * ${sy};
-endLabelSize = labelSize * ${es};
-endX = cx - endWidth/2 - letterWidth * ${ex};
-endY = artBottom + 2 - endLabelSize * ${ey};`;
-            }
-
-            // Initialize global settings
-            window.debugLabelSettings = {
-                startScale: 0.67, startY: 0.7, endScale: 0.61, endX: 2.8, endY: 0
-            };
+            // Close on tap
+            setTimeout(() => {
+                document.addEventListener('click', () => {
+                    document.getElementById('debugPanel').style.display = 'none';
+                }, { once: true });
+            }, 100);
         }
 
-        // Initial load
-        loadMoreMazes();
+        // Close overlays on escape
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                closeActionMenu();
+                closeSolution();
+                closeFavorites();
+            }
+        });
     </script>
 </body>
 </html>
