@@ -6,6 +6,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Print A Maze</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
@@ -428,7 +430,7 @@
             const startIdx = mazeParams.length;
             for (let i = 0; i < count; i++) {
                 const seed = startIdx + i + 1;
-                const rng = new SeededRandom(seed);
+                const rng = new window.SeededRandom(seed);
                 mazeParams.push({
                     seed,
                     theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
@@ -450,10 +452,10 @@
 
         function createMazeFrame(params, idx) {
             // Use solution-length-based difficulty normalization
-            const dims = findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
+            const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
             const levelNum = currentDifficulty - 2;
 
-            const gen = new MazeGenerator(params.seed);
+            const gen = new window.MazeGenerator(params.seed);
             const maze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
 
             // Store maze for later use
@@ -623,8 +625,8 @@
                 noFavs.style.display = 'none';
                 favs.forEach(fav => {
                     // Use solution-length-based difficulty normalization
-                    const dims = findOptimalDimensions(fav.seed, fav.difficulty || 4, fav.shape, fav.algorithm);
-                    const gen = new MazeGenerator(fav.seed);
+                    const dims = window.findOptimalDimensions(fav.seed, fav.difficulty || 4, fav.shape, fav.algorithm);
+                    const gen = new window.MazeGenerator(fav.seed);
                     const maze = gen.generateWithStory(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme, false, (fav.difficulty || 4) - 2);
 
                     const item = document.createElement('div');
