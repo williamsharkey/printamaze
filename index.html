@@ -171,6 +171,7 @@
     <header class="header">
         <h1>Print A Maze</h1>
         <select id="theme">
+            <option value="random" selected>Random</option>
             <option value="classic">Classic</option>
             <option value="ocean">Ocean</option>
             <option value="space">Space</option>
@@ -261,6 +262,8 @@
             }, DEBOUNCE_MS);
         }
 
+        const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle'];
+
         function loadMoreMazes() {
             if (isLoading) return;
             isLoading = true;
@@ -273,8 +276,12 @@
             for (let i = 0; i < BATCH_SIZE; i++) {
                 const seed = s.baseSeed + loadedCount;
                 const gen = new MazeGenerator(seed);
-                const maze = gen.generateWithStory(dims.w, dims.h, s.algorithm, s.shape, s.theme, false, levelNum);
-                gallery.appendChild(createCard(maze, seed, s));
+                // Pick random theme if "random" selected, using seed for determinism
+                const rng = new SeededRandom(seed);
+                const actualTheme = s.theme === 'random' ? ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)] : s.theme;
+                const maze = gen.generateWithStory(dims.w, dims.h, s.algorithm, s.shape, actualTheme, false, levelNum);
+                const cardSettings = { ...s, theme: actualTheme, originalTheme: s.theme };
+                gallery.appendChild(createCard(maze, seed, cardSettings));
                 loadedCount++;
             }
             isLoading = false;
@@ -300,25 +307,26 @@
                 <div class="card-info"><strong>${settings.theme}</strong> &bull; Level ${levelNum}</div>
                 <div class="card-actions">
                     ${isEnhanced ? '<span title="Enhanced story" style="font-size:14px;opacity:0.8">✨</span>' : ''}
-                    <button class="favorite-btn ${isFav ? 'favorited' : ''}" onclick="event.stopPropagation();toggleFavorite(${seed},this)" title="Favorite">&#9829;</button>
+                    <button class="favorite-btn ${isFav ? 'favorited' : ''}" onclick="event.stopPropagation();toggleFavoriteByCache(${seed},this)" title="Favorite">&#9829;</button>
                     <button onclick="event.stopPropagation();showSolution(${seed})" title="Solution">&#128269;</button>
-                    <button onclick="event.stopPropagation();printMaze(window.mazeCache[${seed}])" title="Print">&#128424;</button>
-                    <button onclick="event.stopPropagation();downloadMaze(window.mazeCache[${seed}],${seed})" title="Download">&#128190;</button>
+                    <button onclick="event.stopPropagation();printMaze(window.mazeCache[${seed}].maze)" title="Print">&#128424;</button>
+                    <button onclick="event.stopPropagation();downloadMaze(window.mazeCache[${seed}].maze,${seed})" title="Download">&#128190;</button>
                     <button onclick="event.stopPropagation();showDebug(${seed})" title="Debug">&#128736;</button>
                 </div>
             `;
             card.appendChild(footer);
 
             window.mazeCache = window.mazeCache || {};
-            window.mazeCache[seed] = maze;
+            window.mazeCache[seed] = { maze, settings };
 
             return card;
         }
 
         // Debug modal for compact representation
         function showDebug(seed) {
-            const maze = window.mazeCache[seed];
-            if (!maze) return;
+            const cached = window.mazeCache[seed];
+            if (!cached) return;
+            const maze = cached.maze || cached; // Support both old and new cache format
 
             const debugOutput = generateMazeDebugOutput(maze);
             const modal = document.createElement('div');
@@ -342,8 +350,9 @@
         }
 
         function showSolution(seed) {
-            const maze = window.mazeCache[seed];
-            if (maze) {
+            const cached = window.mazeCache[seed];
+            if (cached) {
+                const maze = cached.maze || cached;
                 document.getElementById('solution-display').innerHTML = maze.toSVG(true, getPrintMode());
                 document.getElementById('solution-overlay').classList.add('open');
             }
@@ -410,8 +419,10 @@
                 f.algorithm === settings.algorithm);
         }
 
-        function toggleFavorite(seed, btn) {
-            const settings = getSettings();
+        function toggleFavoriteByCache(seed, btn) {
+            const cached = window.mazeCache[seed];
+            if (!cached) return;
+            const settings = cached.settings || cached;
             let favs = getFavorites();
             const idx = favs.findIndex(f => f.seed === seed && f.theme === settings.theme &&
                 f.shape === settings.shape && f.difficulty === settings.difficulty &&
@@ -472,7 +483,7 @@
                 const levelNum = fav.difficulty - 2;
                 const gen = new MazeGenerator(fav.seed);
                 const maze = gen.generateWithStory(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme, false, levelNum);
-                window.mazeCache[fav.seed] = maze;
+                window.mazeCache[fav.seed] = { maze, settings: fav };
                 container.appendChild(createCard(maze, fav.seed, fav));
             }
         }
