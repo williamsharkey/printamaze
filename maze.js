@@ -98,7 +98,7 @@ const Themes = {
         solutionColor: '#4CAF50',
         startColor: '#4CAF50',
         endColor: '#FF5722',
-        borderPattern: null,
+        borderPattern: 'simple',
         decorations: []
     },
     ocean: {
@@ -160,7 +160,6 @@ const Themes = {
 
 // Art generators (SVG drawing instructions)
 const ArtGenerators = {
-    // Fish - simple line art
     fish: (x, y, size, rng) => {
         const s = size * 0.8;
         const flip = rng.next() > 0.5 ? 1 : -1;
@@ -309,71 +308,81 @@ const ArtGenerators = {
     }
 };
 
-// Border pattern generators
+// Border pattern generators - decorative frames around the maze
 const BorderPatterns = {
-    waves: (width, height, padding) => {
-        let d = '';
-        const waveH = 8;
-        const waveW = 20;
-        // Top
-        for (let x = padding; x < width - padding; x += waveW) {
-            d += `M${x},${padding - waveH/2} Q${x + waveW/2},${padding + waveH/2} ${x + waveW},${padding - waveH/2} `;
+    simple: (width, height, padding, rng) => {
+        // Simple double-line border
+        const inset = 4;
+        return `<rect x="${inset}" y="${inset}" width="${width - inset*2}" height="${height - inset*2}" fill="none" stroke="currentColor" stroke-width="2" rx="3"/>
+                <rect x="${inset + 6}" y="${inset + 6}" width="${width - inset*2 - 12}" height="${height - inset*2 - 12}" fill="none" stroke="currentColor" stroke-width="1" rx="2"/>`;
+    },
+
+    waves: (width, height, padding, rng) => {
+        let svg = '';
+        const waveH = 6;
+        const waveW = 16;
+        // Top and bottom wave borders
+        for (let x = 10; x < width - 10; x += waveW) {
+            svg += `<path d="M${x},8 Q${x + waveW/2},${8 + waveH} ${x + waveW},8" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<path d="M${x},${height-8} Q${x + waveW/2},${height-8-waveH} ${x + waveW},${height-8}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
         }
-        // Bottom
-        for (let x = padding; x < width - padding; x += waveW) {
-            d += `M${x},${height - padding + waveH/2} Q${x + waveW/2},${height - padding - waveH/2} ${x + waveW},${height - padding + waveH/2} `;
-        }
-        return `<path d="${d}" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>`;
+        // Side borders
+        svg += `<line x1="6" y1="15" x2="6" y2="${height-15}" stroke="currentColor" stroke-width="2"/>`;
+        svg += `<line x1="${width-6}" y1="15" x2="${width-6}" y2="${height-15}" stroke="currentColor" stroke-width="2"/>`;
+        return svg;
     },
 
     stars: (width, height, padding, rng) => {
-        let svg = '';
-        for (let i = 0; i < 15; i++) {
-            const x = rng.nextInt(5, width - 5);
-            const y = rng.nextInt(5, padding - 5);
-            const s = rng.nextInt(2, 5);
-            svg += `<circle cx="${x}" cy="${y}" r="${s}" fill="currentColor" opacity="0.2"/>`;
-            svg += `<circle cx="${x}" cy="${height - y}" r="${s}" fill="currentColor" opacity="0.2"/>`;
+        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="2" rx="2"/>`;
+        // Scatter small stars in corners
+        for (let i = 0; i < 8; i++) {
+            const x = rng.nextInt(8, 25);
+            const y = rng.nextInt(8, 25);
+            const s = rng.nextInt(3, 6);
+            svg += `<circle cx="${x}" cy="${y}" r="${s}" fill="currentColor" opacity="0.4"/>`;
+            svg += `<circle cx="${width-x}" cy="${y}" r="${s}" fill="currentColor" opacity="0.4"/>`;
+            svg += `<circle cx="${x}" cy="${height-y}" r="${s}" fill="currentColor" opacity="0.4"/>`;
+            svg += `<circle cx="${width-x}" cy="${height-y}" r="${s}" fill="currentColor" opacity="0.4"/>`;
         }
         return svg;
     },
 
-    vines: (width, height, padding) => {
-        let d = '';
-        // Left vine
-        for (let y = padding; y < height - padding; y += 30) {
-            d += `M${padding/2},${y} Q${padding/2 + 10},${y + 15} ${padding/2},${y + 30} `;
-            d += `M${padding/2},${y + 10} L${padding/2 - 5},${y + 5} M${padding/2},${y + 20} L${padding/2 + 5},${y + 25} `;
+    vines: (width, height, padding, rng) => {
+        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="2" rx="2"/>`;
+        // Left and right vines
+        for (let y = 20; y < height - 20; y += 25) {
+            svg += `<path d="M8,${y} Q15,${y+12} 8,${y+25}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<circle cx="12" cy="${y+8}" r="3" fill="none" stroke="currentColor" stroke-width="1"/>`;
+            svg += `<path d="M${width-8},${y} Q${width-15},${y+12} ${width-8},${y+25}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<circle cx="${width-12}" cy="${y+8}" r="3" fill="none" stroke="currentColor" stroke-width="1"/>`;
         }
-        // Right vine
-        for (let y = padding; y < height - padding; y += 30) {
-            d += `M${width - padding/2},${y} Q${width - padding/2 - 10},${y + 15} ${width - padding/2},${y + 30} `;
-        }
-        return `<path d="${d}" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>`;
+        return svg;
     },
 
-    candy: (width, height, padding) => {
-        let svg = '';
-        const colors = ['#FF69B4', '#FFB6C1', '#FF1493'];
-        for (let x = padding; x < width - padding; x += 25) {
-            svg += `<circle cx="${x}" cy="${padding/2}" r="4" fill="${colors[Math.floor(x/25) % 3]}" opacity="0.4"/>`;
-            svg += `<circle cx="${x}" cy="${height - padding/2}" r="4" fill="${colors[Math.floor(x/25) % 3]}" opacity="0.4"/>`;
+    candy: (width, height, padding, rng) => {
+        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="3" rx="8" stroke-dasharray="12,6"/>`;
+        // Candy dots in corners
+        for (let i = 0; i < 4; i++) {
+            const x = 15 + i * 10;
+            svg += `<circle cx="${x}" cy="15" r="4" fill="currentColor" opacity="0.5"/>`;
+            svg += `<circle cx="${x}" cy="${height-15}" r="4" fill="currentColor" opacity="0.5"/>`;
+            svg += `<circle cx="${width-x}" cy="15" r="4" fill="currentColor" opacity="0.5"/>`;
+            svg += `<circle cx="${width-x}" cy="${height-15}" r="4" fill="currentColor" opacity="0.5"/>`;
         }
         return svg;
     },
 
     leaves: (width, height, padding, rng) => {
-        let svg = '';
-        for (let i = 0; i < 10; i++) {
-            const x = rng.nextInt(5, width - 5);
-            const y = rng.nextInt(5, padding - 5);
+        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="2" rx="2"/>`;
+        // Leaves in corners
+        for (let i = 0; i < 6; i++) {
+            const x = 12 + rng.nextInt(0, 15);
+            const y = 12 + rng.nextInt(0, 15);
             const angle = rng.nextInt(0, 360);
-            svg += `<g transform="translate(${x},${y}) rotate(${angle})" opacity="0.3">
-                <path d="M0,-5 Q3,0 0,5 Q-3,0 0,-5" fill="none" stroke="currentColor" stroke-width="1"/>
-            </g>`;
-            svg += `<g transform="translate(${x},${height-y}) rotate(${angle})" opacity="0.3">
-                <path d="M0,-5 Q3,0 0,5 Q-3,0 0,-5" fill="none" stroke="currentColor" stroke-width="1"/>
-            </g>`;
+            svg += `<g transform="translate(${x},${y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>`;
+            svg += `<g transform="translate(${width-x},${y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>`;
+            svg += `<g transform="translate(${x},${height-y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>`;
+            svg += `<g transform="translate(${width-x},${height-y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>`;
         }
         return svg;
     }
@@ -403,6 +412,7 @@ class Maze {
         this.theme = Themes.classic;
         this.shape = 'rectangle';
         this.rooms = [];
+        this.curvedWalls = false;
 
         for (let y = 0; y < height; y++) {
             const row = [];
@@ -454,7 +464,7 @@ class Maze {
     }
 
     findValidStartEnd(roomSize = 1) {
-        // Find position for start room (top-left area)
+        // Find position for start room (top-left area, on perimeter)
         for (let y = 0; y <= this.height - roomSize; y++) {
             for (let x = 0; x <= this.width - roomSize; x++) {
                 let allClear = true;
@@ -491,10 +501,11 @@ class Maze {
         return this.startPos && this.endPos;
     }
 
-    carveRoom(x, y, size) {
-        // Remove interior walls to create open room
-        for (let dy = 0; dy < size; dy++) {
-            for (let dx = 0; dx < size; dx++) {
+    carveRoom(x, y, w, h) {
+        // Remove interior walls to create open room (supports rectangular rooms)
+        for (let dy = 0; dy < h; dy++) {
+            for (let dx = 0; dx < w; dx++) {
+                if (y + dy >= this.height || x + dx >= this.width) continue;
                 const cell = this.cells[y + dy][x + dx];
                 if (dy > 0) {
                     cell.walls.north = false;
@@ -509,28 +520,31 @@ class Maze {
     }
 
     createEntranceExit() {
-        // Calculate room size based on maze dimensions (larger mazes get larger rooms)
-        const roomSize = Math.max(1, Math.min(3, Math.ceil(Math.min(this.width, this.height) / 8)));
+        // Calculate room size based on maze dimensions - larger for bigger mazes
+        const minDim = Math.min(this.width, this.height);
+        let roomSize = Math.max(2, Math.ceil(minDim / 10));
+        // Cap at reasonable size
+        roomSize = Math.min(roomSize, Math.floor(minDim / 4));
 
         if (!this.findValidStartEnd(roomSize)) return;
 
         this.startRoomSize = roomSize;
         this.endRoomSize = roomSize;
 
-        // Carve start and end rooms if size > 1
-        if (roomSize > 1) {
-            this.carveRoom(this.startPos.x, this.startPos.y, roomSize);
-            this.carveRoom(this.endPos.x, this.endPos.y, roomSize);
-        }
+        // Carve start and end rooms
+        this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
+        this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
 
         // Open start entrance (west wall)
-        const startCell = this.cells[this.startPos.y][this.startPos.x];
-        startCell.walls.west = false;
+        for (let dy = 0; dy < roomSize; dy++) {
+            this.cells[this.startPos.y + dy][this.startPos.x].walls.west = false;
+        }
 
-        // Open end exit (east wall of bottom-right cell of room)
-        const endExitX = this.endPos.x + roomSize - 1;
-        const endExitY = this.endPos.y + roomSize - 1;
-        this.cells[endExitY][endExitX].walls.east = false;
+        // Open end exit (east wall)
+        const endX = this.endPos.x + roomSize - 1;
+        for (let dy = 0; dy < roomSize; dy++) {
+            this.cells[this.endPos.y + dy][endX].walls.east = false;
+        }
 
         this.solution = this.findPath(this.startPos, this.endPos);
     }
@@ -583,54 +597,108 @@ class Maze {
         return null;
     }
 
-    addRooms() {
-        if (this.width < 10 || this.height < 10) return;
+    roomOverlaps(rx, ry, rw, rh, existingRooms, minGap = 3) {
+        // Check if room overlaps with existing rooms (including gap)
+        for (const room of existingRooms) {
+            if (rx + rw + minGap > room.x && rx < room.x + room.w + minGap &&
+                ry + rh + minGap > room.y && ry < room.y + room.h + minGap) {
+                return true;
+            }
+        }
+        // Check overlap with start/end rooms
+        if (this.startPos) {
+            const ss = this.startRoomSize || 2;
+            if (rx + rw + minGap > this.startPos.x && rx < this.startPos.x + ss + minGap &&
+                ry + rh + minGap > this.startPos.y && ry < this.startPos.y + ss + minGap) {
+                return true;
+            }
+        }
+        if (this.endPos) {
+            const es = this.endRoomSize || 2;
+            if (rx + rw + minGap > this.endPos.x && rx < this.endPos.x + es + minGap &&
+                ry + rh + minGap > this.endPos.y && ry < this.endPos.y + es + minGap) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-        const roomSize = Math.max(2, Math.floor(Math.min(this.width, this.height) / 8));
-        const numRooms = Math.min(3, Math.floor((this.width * this.height) / 100));
+    addRooms() {
+        if (this.width < 12 || this.height < 12) return;
+
+        // More rooms for larger mazes
+        const area = this.width * this.height;
+        const numRooms = Math.min(8, Math.max(2, Math.floor(area / 150)));
+
+        // Base room size scales with maze size
+        const baseSize = Math.max(2, Math.ceil(Math.min(this.width, this.height) / 12));
 
         for (let i = 0; i < numRooms; i++) {
-            for (let attempt = 0; attempt < 20; attempt++) {
-                const rx = this.rng.nextInt(2, this.width - roomSize - 2);
-                const ry = this.rng.nextInt(2, this.height - roomSize - 2);
+            for (let attempt = 0; attempt < 30; attempt++) {
+                // Vary room dimensions (sometimes rectangular)
+                const rw = baseSize + (this.rng.next() > 0.7 ? this.rng.nextInt(0, 2) : 0);
+                const rh = baseSize + (this.rng.next() > 0.7 ? this.rng.nextInt(0, 2) : 0);
 
+                const rx = this.rng.nextInt(3, this.width - rw - 3);
+                const ry = this.rng.nextInt(3, this.height - rh - 3);
+
+                // Check all cells are unblocked
                 let canPlace = true;
-                for (let dy = 0; dy < roomSize && canPlace; dy++) {
-                    for (let dx = 0; dx < roomSize && canPlace; dx++) {
+                for (let dy = 0; dy < rh && canPlace; dy++) {
+                    for (let dx = 0; dx < rw && canPlace; dx++) {
                         if (this.cells[ry + dy][rx + dx].blocked) canPlace = false;
                     }
                 }
 
-                // Check not overlapping start/end
-                if (canPlace && this.startPos && this.endPos) {
-                    if (rx <= this.startPos.x && this.startPos.x < rx + roomSize &&
-                        ry <= this.startPos.y && this.startPos.y < ry + roomSize) canPlace = false;
-                    if (rx <= this.endPos.x && this.endPos.x < rx + roomSize &&
-                        ry <= this.endPos.y && this.endPos.y < ry + roomSize) canPlace = false;
+                // Check minimum gap from other rooms
+                if (canPlace && this.roomOverlaps(rx, ry, rw, rh, this.rooms, 3)) {
+                    canPlace = false;
                 }
 
                 if (canPlace) {
-                    // Carve room
-                    for (let dy = 0; dy < roomSize; dy++) {
-                        for (let dx = 0; dx < roomSize; dx++) {
-                            const cell = this.cells[ry + dy][rx + dx];
-                            if (dy > 0) cell.walls.north = false;
-                            if (dy < roomSize - 1) cell.walls.south = false;
-                            if (dx > 0) cell.walls.west = false;
-                            if (dx < roomSize - 1) cell.walls.east = false;
-                        }
-                    }
-                    this.rooms.push({ x: rx, y: ry, size: roomSize });
+                    this.carveRoom(rx, ry, rw, rh);
+                    this.rooms.push({ x: rx, y: ry, w: rw, h: rh, size: Math.max(rw, rh) });
                     break;
                 }
             }
         }
     }
 
+    // Find blocked corner regions for decorations (for non-rectangle shapes)
+    findCornerRegions() {
+        const regions = [];
+        const corners = [
+            { sx: 0, sy: 0, ex: Math.floor(this.width/3), ey: Math.floor(this.height/3) },
+            { sx: Math.floor(this.width*2/3), sy: 0, ex: this.width, ey: Math.floor(this.height/3) },
+            { sx: 0, sy: Math.floor(this.height*2/3), ex: Math.floor(this.width/3), ey: this.height },
+            { sx: Math.floor(this.width*2/3), sy: Math.floor(this.height*2/3), ex: this.width, ey: this.height }
+        ];
+
+        for (const corner of corners) {
+            let blockedCount = 0;
+            let totalCount = 0;
+            for (let y = corner.sy; y < corner.ey; y++) {
+                for (let x = corner.sx; x < corner.ex; x++) {
+                    totalCount++;
+                    if (this.cells[y][x].blocked) blockedCount++;
+                }
+            }
+            // If mostly blocked, it's a corner region
+            if (blockedCount > totalCount * 0.6) {
+                regions.push({
+                    cx: (corner.sx + corner.ex) / 2,
+                    cy: (corner.sy + corner.ey) / 2,
+                    size: Math.min(corner.ex - corner.sx, corner.ey - corner.sy)
+                });
+            }
+        }
+        return regions;
+    }
+
     toSVG(showSolution = false, printMode = false) {
-        const cellSize = Math.min(20, Math.max(10, Math.floor(400 / Math.max(this.width, this.height))));
-        const padding = 30;
-        const strokeWidth = 2;
+        const cellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(this.width, this.height))));
+        const padding = 50; // More padding for labels
+        const strokeWidth = Math.max(1.5, cellSize / 8);
         const mazeWidth = this.width * cellSize;
         const mazeHeight = this.height * cellSize;
         const svgWidth = mazeWidth + padding * 2;
@@ -670,6 +738,22 @@ class Maze {
         }
         svg += '</g>';
 
+        // Corner decorations for non-rectangle shapes
+        if (this.shape !== 'rectangle' && this.theme.decorations && this.theme.decorations.length > 0) {
+            const cornerRegions = this.findCornerRegions();
+            const artColor = printMode ? '#888' : this.theme.wallColor;
+            svg += `<g color="${artColor}">`;
+            for (const region of cornerRegions) {
+                const cx = padding + region.cx * cellSize;
+                const cy = padding + region.cy * cellSize;
+                const artType = this.rng.choice(this.theme.decorations);
+                if (ArtGenerators[artType]) {
+                    svg += ArtGenerators[artType](cx, cy, region.size * cellSize * 0.6, this.rng);
+                }
+            }
+            svg += '</g>';
+        }
+
         // Solution path
         if (showSolution && this.solution && this.solution.length > 0) {
             let pathD = '';
@@ -687,18 +771,86 @@ class Maze {
             const artColor = printMode ? '#888' : this.theme.wallColor;
             svg += `<g color="${artColor}">`;
             for (const room of this.rooms) {
-                const cx = padding + (room.x + room.size / 2) * cellSize;
-                const cy = padding + (room.y + room.size / 2) * cellSize;
+                const cx = padding + (room.x + room.w / 2) * cellSize;
+                const cy = padding + (room.y + room.h / 2) * cellSize;
                 const artType = this.rng.choice(this.theme.decorations);
                 if (ArtGenerators[artType]) {
-                    svg += ArtGenerators[artType](cx, cy, room.size * cellSize, this.rng);
+                    svg += ArtGenerators[artType](cx, cy, Math.min(room.w, room.h) * cellSize, this.rng);
                 }
             }
             svg += '</g>';
         }
 
         // Walls
-        svg += `<g stroke="${theme.wallColor}" stroke-width="${strokeWidth}" stroke-linecap="round">`;
+        if (this.curvedWalls) {
+            svg += this.renderCurvedWalls(cellSize, padding, strokeWidth, theme.wallColor);
+        } else {
+            svg += `<g stroke="${theme.wallColor}" stroke-width="${strokeWidth}" stroke-linecap="round">`;
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    const cell = this.cells[y][x];
+                    if (cell.blocked) continue;
+
+                    const cx = padding + x * cellSize;
+                    const cy = padding + y * cellSize;
+
+                    const northBlocked = y > 0 && this.cells[y-1][x].blocked;
+                    const southBlocked = y < this.height - 1 && this.cells[y+1][x].blocked;
+                    const eastBlocked = x < this.width - 1 && this.cells[y][x+1].blocked;
+                    const westBlocked = x > 0 && this.cells[y][x-1].blocked;
+
+                    if (cell.walls.north || northBlocked) {
+                        svg += `<line x1="${cx}" y1="${cy}" x2="${cx + cellSize}" y2="${cy}"/>`;
+                    }
+                    if ((y === this.height - 1 && cell.walls.south) || southBlocked) {
+                        svg += `<line x1="${cx}" y1="${cy + cellSize}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+                    }
+                    if (cell.walls.west || westBlocked) {
+                        svg += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy + cellSize}"/>`;
+                    }
+                    if ((x === this.width - 1 && cell.walls.east) || eastBlocked) {
+                        svg += `<line x1="${cx + cellSize}" y1="${cy}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+                    }
+                }
+            }
+            svg += '</g>';
+        }
+
+        // Start/End markers - always black, labels outside maze
+        const markerColor = '#000';
+        const fontSize = Math.max(10, Math.floor(padding * 0.35));
+        const arrowSize = Math.max(8, Math.floor(padding * 0.25));
+
+        if (this.startPos) {
+            const roomSize = this.startRoomSize || 2;
+            const roomCenterY = padding + (this.startPos.y + roomSize / 2) * cellSize;
+
+            // Arrow pointing into maze from outside (west side)
+            const arrowX = padding - arrowSize - 6;
+            const arrowY = roomCenterY;
+            svg += `<polygon points="${arrowX},${arrowY - arrowSize/2} ${arrowX},${arrowY + arrowSize/2} ${arrowX + arrowSize},${arrowY}" fill="${markerColor}"/>`;
+            svg += `<text x="${arrowX - 6}" y="${arrowY + fontSize/3}" text-anchor="end" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="${markerColor}">START</text>`;
+        }
+
+        if (this.endPos) {
+            const roomSize = this.endRoomSize || 2;
+            const roomCenterY = padding + (this.endPos.y + roomSize / 2) * cellSize;
+
+            // Arrow pointing out of maze to outside (east side)
+            const arrowX = padding + this.width * cellSize + 6;
+            const arrowY = roomCenterY;
+            svg += `<polygon points="${arrowX},${arrowY - arrowSize/2} ${arrowX},${arrowY + arrowSize/2} ${arrowX + arrowSize},${arrowY}" fill="${markerColor}"/>`;
+            svg += `<text x="${arrowX + arrowSize + 6}" y="${arrowY + fontSize/3}" text-anchor="start" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="${markerColor}">END</text>`;
+        }
+
+        svg += '</svg>';
+        return svg;
+    }
+
+    renderCurvedWalls(cellSize, padding, strokeWidth, wallColor) {
+        const r = cellSize / 2; // Curve radius
+        let paths = [];
+
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 const cell = this.cells[y][x];
@@ -706,64 +858,54 @@ class Maze {
 
                 const cx = padding + x * cellSize;
                 const cy = padding + y * cellSize;
+                const midX = cx + cellSize / 2;
+                const midY = cy + cellSize / 2;
 
-                // Check neighbors
-                const northBlocked = y > 0 && this.cells[y-1][x].blocked;
-                const southBlocked = y < this.height - 1 && this.cells[y+1][x].blocked;
-                const eastBlocked = x < this.width - 1 && this.cells[y][x+1].blocked;
-                const westBlocked = x > 0 && this.cells[y][x-1].blocked;
+                const n = cell.walls.north || (y > 0 && this.cells[y-1][x].blocked);
+                const s = cell.walls.south || (y < this.height - 1 && this.cells[y+1][x].blocked) || y === this.height - 1;
+                const e = cell.walls.east || (x < this.width - 1 && this.cells[y][x+1].blocked) || x === this.width - 1;
+                const w = cell.walls.west || (x > 0 && this.cells[y][x-1].blocked);
 
-                // North wall
-                if (cell.walls.north || northBlocked) {
-                    svg += `<line x1="${cx}" y1="${cy}" x2="${cx + cellSize}" y2="${cy}"/>`;
+                // Draw curved corners based on wall configuration
+                // NW corner
+                if (n && w) {
+                    paths.push(`M${cx},${midY} Q${cx},${cy} ${midX},${cy}`);
+                } else if (n) {
+                    paths.push(`M${cx},${cy} L${midX},${cy}`);
+                } else if (w) {
+                    paths.push(`M${cx},${cy} L${cx},${midY}`);
                 }
-                // South wall
-                if ((y === this.height - 1 && cell.walls.south) || southBlocked) {
-                    svg += `<line x1="${cx}" y1="${cy + cellSize}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+
+                // NE corner
+                if (n && e) {
+                    paths.push(`M${midX},${cy} Q${cx+cellSize},${cy} ${cx+cellSize},${midY}`);
+                } else if (n) {
+                    paths.push(`M${midX},${cy} L${cx+cellSize},${cy}`);
+                } else if (e) {
+                    paths.push(`M${cx+cellSize},${cy} L${cx+cellSize},${midY}`);
                 }
-                // West wall
-                if (cell.walls.west || westBlocked) {
-                    svg += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy + cellSize}"/>`;
+
+                // SW corner
+                if (s && w) {
+                    paths.push(`M${cx},${midY} Q${cx},${cy+cellSize} ${midX},${cy+cellSize}`);
+                } else if (s) {
+                    paths.push(`M${cx},${cy+cellSize} L${midX},${cy+cellSize}`);
+                } else if (w) {
+                    paths.push(`M${cx},${midY} L${cx},${cy+cellSize}`);
                 }
-                // East wall
-                if ((x === this.width - 1 && cell.walls.east) || eastBlocked) {
-                    svg += `<line x1="${cx + cellSize}" y1="${cy}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+
+                // SE corner
+                if (s && e) {
+                    paths.push(`M${midX},${cy+cellSize} Q${cx+cellSize},${cy+cellSize} ${cx+cellSize},${midY}`);
+                } else if (s) {
+                    paths.push(`M${midX},${cy+cellSize} L${cx+cellSize},${cy+cellSize}`);
+                } else if (e) {
+                    paths.push(`M${cx+cellSize},${midY} L${cx+cellSize},${cy+cellSize}`);
                 }
             }
         }
-        svg += '</g>';
 
-        // Start/End markers - always black, labels outside maze
-        const markerColor = '#000';
-        const fontSize = Math.max(8, Math.floor(cellSize * 0.5));
-        const arrowSize = Math.max(6, Math.floor(cellSize * 0.4));
-
-        if (this.startPos) {
-            const roomSize = this.startRoomSize || 1;
-            const roomCenterX = padding + (this.startPos.x + roomSize / 2) * cellSize;
-            const roomCenterY = padding + (this.startPos.y + roomSize / 2) * cellSize;
-
-            // Arrow pointing into maze from outside (west side)
-            const arrowX = padding - arrowSize - 4;
-            const arrowY = roomCenterY;
-            svg += `<polygon points="${arrowX},${arrowY - arrowSize/2} ${arrowX},${arrowY + arrowSize/2} ${arrowX + arrowSize},${arrowY}" fill="${markerColor}"/>`;
-            svg += `<text x="${arrowX - 4}" y="${arrowY + fontSize/3}" text-anchor="end" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="${markerColor}">START</text>`;
-        }
-
-        if (this.endPos) {
-            const roomSize = this.endRoomSize || 1;
-            const roomCenterX = padding + (this.endPos.x + roomSize / 2) * cellSize;
-            const roomCenterY = padding + (this.endPos.y + roomSize / 2) * cellSize;
-
-            // Arrow pointing out of maze to outside (east side)
-            const arrowX = padding + this.width * cellSize + 4;
-            const arrowY = roomCenterY;
-            svg += `<polygon points="${arrowX},${arrowY - arrowSize/2} ${arrowX},${arrowY + arrowSize/2} ${arrowX + arrowSize},${arrowY}" fill="${markerColor}"/>`;
-            svg += `<text x="${arrowX + arrowSize + 4}" y="${arrowY + fontSize/3}" text-anchor="start" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="${markerColor}">END</text>`;
-        }
-
-        svg += '</svg>';
-        return svg;
+        return `<g stroke="${wallColor}" stroke-width="${strokeWidth}" stroke-linecap="round" fill="none">${paths.map(d => `<path d="${d}"/>`).join('')}</g>`;
     }
 }
 
@@ -773,9 +915,10 @@ class MazeGenerator {
         this.rng = new SeededRandom(seed);
     }
 
-    generate(width, height, algorithm = 'recursive_backtracker', shape = 'rectangle', themeName = 'classic') {
+    generate(width, height, algorithm = 'recursive_backtracker', shape = 'rectangle', themeName = 'classic', curved = false) {
         const maze = new Maze(width, height, this.rng);
         maze.theme = Themes[themeName] || Themes.classic;
+        maze.curvedWalls = curved;
 
         // Apply shape mask
         maze.applyShapeMask(shape);
@@ -790,7 +933,7 @@ class MazeGenerator {
             default: this.recursiveBacktracker(maze);
         }
 
-        // Add rooms
+        // Add interior rooms
         maze.addRooms();
 
         // Create entrance/exit
