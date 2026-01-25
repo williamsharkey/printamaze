@@ -1892,6 +1892,20 @@ class Maze {
             svg += '</g>';
         }
 
+        // Helper to check if a cell is inside start or end room
+        const isInStartRoom = (x, y) => {
+            if (!this.startPos) return false;
+            const rs = this.startRoomSize || 2;
+            return x >= this.startPos.x && x < this.startPos.x + rs &&
+                   y >= this.startPos.y && y < this.startPos.y + rs;
+        };
+        const isInEndRoom = (x, y) => {
+            if (!this.endPos) return false;
+            const rs = this.endRoomSize || 2;
+            return x >= this.endPos.x && x < this.endPos.x + rs &&
+                   y >= this.endPos.y && y < this.endPos.y + rs;
+        };
+
         // Walls
         if (this.curvedWalls) {
             svg += this.renderCurvedWalls(cellSize, sidePadding, topPadding, strokeWidth, theme.wallColor);
@@ -1902,6 +1916,11 @@ class Maze {
                     const cell = this.cells[y][x];
                     if (cell.blocked) continue;
 
+                    // For cells inside start/end rooms, skip ALL interior walls
+                    // (walls facing blocked cells are ok since they define the room boundary visible outside the artwork)
+                    const inStartRoom = isInStartRoom(x, y);
+                    const inEndRoom = isInEndRoom(x, y);
+
                     const cx = sidePadding + x * cellSize;
                     const cy = topPadding + y * cellSize;
 
@@ -1910,17 +1929,37 @@ class Maze {
                     const eastBlocked = x < this.width - 1 && this.cells[y][x+1].blocked;
                     const westBlocked = x > 0 && this.cells[y][x-1].blocked;
 
+                    // For start/end rooms: skip internal walls between room cells
+                    // Draw walls only at room perimeter (where neighbor is NOT in same room)
                     if (cell.walls.north || northBlocked) {
-                        svg += `<line x1="${cx}" y1="${cy}" x2="${cx + cellSize}" y2="${cy}"/>`;
+                        // Skip if both cells are in the same room
+                        if (!((inStartRoom && isInStartRoom(x, y-1)) || (inEndRoom && isInEndRoom(x, y-1)))) {
+                            // For end room cells facing blocked cells, also skip to avoid artwork overlap
+                            if (!(inEndRoom && northBlocked)) {
+                                svg += `<line x1="${cx}" y1="${cy}" x2="${cx + cellSize}" y2="${cy}"/>`;
+                            }
+                        }
                     }
                     if ((y === this.height - 1 && cell.walls.south) || southBlocked) {
-                        svg += `<line x1="${cx}" y1="${cy + cellSize}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+                        if (!((inStartRoom && isInStartRoom(x, y+1)) || (inEndRoom && isInEndRoom(x, y+1)))) {
+                            if (!(inEndRoom && southBlocked)) {
+                                svg += `<line x1="${cx}" y1="${cy + cellSize}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+                            }
+                        }
                     }
                     if (cell.walls.west || westBlocked) {
-                        svg += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy + cellSize}"/>`;
+                        if (!((inStartRoom && isInStartRoom(x-1, y)) || (inEndRoom && isInEndRoom(x-1, y)))) {
+                            if (!(inEndRoom && westBlocked)) {
+                                svg += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy + cellSize}"/>`;
+                            }
+                        }
                     }
                     if ((x === this.width - 1 && cell.walls.east) || eastBlocked) {
-                        svg += `<line x1="${cx + cellSize}" y1="${cy}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+                        if (!((inStartRoom && isInStartRoom(x+1, y)) || (inEndRoom && isInEndRoom(x+1, y)))) {
+                            if (!(inEndRoom && eastBlocked)) {
+                                svg += `<line x1="${cx + cellSize}" y1="${cy}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+                            }
+                        }
                     }
                 }
             }
