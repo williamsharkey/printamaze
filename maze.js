@@ -1562,6 +1562,14 @@ class Maze {
         // Shuffle positions for randomness
         const shuffled = this.rng.shuffle([...perimeterPositions]);
 
+        // Need at least 2 positions for start and end
+        if (shuffled.length < 2) {
+            // Not enough room for start/end - use any valid cells as fallback
+            this.startPos = shuffled[0] || null;
+            this.endPos = shuffled[1] || shuffled[0] || null;
+            return this.startPos && this.endPos;
+        }
+
         // Pick start position randomly
         this.startPos = shuffled[0];
 
@@ -1627,7 +1635,16 @@ class Maze {
         const minDim = Math.min(this.width, this.height);
         let roomSize = minDim >= 30 ? 3 : 2;
 
-        if (!this.findValidStartEnd(roomSize)) return;
+        if (!this.findValidStartEnd(roomSize)) {
+            // Try with smaller room size
+            roomSize = 1;
+            if (!this.findValidStartEnd(roomSize)) return;
+        }
+
+        // Validate positions exist and are within bounds
+        if (!this.startPos || !this.endPos) return;
+        if (this.startPos.y + roomSize > this.height || this.startPos.x + roomSize > this.width) return;
+        if (this.endPos.y + roomSize > this.height || this.endPos.x + roomSize > this.width) return;
 
         this.startRoomSize = roomSize;
         this.endRoomSize = roomSize;
@@ -1636,15 +1653,21 @@ class Maze {
         this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
         this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
 
-        // Open start entrance (west wall)
+        // Open start entrance (west wall) - with bounds check
         for (let dy = 0; dy < roomSize; dy++) {
-            this.cells[this.startPos.y + dy][this.startPos.x].walls.west = false;
+            const y = this.startPos.y + dy;
+            if (y < this.height && this.cells[y] && this.cells[y][this.startPos.x]) {
+                this.cells[y][this.startPos.x].walls.west = false;
+            }
         }
 
-        // Open end exit (east wall)
+        // Open end exit (east wall) - with bounds check
         const endX = this.endPos.x + roomSize - 1;
         for (let dy = 0; dy < roomSize; dy++) {
-            this.cells[this.endPos.y + dy][endX].walls.east = false;
+            const y = this.endPos.y + dy;
+            if (y < this.height && this.cells[y] && this.cells[y][endX]) {
+                this.cells[y][endX].walls.east = false;
+            }
         }
 
         this.solution = this.findPath(this.startPos, this.endPos);
