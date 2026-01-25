@@ -2638,15 +2638,16 @@ class StoryGenerator {
         const theme = Themes[themeName] || Themes.classic;
 
         // Select template type based on difficulty
+        // Note: 'avoid' and 'full' templates mention dangers that aren't drawn,
+        // so we only use 'simple', 'collect', and 'collectTwo'
         let templateType;
         if (difficulty <= 3) {
             templateType = 'simple';
         } else if (difficulty <= 5) {
-            templateType = this.rng.next() > 0.5 ? 'collect' : 'avoid';
-        } else if (difficulty <= 7) {
-            templateType = 'collectTwo';
+            templateType = 'collect';
         } else {
-            templateType = 'full';
+            // Level 6+ uses collectTwo (two items to find)
+            templateType = 'collectTwo';
         }
 
         const templates = StoryTemplates[templateType];

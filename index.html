@@ -101,6 +101,24 @@
         }
         .heart-btn.favorited { opacity: 1; color: #e74c3c; }
 
+        /* Favorites button - upper left */
+        .favs-btn {
+            position: absolute;
+            top: max(15px, env(safe-area-inset-top));
+            left: max(15px, env(safe-area-inset-left));
+            width: 44px;
+            height: 44px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.4;
+            z-index: 10;
+            -webkit-tap-highlight-color: transparent;
+            color: #fff;
+        }
+        .favs-btn:active { opacity: 0.8; }
+
         /* Level indicator - subtle */
         .level-indicator {
             position: absolute;
@@ -457,6 +475,17 @@
             };
             frame.appendChild(heart);
 
+            // Favorites button (upper left) - shows favorites drawer
+            const favsBtn = document.createElement('button');
+            favsBtn.className = 'favs-btn';
+            favsBtn.innerHTML = '↑';
+            favsBtn.onclick = (e) => {
+                e.stopPropagation();
+                document.getElementById('mazeContainer').scrollTo({ top: 0, behavior: 'smooth' });
+                setTimeout(showFavorites, 300);
+            };
+            frame.appendChild(favsBtn);
+
             // Minus button (decrease difficulty) - hidden at minimum
             if (currentDifficulty > 3) {
                 const minusBtn = document.createElement('button');
@@ -713,12 +742,38 @@
             const cached = window.mazeCache[activeMazeId];
             if (!cached) return;
 
+            // Auto-favorite when printing
+            autoFavorite(activeMazeId);
+
             const printContent = document.getElementById('printContent');
             printContent.innerHTML = cached.maze.toSVG(false, bwMode);
             document.getElementById('printOverlay').classList.add('open');
 
             // Trigger print dialog after a short delay
             setTimeout(() => window.print(), 100);
+        }
+
+        // Auto-favorite a maze (if not already favorited)
+        function autoFavorite(seed) {
+            if (isFavorited(seed)) return;
+            const cached = window.mazeCache[seed];
+            if (!cached) return;
+
+            let favs = getFavorites();
+            favs.unshift({
+                seed: seed,
+                theme: cached.params.theme,
+                shape: cached.params.shape,
+                algorithm: cached.params.algorithm,
+                difficulty: cached.difficulty,
+                savedAt: Date.now()
+            });
+            saveFavorites(favs);
+
+            // Update heart button if visible
+            const frame = document.querySelector(`.maze-frame[data-seed="${seed}"]`);
+            const heartBtn = frame ? frame.querySelector('.heart-btn') : null;
+            if (heartBtn) heartBtn.classList.add('favorited');
         }
 
         function closePrintMode() {
@@ -749,6 +804,9 @@
             closeActionMenu();
             const cached = window.mazeCache[activeMazeId];
             if (!cached) return;
+
+            // Auto-favorite when saving
+            autoFavorite(activeMazeId);
 
             // Render SVG to high-res PNG
             const svgString = cached.maze.toSVG(false, false);
