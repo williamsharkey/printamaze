@@ -651,9 +651,10 @@ class Maze {
         // Background
         svg += `<rect width="${svgWidth}" height="${svgHeight}" fill="${theme.bgColor}"/>`;
 
-        // Border pattern (skip in print mode)
-        if (!printMode && this.theme.borderPattern && BorderPatterns[this.theme.borderPattern]) {
-            svg += `<g color="${this.theme.wallColor}">${BorderPatterns[this.theme.borderPattern](svgWidth, svgHeight, padding, this.rng)}</g>`;
+        // Border pattern (gray in print mode)
+        if (this.theme.borderPattern && BorderPatterns[this.theme.borderPattern]) {
+            const borderColor = printMode ? '#aaa' : this.theme.wallColor;
+            svg += `<g color="${borderColor}">${BorderPatterns[this.theme.borderPattern](svgWidth, svgHeight, padding, this.rng)}</g>`;
         }
 
         // Cell backgrounds (white for maze area)
@@ -681,9 +682,10 @@ class Maze {
             svg += `<path d="${pathD}" fill="none" stroke="${theme.solutionColor}" stroke-width="${cellSize * 0.3}" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>`;
         }
 
-        // Room decorations (skip in print mode)
-        if (!printMode && this.theme.decorations && this.theme.decorations.length > 0) {
-            svg += `<g color="${this.theme.wallColor}">`;
+        // Room decorations (gray in print mode)
+        if (this.theme.decorations && this.theme.decorations.length > 0) {
+            const artColor = printMode ? '#888' : this.theme.wallColor;
+            svg += `<g color="${artColor}">`;
             for (const room of this.rooms) {
                 const cx = padding + (room.x + room.size / 2) * cellSize;
                 const cy = padding + (room.y + room.size / 2) * cellSize;
