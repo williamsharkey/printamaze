@@ -1551,7 +1551,7 @@ class Maze {
 
         // Use debug settings if available, otherwise defaults
         const dbg = (typeof window !== 'undefined' && window.debugLabelSettings) || {
-            startScale: 0.67, startY: 0.7, endScale: 0.61, endX: 2.8, endY: 0
+            startScale: 0.67, startY: 0.7, endScale: 0.61, endX: 2.8, endY: 1.0
         };
 
         if (this.startPos) {
@@ -1729,52 +1729,52 @@ const TitleTemplates = [
 // Theme-specific story vocabulary
 const ThemeVocabulary = {
     classic: {
-        characters: ["explorer", "adventurer", "traveler", "seeker"],
-        items: ["key", "map", "compass", "torch", "rope", "coin"],
-        dangers: ["trap", "dead end", "wrong turn", "locked gate"],
-        goals: ["exit", "treasure", "finish line", "golden key"],
-        adjectives: ["Amazing", "Mystery", "Secret", "Great"],
-        nouns: ["Maze", "Labyrinth", "Quest", "Adventure"]
+        characters: ["explorer", "adventurer", "traveler", "seeker", "brave knight", "clever mouse", "young hero", "treasure hunter", "maze runner", "curious cat", "little wizard", "friendly ghost"],
+        items: ["key", "map", "compass", "torch", "rope", "coin", "magic gem", "golden ring", "silver bell", "enchanted scroll", "mystery box", "lucky charm", "glowing orb", "ancient relic"],
+        dangers: ["trap", "dead end", "wrong turn", "locked gate", "falling boulder", "hidden pit", "spinning blade", "poison dart"],
+        goals: ["exit", "treasure", "finish line", "golden key", "magic portal", "royal crown", "crystal throne", "wizard tower", "dragon egg", "enchanted castle", "secret garden", "diamond vault"],
+        adjectives: ["Amazing", "Mystery", "Secret", "Great", "Enchanted", "Hidden", "Magical", "Legendary"],
+        nouns: ["Maze", "Labyrinth", "Quest", "Adventure", "Journey", "Puzzle", "Challenge", "Escape"]
     },
     ocean: {
-        characters: ["diver", "mermaid", "sailor", "sea turtle", "dolphin"],
-        items: ["pearl", "shell", "starfish", "treasure map", "golden compass", "magic conch"],
-        dangers: ["jellyfish", "shark", "whirlpool", "sea urchin", "giant squid"],
-        goals: ["treasure chest", "sunken ship", "coral palace", "mermaid kingdom"],
-        adjectives: ["Deep", "Ocean", "Underwater", "Coral"],
-        nouns: ["Dive", "Sea", "Reef", "Voyage"]
+        characters: ["diver", "mermaid", "sailor", "sea turtle", "dolphin", "pirate captain", "submarine pilot", "octopus", "seahorse", "brave fish", "pearl diver", "ocean princess", "friendly whale", "crab explorer"],
+        items: ["pearl", "shell", "starfish", "treasure map", "golden compass", "magic conch", "trident piece", "mermaid scale", "coral key", "ocean gem", "message bottle", "anchor charm", "sea crystal", "glowing jellyfish"],
+        dangers: ["jellyfish", "shark", "whirlpool", "sea urchin", "giant squid", "electric eel", "sea monster", "pirate ship", "undertow", "poison fish"],
+        goals: ["treasure chest", "sunken ship", "coral palace", "mermaid kingdom", "underwater cave", "pirate gold", "sea dragon lair", "neptune throne", "pearl palace", "shipwreck treasure", "ocean crystal", "atlantis gates"],
+        adjectives: ["Deep", "Ocean", "Underwater", "Coral", "Sunken", "Mystic", "Tropical", "Azure"],
+        nouns: ["Dive", "Sea", "Reef", "Voyage", "Depths", "Tides", "Waves", "Abyss"]
     },
     space: {
-        characters: ["astronaut", "space explorer", "robot", "alien friend", "star pilot"],
-        items: ["fuel cell", "oxygen tank", "star map", "crystal", "power core", "data chip"],
-        dangers: ["asteroid", "black hole", "space junk", "meteor shower", "alien trap"],
-        goals: ["space station", "home planet", "mother ship", "warp gate"],
-        adjectives: ["Cosmic", "Stellar", "Galactic", "Space"],
-        nouns: ["Mission", "Voyage", "Station", "Galaxy"]
+        characters: ["astronaut", "space explorer", "robot", "alien friend", "star pilot", "moon walker", "comet chaser", "galaxy ranger", "space cadet", "rocket captain", "android buddy", "cosmic cat", "nebula fairy", "planet hopper"],
+        items: ["fuel cell", "oxygen tank", "star map", "crystal", "power core", "data chip", "moon rock", "comet dust", "alien artifact", "plasma orb", "gravity boots", "laser key", "cosmic compass", "stardust vial"],
+        dangers: ["asteroid", "black hole", "space junk", "meteor shower", "alien trap", "solar flare", "gravity well", "space pirates", "rogue comet", "ion storm"],
+        goals: ["space station", "home planet", "mother ship", "warp gate", "moon base", "alien city", "star fortress", "cosmic treasure", "galactic core", "nebula heart", "saturn rings", "mars colony"],
+        adjectives: ["Cosmic", "Stellar", "Galactic", "Space", "Astro", "Lunar", "Solar", "Nebula"],
+        nouns: ["Mission", "Voyage", "Station", "Galaxy", "Orbit", "Frontier", "Odyssey", "Discovery"]
     },
     garden: {
-        characters: ["bee", "butterfly", "ladybug", "garden fairy", "little gardener"],
-        items: ["nectar", "pollen", "flower seed", "dewdrop", "golden petal", "honey"],
-        dangers: ["spider", "wasp", "thorn", "raindrop", "garden snake"],
-        goals: ["flower garden", "beehive", "fairy house", "rainbow flower"],
-        adjectives: ["Blooming", "Garden", "Flower", "Secret"],
-        nouns: ["Garden", "Meadow", "Bloom", "Grove"]
+        characters: ["bee", "butterfly", "ladybug", "garden fairy", "little gardener", "friendly snail", "busy ant", "cheerful caterpillar", "wise owl", "hopping bunny", "flower sprite", "tiny mouse", "garden gnome", "dragonfly"],
+        items: ["nectar", "pollen", "flower seed", "dewdrop", "golden petal", "honey", "magic acorn", "rainbow leaf", "sparkle dust", "berry basket", "watering can", "sun crystal", "moon blossom", "fairy wand"],
+        dangers: ["spider", "wasp", "thorn", "raindrop", "garden snake", "hungry crow", "lawn mower", "pesky beetle", "sticky web", "frost patch"],
+        goals: ["flower garden", "beehive", "fairy house", "rainbow flower", "mushroom village", "sunflower tower", "butterfly palace", "honey fountain", "rose castle", "treehouse", "daisy meadow", "enchanted pond"],
+        adjectives: ["Blooming", "Garden", "Flower", "Secret", "Magical", "Sunny", "Rainbow", "Enchanted"],
+        nouns: ["Garden", "Meadow", "Bloom", "Grove", "Glade", "Orchard", "Petal", "Blossom"]
     },
     candy: {
-        characters: ["gingerbread kid", "candy fairy", "sugar sprite", "lollipop friend"],
-        items: ["gumdrop", "candy cane", "chocolate coin", "sugar crystal", "magic sprinkle"],
-        dangers: ["sour candy", "sticky taffy", "melting chocolate", "sugar crash"],
-        goals: ["candy castle", "chocolate fountain", "gummy palace", "sweet shop"],
-        adjectives: ["Sweet", "Candy", "Sugar", "Yummy"],
-        nouns: ["Kingdom", "Factory", "Land", "Palace"]
+        characters: ["gingerbread kid", "candy fairy", "sugar sprite", "lollipop friend", "chocolate bunny", "gumdrop wizard", "cookie monster", "marshmallow man", "jelly bean hero", "peppermint princess", "caramel cat", "licorice lion", "cupcake kid", "donut detective"],
+        items: ["gumdrop", "candy cane", "chocolate coin", "sugar crystal", "magic sprinkle", "rainbow lollipop", "golden wrapper", "fizzy pop", "jelly key", "caramel gem", "cookie crumb", "frosting star", "bubble gum", "cotton candy cloud"],
+        dangers: ["sour candy", "sticky taffy", "melting chocolate", "sugar crash", "jawbreaker", "spicy cinnamon", "bitter lemon", "rock candy trap", "gooey caramel", "fizzy explosion"],
+        goals: ["candy castle", "chocolate fountain", "gummy palace", "sweet shop", "ice cream mountain", "lollipop forest", "cookie kingdom", "cake tower", "soda springs", "sugar plum throne", "donut palace", "waffle wonderland"],
+        adjectives: ["Sweet", "Candy", "Sugar", "Yummy", "Tasty", "Delicious", "Frosted", "Sprinkled"],
+        nouns: ["Kingdom", "Factory", "Land", "Palace", "Bakery", "Wonderland", "Paradise", "Dreams"]
     },
     jungle: {
-        characters: ["explorer", "baby monkey", "parrot", "jungle kid", "tree frog"],
-        items: ["golden idol", "ancient map", "magic fruit", "vine rope", "jungle gem"],
-        dangers: ["quicksand", "snake", "spider web", "falling rock", "thorny bush"],
-        goals: ["hidden temple", "treetop village", "ancient ruins", "jungle treasure"],
-        adjectives: ["Wild", "Jungle", "Lost", "Ancient"],
-        nouns: ["Temple", "Jungle", "Safari", "Expedition"]
+        characters: ["explorer", "baby monkey", "parrot", "jungle kid", "tree frog", "tiger cub", "sloth friend", "toucan", "jungle princess", "brave jaguar", "little elephant", "snake charmer", "gorilla guide", "lemur"],
+        items: ["golden idol", "ancient map", "magic fruit", "vine rope", "jungle gem", "tribal mask", "feather crown", "crystal skull", "monkey paw", "tiger tooth", "exotic flower", "sacred stone", "jungle compass", "banana bunch"],
+        dangers: ["quicksand", "snake", "spider web", "falling rock", "thorny bush", "angry bees", "crocodile", "poison frog", "venus flytrap", "stampede"],
+        goals: ["hidden temple", "treetop village", "ancient ruins", "jungle treasure", "waterfall cave", "monkey kingdom", "lost city", "tiger shrine", "emerald throne", "canopy castle", "river palace", "volcano treasure"],
+        adjectives: ["Wild", "Jungle", "Lost", "Ancient", "Hidden", "Tropical", "Mystic", "Untamed"],
+        nouns: ["Temple", "Jungle", "Safari", "Expedition", "Adventure", "Discovery", "Treasure", "Quest"]
     }
 };
 
@@ -2933,7 +2933,7 @@ function getLayoutMetrics(maze) {
         const letterWidth = endWidth / 3;
         const artBottom = cy + roomSize * cellSize * 0.36;
         const endX = cx - endWidth / 2 - letterWidth * 2.8;
-        const endY = artBottom + 2 - endLabelSize * 0;
+        const endY = artBottom + 2 - endLabelSize * 1.0;
 
         endBounds = {
             left: endX,
