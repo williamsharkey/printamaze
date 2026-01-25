@@ -65,7 +65,7 @@ const VectorFont = {
     },
 
     // Render text as SVG path
-    renderText(text, x, y, height, color = '#000', strokeWidth = 1.5) {
+    renderText(text, x, y, height, color = '#000', strokeWidth = 1.0) {
         const scale = height / this.charHeight;
         const charW = this.charWidth * scale;
         const spacing = charW * 0.2;
@@ -100,7 +100,7 @@ const VectorFont = {
     },
 
     // Render text centered at position
-    renderCentered(text, centerX, y, height, color = '#000', strokeWidth = 1.5) {
+    renderCentered(text, centerX, y, height, color = '#000', strokeWidth = 1.0) {
         const width = this.measureText(text, height);
         return this.renderText(text, centerX - width / 2, y, height, color, strokeWidth);
     }
@@ -188,6 +188,388 @@ const ShapeMasks = {
         const dx = Math.abs(x - cx) / cx;
         const dy = Math.abs(y - cy) / cy;
         return dx + dy <= 1;
+    },
+
+    // Triangle pointing up
+    triangle: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        const halfWidth = 0.5 * (1 - ny);
+        return nx >= 0.5 - halfWidth && nx <= 0.5 + halfWidth;
+    },
+
+    // Oval (taller ellipse)
+    oval: (x, y, w, h) => {
+        const cx = (w - 1) / 2;
+        const cy = (h - 1) / 2;
+        const rx = w / 2.5;
+        const ry = h / 2;
+        const dx = (x - cx) / rx;
+        const dy = (y - cy) / ry;
+        return dx * dx + dy * dy <= 1;
+    },
+
+    // Cross/Plus shape
+    cross: (x, y, w, h) => {
+        const nx = Math.abs(x - (w - 1) / 2) / ((w - 1) / 2);
+        const ny = Math.abs(y - (h - 1) / 2) / ((h - 1) / 2);
+        return nx <= 0.35 || ny <= 0.35;
+    },
+
+    // Arrow pointing up
+    arrow: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Arrow head (top portion)
+        if (ny <= 0.5) {
+            const halfWidth = 0.5 * (1 - ny * 2);
+            return nx >= 0.5 - halfWidth && nx <= 0.5 + halfWidth;
+        }
+        // Arrow shaft
+        return nx >= 0.35 && nx <= 0.65;
+    },
+
+    // Crescent moon
+    moon: (x, y, w, h) => {
+        const cx = (w - 1) / 2;
+        const cy = (h - 1) / 2;
+        const r = Math.min(w, h) / 2;
+        const dx1 = x - cx;
+        const dy1 = y - cy;
+        const dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+        const dx2 = x - (cx + r * 0.4);
+        const dy2 = y - cy;
+        const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+        return dist1 <= r && dist2 > r * 0.85;
+    },
+
+    // Cloud shape
+    cloud: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Multiple overlapping circles
+        const c1 = Math.pow(nx - 0.3, 2) + Math.pow(ny - 0.6, 2) <= 0.08;
+        const c2 = Math.pow(nx - 0.5, 2) + Math.pow(ny - 0.5, 2) <= 0.1;
+        const c3 = Math.pow(nx - 0.7, 2) + Math.pow(ny - 0.6, 2) <= 0.08;
+        const c4 = Math.pow(nx - 0.4, 2) + Math.pow(ny - 0.65, 2) <= 0.06;
+        const c5 = Math.pow(nx - 0.6, 2) + Math.pow(ny - 0.65, 2) <= 0.06;
+        return c1 || c2 || c3 || c4 || c5;
+    },
+
+    // Christmas tree
+    tree: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Trunk
+        if (ny > 0.85) return nx >= 0.4 && nx <= 0.6;
+        // Tree layers (3 triangles)
+        const layer1 = ny <= 0.35 && nx >= 0.5 - (0.35 - ny) * 0.8 && nx <= 0.5 + (0.35 - ny) * 0.8;
+        const layer2 = ny > 0.25 && ny <= 0.6 && nx >= 0.5 - (0.6 - ny) * 0.7 && nx <= 0.5 + (0.6 - ny) * 0.7;
+        const layer3 = ny > 0.5 && ny <= 0.85 && nx >= 0.5 - (0.85 - ny) * 0.6 && nx <= 0.5 + (0.85 - ny) * 0.6;
+        return layer1 || layer2 || layer3;
+    },
+
+    // House shape
+    house: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Roof (triangle)
+        if (ny <= 0.4) {
+            const halfWidth = 0.5 * (ny / 0.4);
+            return nx >= 0.5 - halfWidth && nx <= 0.5 + halfWidth;
+        }
+        // Walls
+        return nx >= 0.15 && nx <= 0.85;
+    },
+
+    // Cat face
+    cat: (x, y, w, h) => {
+        const cx = (w - 1) / 2;
+        const cy = (h - 1) / 2;
+        const r = Math.min(w, h) / 2.2;
+        const dx = x - cx;
+        const dy = y - cy;
+        // Main face (circle)
+        const face = dx * dx + dy * dy <= r * r;
+        // Left ear
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        const leftEar = ny < 0.3 && nx < 0.35 && nx > 0.1 && ny > nx - 0.1;
+        const rightEar = ny < 0.3 && nx > 0.65 && nx < 0.9 && ny > (1 - nx) - 0.1;
+        return face || leftEar || rightEar;
+    },
+
+    // Bunny
+    bunny: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Head (oval)
+        const head = Math.pow((nx - 0.5) / 0.35, 2) + Math.pow((ny - 0.65) / 0.3, 2) <= 1;
+        // Left ear
+        const leftEar = Math.pow((nx - 0.35) / 0.1, 2) + Math.pow((ny - 0.25) / 0.25, 2) <= 1;
+        // Right ear
+        const rightEar = Math.pow((nx - 0.65) / 0.1, 2) + Math.pow((ny - 0.25) / 0.25, 2) <= 1;
+        return head || leftEar || rightEar;
+    },
+
+    // Rocket
+    rocket: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Nose cone
+        if (ny <= 0.2) {
+            const halfWidth = 0.15 * (ny / 0.2);
+            return nx >= 0.5 - halfWidth && nx <= 0.5 + halfWidth;
+        }
+        // Body
+        if (ny <= 0.75) return nx >= 0.35 && nx <= 0.65;
+        // Fins
+        const leftFin = nx >= 0.15 && nx <= 0.35 && ny >= 0.75;
+        const rightFin = nx >= 0.65 && nx <= 0.85 && ny >= 0.75;
+        const body = nx >= 0.35 && nx <= 0.65;
+        return leftFin || rightFin || body;
+    },
+
+    // Fish
+    fish: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Body (ellipse)
+        const body = Math.pow((nx - 0.4) / 0.35, 2) + Math.pow((ny - 0.5) / 0.3, 2) <= 1;
+        // Tail
+        const tail = nx >= 0.7 && Math.abs(ny - 0.5) <= (nx - 0.7) * 1.5;
+        return body || tail;
+    },
+
+    // Butterfly
+    butterfly: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Upper left wing
+        const ul = Math.pow((nx - 0.25) / 0.25, 2) + Math.pow((ny - 0.35) / 0.3, 2) <= 1;
+        // Upper right wing
+        const ur = Math.pow((nx - 0.75) / 0.25, 2) + Math.pow((ny - 0.35) / 0.3, 2) <= 1;
+        // Lower left wing
+        const ll = Math.pow((nx - 0.3) / 0.2, 2) + Math.pow((ny - 0.7) / 0.2, 2) <= 1;
+        // Lower right wing
+        const lr = Math.pow((nx - 0.7) / 0.2, 2) + Math.pow((ny - 0.7) / 0.2, 2) <= 1;
+        // Body
+        const body = nx >= 0.45 && nx <= 0.55;
+        return ul || ur || ll || lr || body;
+    },
+
+    // Castle
+    castle: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Towers (top)
+        const tower1 = nx >= 0.05 && nx <= 0.2 && ny <= 0.5;
+        const tower2 = nx >= 0.4 && nx <= 0.6 && ny <= 0.35;
+        const tower3 = nx >= 0.8 && nx <= 0.95 && ny <= 0.5;
+        // Main wall
+        const wall = ny >= 0.35 && ny <= 0.9 && nx >= 0.1 && nx <= 0.9;
+        // Battlements
+        const batt = ny <= 0.4 && ny >= 0.35 && ((nx >= 0.15 && nx <= 0.25) || (nx >= 0.35 && nx <= 0.45) || (nx >= 0.55 && nx <= 0.65) || (nx >= 0.75 && nx <= 0.85));
+        return tower1 || tower2 || tower3 || wall || batt;
+    },
+
+    // Crown
+    crown: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Base
+        if (ny >= 0.7) return nx >= 0.15 && nx <= 0.85;
+        // Points
+        if (ny >= 0.3) {
+            // 5 points
+            const seg = (nx - 0.15) / 0.7;
+            const point = seg * 5;
+            const pointIdx = Math.floor(point);
+            const pointPos = point - pointIdx;
+            if (pointIdx % 2 === 0) {
+                // Going up
+                return ny >= 0.7 - pointPos * 0.4;
+            } else {
+                // Going down
+                return ny >= 0.3 + pointPos * 0.4;
+            }
+        }
+        return false;
+    },
+
+    // Lightning bolt
+    lightning: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Top diagonal
+        if (ny <= 0.45) {
+            const target = 0.3 + ny * 0.6;
+            return nx >= target - 0.15 && nx <= target + 0.1;
+        }
+        // Middle
+        if (ny <= 0.55) {
+            return nx >= 0.35 && nx <= 0.75;
+        }
+        // Bottom diagonal
+        const target = 0.7 - (ny - 0.55) * 0.8;
+        return nx >= target - 0.1 && nx <= target + 0.15;
+    },
+
+    // Mushroom
+    mushroom: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Cap (half circle)
+        if (ny <= 0.5) {
+            return Math.pow((nx - 0.5) / 0.45, 2) + Math.pow((ny - 0.5) / 0.45, 2) <= 1 && ny <= 0.5;
+        }
+        // Stem
+        return nx >= 0.35 && nx <= 0.65;
+    },
+
+    // Ghost
+    ghost: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Head (half circle)
+        if (ny <= 0.5) {
+            return Math.pow((nx - 0.5) / 0.35, 2) + Math.pow((ny - 0.5) / 0.4, 2) <= 1;
+        }
+        // Body with wavy bottom
+        if (ny <= 0.9) {
+            return nx >= 0.15 && nx <= 0.85;
+        }
+        // Wavy bottom
+        const wave = Math.sin(nx * Math.PI * 4) * 0.05;
+        return nx >= 0.15 && nx <= 0.85 && ny <= 0.95 + wave;
+    },
+
+    // Pumpkin
+    pumpkin: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Stem
+        if (ny <= 0.15) {
+            return nx >= 0.45 && nx <= 0.55;
+        }
+        // Main body (slightly squashed circle with segments)
+        const body = Math.pow((nx - 0.5) / 0.45, 2) + Math.pow((ny - 0.55) / 0.4, 2) <= 1;
+        return body;
+    },
+
+    // Egg
+    egg: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Modified ellipse (wider at bottom)
+        const widthFactor = 0.3 + ny * 0.15;
+        return Math.pow((nx - 0.5) / widthFactor, 2) + Math.pow((ny - 0.5) / 0.45, 2) <= 1;
+    },
+
+    // Apple
+    apple: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Stem
+        if (ny <= 0.15 && nx >= 0.45 && nx <= 0.55) return true;
+        // Leaf
+        if (ny <= 0.25 && ny >= 0.1 && nx >= 0.55 && nx <= 0.7) return true;
+        // Body (heart-ish shape inverted)
+        const body = Math.pow((nx - 0.5) / 0.4, 2) + Math.pow((ny - 0.55) / 0.4, 2) <= 1;
+        // Indent at top
+        const indent = ny <= 0.35 && Math.pow((nx - 0.5) / 0.15, 2) + Math.pow((ny - 0.2) / 0.15, 2) <= 1;
+        return body && !indent;
+    },
+
+    // Flower
+    flower: (x, y, w, h) => {
+        const cx = (w - 1) / 2;
+        const cy = (h - 1) / 2;
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxR = Math.min(cx, cy);
+        // Center
+        if (dist <= maxR * 0.25) return true;
+        // Petals (5)
+        const angle = Math.atan2(dy, dx);
+        const petalAngle = ((angle + Math.PI * 2) % (Math.PI * 2 / 5)) - Math.PI / 5;
+        const petalDist = Math.abs(petalAngle) / (Math.PI / 5);
+        const r = maxR * 0.25 + (1 - petalDist) * maxR * 0.6;
+        return dist <= r;
+    },
+
+    // Clover (4 leaf)
+    clover: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Four leaves
+        const tl = Math.pow((nx - 0.35) / 0.2, 2) + Math.pow((ny - 0.35) / 0.2, 2) <= 1;
+        const tr = Math.pow((nx - 0.65) / 0.2, 2) + Math.pow((ny - 0.35) / 0.2, 2) <= 1;
+        const bl = Math.pow((nx - 0.35) / 0.2, 2) + Math.pow((ny - 0.65) / 0.2, 2) <= 1;
+        const br = Math.pow((nx - 0.65) / 0.2, 2) + Math.pow((ny - 0.65) / 0.2, 2) <= 1;
+        // Stem
+        const stem = nx >= 0.47 && nx <= 0.53 && ny >= 0.7;
+        return tl || tr || bl || br || stem;
+    },
+
+    // Pac-Man
+    pacman: (x, y, w, h) => {
+        const cx = (w - 1) / 2;
+        const cy = (h - 1) / 2;
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const r = Math.min(cx, cy);
+        const angle = Math.atan2(dy, dx);
+        // Circle minus mouth wedge
+        const mouth = angle > -Math.PI / 4 && angle < Math.PI / 4;
+        return dist <= r && !mouth;
+    },
+
+    // Skull
+    skull: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Top of skull (circle)
+        const top = ny <= 0.6 && Math.pow((nx - 0.5) / 0.4, 2) + Math.pow((ny - 0.4) / 0.35, 2) <= 1;
+        // Jaw
+        const jaw = ny >= 0.55 && ny <= 0.85 && nx >= 0.25 && nx <= 0.75;
+        // Eye holes (subtract)
+        const leftEye = Math.pow((nx - 0.35) / 0.1, 2) + Math.pow((ny - 0.4) / 0.1, 2) <= 1;
+        const rightEye = Math.pow((nx - 0.65) / 0.1, 2) + Math.pow((ny - 0.4) / 0.1, 2) <= 1;
+        return (top || jaw) && !leftEye && !rightEye;
+    },
+
+    // Anchor
+    anchor: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Ring at top
+        const ring = ny <= 0.2 && Math.pow((nx - 0.5) / 0.1, 2) + Math.pow((ny - 0.1) / 0.1, 2) <= 1 && Math.pow((nx - 0.5) / 0.05, 2) + Math.pow((ny - 0.1) / 0.05, 2) > 1;
+        // Vertical shaft
+        const shaft = nx >= 0.47 && nx <= 0.53 && ny >= 0.15 && ny <= 0.85;
+        // Cross bar
+        const crossbar = ny >= 0.25 && ny <= 0.3 && nx >= 0.3 && nx <= 0.7;
+        // Bottom curve
+        const bottomCurve = ny >= 0.7 && Math.pow((nx - 0.5) / 0.35, 2) + Math.pow((ny - 0.7) / 0.2, 2) <= 1 && ny >= 0.75;
+        // Flukes
+        const leftFluke = nx >= 0.15 && nx <= 0.3 && ny >= 0.8 && ny <= 0.95;
+        const rightFluke = nx >= 0.7 && nx <= 0.85 && ny >= 0.8 && ny <= 0.95;
+        return ring || shaft || crossbar || bottomCurve || leftFluke || rightFluke;
+    },
+
+    // Music note
+    musicNote: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Note head (oval)
+        const head = Math.pow((nx - 0.35) / 0.15, 2) + Math.pow((ny - 0.75) / 0.12, 2) <= 1;
+        // Stem
+        const stem = nx >= 0.48 && nx <= 0.52 && ny >= 0.15 && ny <= 0.75;
+        // Flag
+        const flag = nx >= 0.5 && nx <= 0.7 && ny >= 0.15 && ny <= 0.4 && ny >= 0.15 + (nx - 0.5) * 0.5;
+        return head || stem || flag;
     }
 };
 
@@ -291,8 +673,8 @@ const ArtGenerators = {
         const s = size * 0.8;
         const flip = rng.next() > 0.5 ? 1 : -1;
         return `<g transform="translate(${x},${y}) scale(${flip},1)">
-            <ellipse cx="0" cy="0" rx="${s*0.4}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M${s*0.35},0 L${s*0.55},${-s*0.2} L${s*0.55},${s*0.2} Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <ellipse cx="0" cy="0" rx="${s*0.4}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+            <path d="M${s*0.35},0 L${s*0.55},${-s*0.2} L${s*0.55},${s*0.2} Z" fill="none" stroke="currentColor" stroke-width="1"/>
             <circle cx="${-s*0.2}" cy="${-s*0.05}" r="${s*0.05}" fill="currentColor"/>
         </g>`;
     },
@@ -309,12 +691,12 @@ const ArtGenerators = {
             const ox = (i - 1) * s * 0.15;
             curves.push(`M${x+ox},${y+s*0.3} Q${x+ox+s*0.1},${y} ${x+ox},${y-s*0.3}`);
         }
-        return `<path d="${curves.join(' ')}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+        return `<path d="${curves.join(' ')}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     shell: (x, y, size, rng) => {
         const s = size * 0.4;
-        return `<path d="M${x-s},${y+s*0.3} Q${x},${y-s} ${x+s},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<path d="M${x-s},${y+s*0.3} Q${x},${y-s} ${x+s},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x-s*0.6},${y+s*0.1} Q${x},${y-s*0.5} ${x+s*0.6},${y+s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
@@ -331,18 +713,18 @@ const ArtGenerators = {
 
     planet: (x, y, size, rng) => {
         const s = size * 0.35;
-        return `<circle cx="${x}" cy="${y}" r="${s}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y}" r="${s}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x}" cy="${y}" rx="${s*1.5}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1" transform="rotate(${rng.nextInt(-30,30)},${x},${y})"/>`;
     },
 
     rocket: (x, y, size, rng) => {
         const s = size * 0.4;
-        return `<path d="M${x},${y-s} L${x+s*0.3},${y+s*0.3} L${x+s*0.15},${y+s*0.3} L${x+s*0.15},${y+s*0.5} L${x-s*0.15},${y+s*0.5} L${x-s*0.15},${y+s*0.3} L${x-s*0.3},${y+s*0.3} Z" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+        return `<path d="M${x},${y-s} L${x+s*0.3},${y+s*0.3} L${x+s*0.15},${y+s*0.3} L${x+s*0.15},${y+s*0.5} L${x-s*0.15},${y+s*0.5} L${x-s*0.15},${y+s*0.3} L${x-s*0.3},${y+s*0.3} Z" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     moon: (x, y, size, rng) => {
         const s = size * 0.35;
-        return `<path d="M${x+s*0.3},${y-s} A${s},${s} 0 1,0 ${x+s*0.3},${y+s} A${s*0.7},${s*0.7} 0 1,1 ${x+s*0.3},${y-s}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+        return `<path d="M${x+s*0.3},${y-s} A${s},${s} 0 1,0 ${x+s*0.3},${y+s} A${s*0.7},${s*0.7} 0 1,1 ${x+s*0.3},${y-s}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     flower: (x, y, size, rng) => {
@@ -354,21 +736,21 @@ const ArtGenerators = {
             const py = y + Math.sin(angle) * s * 0.6;
             petals.push(`<circle cx="${px}" cy="${py}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>`);
         }
-        return petals.join('') + `<circle cx="${x}" cy="${y}" r="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+        return petals.join('') + `<circle cx="${x}" cy="${y}" r="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     butterfly: (x, y, size, rng) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x-s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.45}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x+s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.45}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x-s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.45}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.45}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x-s*0.3}" cy="${y+s*0.3}" rx="${s*0.25}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x+s*0.3}" cy="${y+s*0.3}" rx="${s*0.25}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x}" y1="${y-s*0.5}" x2="${x}" y2="${y+s*0.5}" stroke="currentColor" stroke-width="1.5"/>`;
+                <line x1="${x}" y1="${y-s*0.5}" x2="${x}" y2="${y+s*0.5}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     bee: (x, y, size, rng) => {
         const s = size * 0.35;
-        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.5}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.5}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.15}" y1="${y-s*0.35}" x2="${x-s*0.15}" y2="${y+s*0.35}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x+s*0.15}" y1="${y-s*0.35}" x2="${x+s*0.15}" y2="${y+s*0.35}" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x-s*0.2}" cy="${y-s*0.5}" rx="${s*0.3}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
@@ -379,48 +761,48 @@ const ArtGenerators = {
         const s = size * 0.4;
         const angle = rng.nextInt(-30, 30);
         return `<g transform="rotate(${angle},${x},${y})">
-            <path d="M${x},${y-s} Q${x+s*0.5},${y} ${x},${y+s} Q${x-s*0.5},${y} ${x},${y-s}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M${x},${y-s} Q${x+s*0.5},${y} ${x},${y+s} Q${x-s*0.5},${y} ${x},${y-s}" fill="none" stroke="currentColor" stroke-width="1"/>
             <line x1="${x}" y1="${y-s*0.8}" x2="${x}" y2="${y+s*0.8}" stroke="currentColor" stroke-width="1"/>
         </g>`;
     },
 
     lollipop: (x, y, size, rng) => {
         const s = size * 0.35;
-        return `<circle cx="${x}" cy="${y-s*0.3}" r="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x}" y1="${y+s*0.2}" x2="${x}" y2="${y+s}" stroke="currentColor" stroke-width="2"/>
+        return `<circle cx="${x}" cy="${y-s*0.3}" r="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y+s*0.2}" x2="${x}" y2="${y+s}" stroke="currentColor" stroke-width="1.3"/>
                 <path d="M${x-s*0.3},${y-s*0.3} Q${x},${y-s*0.6} ${x+s*0.3},${y-s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     cupcake: (x, y, size, rng) => {
         const s = size * 0.4;
-        return `<path d="M${x-s*0.4},${y} L${x-s*0.3},${y+s*0.5} L${x+s*0.3},${y+s*0.5} L${x+s*0.4},${y}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.4},${y} Q${x-s*0.3},${y-s*0.4} ${x},${y-s*0.3} Q${x+s*0.3},${y-s*0.4} ${x+s*0.4},${y}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<path d="M${x-s*0.4},${y} L${x-s*0.3},${y+s*0.5} L${x+s*0.3},${y+s*0.5} L${x+s*0.4},${y}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.4},${y} Q${x-s*0.3},${y-s*0.4} ${x},${y-s*0.3} Q${x+s*0.3},${y-s*0.4} ${x+s*0.4},${y}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x}" cy="${y-s*0.5}" r="${s*0.15}" fill="currentColor"/>`;
     },
 
     heart: (x, y, size, rng) => {
         const s = size * 0.3;
-        return `<path d="M${x},${y+s*0.3} C${x-s*0.8},${y-s*0.3} ${x-s*0.5},${y-s} ${x},${y-s*0.3} C${x+s*0.5},${y-s} ${x+s*0.8},${y-s*0.3} ${x},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+        return `<path d="M${x},${y+s*0.3} C${x-s*0.8},${y-s*0.3} ${x-s*0.5},${y-s} ${x},${y-s*0.3} C${x+s*0.5},${y-s} ${x+s*0.8},${y-s*0.3} ${x},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     palm: (x, y, size, rng) => {
         const s = size * 0.45;
-        let svg = `<line x1="${x}" y1="${y+s}" x2="${x}" y2="${y-s*0.2}" stroke="currentColor" stroke-width="2"/>`;
+        let svg = `<line x1="${x}" y1="${y+s}" x2="${x}" y2="${y-s*0.2}" stroke="currentColor" stroke-width="1.3"/>`;
         for (let i = 0; i < 5; i++) {
             const angle = -60 + i * 30;
-            svg += `<path d="M${x},${y-s*0.2} Q${x + Math.cos(angle*Math.PI/180)*s*0.8},${y-s*0.5} ${x + Math.cos(angle*Math.PI/180)*s},${y-s*0.3 + Math.sin(angle*Math.PI/180)*s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<path d="M${x},${y-s*0.2} Q${x + Math.cos(angle*Math.PI/180)*s*0.8},${y-s*0.5} ${x + Math.cos(angle*Math.PI/180)*s},${y-s*0.3 + Math.sin(angle*Math.PI/180)*s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>`;
         }
         return svg;
     },
 
     bird: (x, y, size, rng) => {
         const s = size * 0.4;
-        return `<path d="M${x-s},${y} Q${x-s*0.3},${y-s*0.5} ${x},${y} Q${x+s*0.3},${y-s*0.5} ${x+s},${y}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+        return `<path d="M${x-s},${y} Q${x-s*0.3},${y-s*0.5} ${x},${y} Q${x+s*0.3},${y-s*0.5} ${x+s},${y}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     monkey: (x, y, size, rng) => {
         const s = size * 0.35;
-        return `<circle cx="${x}" cy="${y}" r="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y}" r="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.5}" cy="${y}" r="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x+s*0.5}" cy="${y}" r="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.15}" cy="${y-s*0.1}" r="${s*0.08}" fill="currentColor"/>
@@ -430,16 +812,16 @@ const ArtGenerators = {
 
     snake: (x, y, size, rng) => {
         const s = size * 0.4;
-        return `<path d="M${x-s},${y} Q${x-s*0.5},${y-s*0.3} ${x},${y} Q${x+s*0.5},${y+s*0.3} ${x+s},${y}" fill="none" stroke="currentColor" stroke-width="2"/>
+        return `<path d="M${x-s},${y} Q${x-s*0.5},${y-s*0.3} ${x},${y} Q${x+s*0.5},${y+s*0.3} ${x+s},${y}" fill="none" stroke="currentColor" stroke-width="1.3"/>
                 <circle cx="${x+s*0.9}" cy="${y-s*0.05}" r="${s*0.08}" fill="currentColor"/>`;
     },
 
     // Classic theme decorations
     compass: (x, y, size, rng) => {
         const s = size * 0.35;
-        return `<circle cx="${x}" cy="${y}" r="${s}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y}" r="${s}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x}" cy="${y}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x}" y1="${y-s*0.9}" x2="${x}" y2="${y-s*0.3}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y-s*0.9}" x2="${x}" y2="${y-s*0.3}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x}" y1="${y+s*0.3}" x2="${x}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.9}" y1="${y}" x2="${x-s*0.3}" y2="${y}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.9}" y2="${y}" stroke="currentColor" stroke-width="1"/>
@@ -448,23 +830,23 @@ const ArtGenerators = {
 
     torch: (x, y, size, rng) => {
         const s = size * 0.4;
-        return `<rect x="${x-s*0.15}" y="${y-s*0.2}" width="${s*0.3}" height="${s*0.8}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.3},${y-s*0.2} L${x},${y-s*0.8} L${x+s*0.3},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<rect x="${x-s*0.15}" y="${y-s*0.2}" width="${s*0.3}" height="${s*0.8}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.3},${y-s*0.2} L${x},${y-s*0.8} L${x+s*0.3},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     key: (x, y, size, rng) => {
         const s = size * 0.4;
-        return `<circle cx="${x-s*0.3}" cy="${y}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x-s*0.3}" cy="${y}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.3}" cy="${y}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x}" y1="${y}" x2="${x+s*0.7}" y2="${y}" stroke="currentColor" stroke-width="2"/>
-                <line x1="${x+s*0.4}" y1="${y}" x2="${x+s*0.4}" y2="${y+s*0.25}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.6}" y1="${y}" x2="${x+s*0.6}" y2="${y+s*0.2}" stroke="currentColor" stroke-width="1.5"/>`;
+                <line x1="${x}" y1="${y}" x2="${x+s*0.7}" y2="${y}" stroke="currentColor" stroke-width="1.3"/>
+                <line x1="${x+s*0.4}" y1="${y}" x2="${x+s*0.4}" y2="${y+s*0.25}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.6}" y1="${y}" x2="${x+s*0.6}" y2="${y+s*0.2}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     coin: (x, y, size, rng) => {
         const s = size * 0.35;
-        return `<circle cx="${x}" cy="${y}" r="${s}" fill="none" stroke="currentColor" stroke-width="2"/>
+        return `<circle cx="${x}" cy="${y}" r="${s}" fill="none" stroke="currentColor" stroke-width="1.3"/>
                 <circle cx="${x}" cy="${y}" r="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <text x="${x}" y="${y+s*0.25}" font-size="${s*0.8}" text-anchor="middle" fill="currentColor" style="font-family:serif;font-weight:bold">$</text>`;
     }
@@ -478,123 +860,123 @@ const CharacterArt = {
     // Classic theme
     explorer: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.4},${y-s*0.85} L${x-s*0.5},${y-s*0.5} L${x+s*0.5},${y-s*0.5} L${x+s*0.4},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x}" y1="${y-s*0.15}" x2="${x}" y2="${y+s*0.5}" stroke="currentColor" stroke-width="2"/>
-                <line x1="${x-s*0.35}" y1="${y+s*0.1}" x2="${x+s*0.35}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>`;
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.4},${y-s*0.85} L${x-s*0.5},${y-s*0.5} L${x+s*0.5},${y-s*0.5} L${x+s*0.4},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y-s*0.15}" x2="${x}" y2="${y+s*0.5}" stroke="currentColor" stroke-width="1.3"/>
+                <line x1="${x-s*0.35}" y1="${y+s*0.1}" x2="${x+s*0.35}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Ocean theme
     diver: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.4}" r="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y-s*0.4}" r="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <rect x="${x-s*0.25}" y="${y-s*0.6}" width="${s*0.5}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <ellipse cx="${x}" cy="${y+s*0.2}" rx="${s*0.3}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y+s*0.2}" rx="${s*0.3}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x+s*0.5}" cy="${y-s*0.2}" rx="${s*0.15}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <path d="M${x-s*0.25},${y+s*0.6} L${x-s*0.4},${y+s} L${x-s*0.1},${y+s}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x+s*0.25},${y+s*0.6} L${x+s*0.4},${y+s} L${x+s*0.1},${y+s}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+                <path d="M${x-s*0.25},${y+s*0.6} L${x-s*0.4},${y+s} L${x-s*0.1},${y+s}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.25},${y+s*0.6} L${x+s*0.4},${y+s} L${x+s*0.1},${y+s}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     mermaid: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.6}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y-s*0.6}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x-s*0.3},${y-s*0.8} Q${x-s*0.5},${y-s} ${x-s*0.3},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x+s*0.3},${y-s*0.8} Q${x+s*0.5},${y-s} ${x+s*0.3},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <ellipse cx="${x}" cy="${y}" rx="${s*0.25}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x},${y+s*0.35} Q${x-s*0.2},${y+s*0.6} ${x},${y+s*0.8} Q${x+s*0.2},${y+s} ${x+s*0.4},${y+s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y}" rx="${s*0.25}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x},${y+s*0.35} Q${x-s*0.2},${y+s*0.6} ${x},${y+s*0.8} Q${x+s*0.2},${y+s} ${x+s*0.4},${y+s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x+s*0.3},${y+s*0.8} L${x+s*0.5},${y+s*0.6} M${x+s*0.3},${y+s*0.8} L${x+s*0.5},${y+s}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Space theme
     astronaut: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.45}" fill="none" stroke="currentColor" stroke-width="2"/>
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.45}" fill="none" stroke="currentColor" stroke-width="1.3"/>
                 <circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <rect x="${x-s*0.35}" y="${y}" width="${s*0.7}" height="${s*0.7}" rx="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.35}" y="${y}" width="${s*0.7}" height="${s*0.7}" rx="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <rect x="${x-s*0.55}" y="${y+s*0.1}" width="${s*0.2}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <rect x="${x+s*0.35}" y="${y+s*0.1}" width="${s*0.2}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x-s*0.2}" y1="${y+s*0.7}" x2="${x-s*0.2}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.2}" y1="${y+s*0.7}" x2="${x+s*0.2}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>`;
+                <line x1="${x-s*0.2}" y1="${y+s*0.7}" x2="${x-s*0.2}" y2="${y+s}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.2}" y1="${y+s*0.7}" x2="${x+s*0.2}" y2="${y+s}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     robot: (x, y, size) => {
         const s = size * 0.4;
-        return `<rect x="${x-s*0.35}" y="${y-s*0.8}" width="${s*0.7}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x}" y1="${y-s}" x2="${x}" y2="${y-s*0.8}" stroke="currentColor" stroke-width="1.5"/>
+        return `<rect x="${x-s*0.35}" y="${y-s*0.8}" width="${s*0.7}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y-s}" x2="${x}" y2="${y-s*0.8}" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x}" cy="${y-s*1.1}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.15}" cy="${y-s*0.6}" r="${s*0.08}" fill="currentColor"/>
                 <circle cx="${x+s*0.15}" cy="${y-s*0.6}" r="${s*0.08}" fill="currentColor"/>
-                <rect x="${x-s*0.3}" y="${y-s*0.25}" width="${s*0.6}" height="${s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.3}" y1="${y}" x2="${x-s*0.5}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.5}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.15}" y1="${y+s*0.35}" x2="${x-s*0.15}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.15}" y1="${y+s*0.35}" x2="${x+s*0.15}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1.5"/>`;
+                <rect x="${x-s*0.3}" y="${y-s*0.25}" width="${s*0.6}" height="${s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.3}" y1="${y}" x2="${x-s*0.5}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.5}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.15}" y1="${y+s*0.35}" x2="${x-s*0.15}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.35}" x2="${x+s*0.15}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Garden theme
     gardener: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.45},${y-s*0.7} Q${x},${y-s} ${x+s*0.45},${y-s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x}" y1="${y-s*0.2}" x2="${x}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x},${y} L${x+s*0.5},${y-s*0.2}" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.45},${y-s*0.7} Q${x},${y-s} ${x+s*0.45},${y-s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y-s*0.2}" x2="${x}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x},${y} L${x+s*0.5},${y-s*0.2}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x+s*0.5}" y1="${y-s*0.4}" x2="${x+s*0.5}" y2="${y+s*0.2}" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x-s*0.15}" y1="${y+s*0.4}" x2="${x-s*0.25}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.15}" y1="${y+s*0.4}" x2="${x+s*0.25}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>`;
+                <line x1="${x-s*0.15}" y1="${y+s*0.4}" x2="${x-s*0.25}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.4}" x2="${x+s*0.25}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Candy theme
     gingerbread: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.55}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y-s*0.55}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.12}" cy="${y-s*0.6}" r="${s*0.06}" fill="currentColor"/>
                 <circle cx="${x+s*0.12}" cy="${y-s*0.6}" r="${s*0.06}" fill="currentColor"/>
                 <path d="M${x-s*0.1},${y-s*0.4} Q${x},${y-s*0.3} ${x+s*0.1},${y-s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <ellipse cx="${x}" cy="${y+s*0.15}" rx="${s*0.3}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <ellipse cx="${x}" cy="${y+s*0.15}" rx="${s*0.3}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x}" cy="${y}" r="${s*0.06}" fill="currentColor"/>
                 <circle cx="${x}" cy="${y+s*0.2}" r="${s*0.06}" fill="currentColor"/>
-                <line x1="${x-s*0.3}" y1="${y}" x2="${x-s*0.55}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.55}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>`;
+                <line x1="${x-s*0.3}" y1="${y}" x2="${x-s*0.55}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.55}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Jungle theme
     jungleKid: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x-s*0.3},${y-s*0.7} Q${x-s*0.4},${y-s*0.5} ${x-s*0.2},${y-s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x+s*0.3},${y-s*0.7} Q${x+s*0.4},${y-s*0.5} ${x+s*0.2},${y-s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x}" y1="${y-s*0.2}" x2="${x}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.3}" y1="${y}" x2="${x+s*0.3}" y2="${y}" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.3},${y} L${x-s*0.45},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.5}" y2="${y-s*0.1}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y-s*0.2}" x2="${x}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.3}" y1="${y}" x2="${x+s*0.3}" y2="${y}" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.3},${y} L${x-s*0.45},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.3}" y1="${y}" x2="${x+s*0.5}" y2="${y-s*0.1}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x+s*0.5}" y1="${y-s*0.3}" x2="${x+s*0.5}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x-s*0.12}" y1="${y+s*0.4}" x2="${x-s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.12}" y1="${y+s*0.4}" x2="${x+s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>`;
+                <line x1="${x-s*0.12}" y1="${y+s*0.4}" x2="${x-s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.12}" y1="${y+s*0.4}" x2="${x+s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Additional Ocean characters
     sailor: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x}" cy="${y-s*0.85}" rx="${s*0.35}" ry="${s*0.12}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y-s*0.85}" rx="${s*0.35}" ry="${s*0.12}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.35}" y1="${y-s*0.85}" x2="${x+s*0.35}" y2="${y-s*0.85}" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x}" y1="${y-s*0.2}" x2="${x}" y2="${y+s*0.5}" stroke="currentColor" stroke-width="2"/>
-                <path d="M${x-s*0.35},${y-s*0.1} L${x},${y+s*0.1} L${x+s*0.35},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1.5"/>`;
+                <line x1="${x}" y1="${y-s*0.2}" x2="${x}" y2="${y+s*0.5}" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M${x-s*0.35},${y-s*0.1} L${x},${y+s*0.1} L${x+s*0.35},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.25}" y2="${y+s}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     seaTurtle: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.6}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.6}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x}" cy="${y}" rx="${s*0.45}" ry="${s*0.28}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.2}" y1="${y-s*0.1}" x2="${x+s*0.2}" y2="${y-s*0.1}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.2}" y1="${y+s*0.1}" x2="${x+s*0.2}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
-                <circle cx="${x+s*0.7}" cy="${y-s*0.1}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="${x+s*0.7}" cy="${y-s*0.1}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x+s*0.75}" cy="${y-s*0.15}" r="${s*0.03}" fill="currentColor"/>
                 <ellipse cx="${x-s*0.5}" cy="${y-s*0.35}" rx="${s*0.2}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x-s*0.5}" cy="${y+s*0.35}" rx="${s*0.2}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
@@ -605,10 +987,10 @@ const CharacterArt = {
     // Additional Garden characters
     bee: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.35}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.15}" y1="${y-s*0.15}" x2="${x-s*0.15}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.1}" y1="${y-s*0.15}" x2="${x+s*0.1}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1.5"/>
-                <circle cx="${x+s*0.45}" cy="${y}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.35}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.15}" y1="${y-s*0.15}" x2="${x-s*0.15}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.1}" y1="${y-s*0.15}" x2="${x+s*0.1}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.45}" cy="${y}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x+s*0.5}" cy="${y-s*0.03}" r="${s*0.03}" fill="currentColor"/>
                 <ellipse cx="${x-s*0.1}" cy="${y-s*0.4}" rx="${s*0.25}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x+s*0.15}" cy="${y-s*0.4}" rx="${s*0.25}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
@@ -619,11 +1001,11 @@ const CharacterArt = {
 
     butterfly: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.1}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x-s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x+s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x-s*0.35}" cy="${y+s*0.35}" rx="${s*0.25}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x+s*0.35}" cy="${y+s*0.35}" rx="${s*0.25}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.1}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x-s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.4}" cy="${y-s*0.2}" rx="${s*0.35}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x-s*0.35}" cy="${y+s*0.35}" rx="${s*0.25}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.35}" cy="${y+s*0.35}" rx="${s*0.25}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.4}" cy="${y-s*0.2}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x+s*0.4}" cy="${y-s*0.2}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x-s*0.05},${y-s*0.4} Q${x-s*0.2},${y-s*0.7} ${x-s*0.15},${y-s*0.8}" fill="none" stroke="currentColor" stroke-width="1"/>
@@ -632,9 +1014,9 @@ const CharacterArt = {
 
     ladybug: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.5}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x}" y1="${y-s*0.4}" x2="${x}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1.5"/>
-                <circle cx="${x+s*0.55}" cy="${y-s*0.15}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.5}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y-s*0.4}" x2="${x}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.55}" cy="${y-s*0.15}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x+s*0.6}" cy="${y-s*0.18}" r="${s*0.03}" fill="currentColor"/>
                 <circle cx="${x-s*0.2}" cy="${y-s*0.1}" r="${s*0.08}" fill="currentColor"/>
                 <circle cx="${x+s*0.15}" cy="${y+s*0.1}" r="${s*0.08}" fill="currentColor"/>
@@ -646,58 +1028,58 @@ const CharacterArt = {
     // Additional Jungle characters
     babyMonkey: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.4}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y-s*0.4}" r="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.4}" cy="${y-s*0.4}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x+s*0.4}" cy="${y-s*0.4}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.12}" cy="${y-s*0.45}" r="${s*0.05}" fill="currentColor"/>
                 <circle cx="${x+s*0.12}" cy="${y-s*0.45}" r="${s*0.05}" fill="currentColor"/>
                 <ellipse cx="${x}" cy="${y-s*0.25}" rx="${s*0.15}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <ellipse cx="${x}" cy="${y+s*0.2}" rx="${s*0.25}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.25},${y+s*0.1} Q${x-s*0.5},${y} ${x-s*0.55},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x+s*0.25},${y+s*0.1} Q${x+s*0.5},${y} ${x+s*0.55},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x},${y+s*0.5} Q${x+s*0.3},${y+s*0.7} ${x+s*0.5},${y+s*0.5} Q${x+s*0.6},${y+s*0.3} ${x+s*0.4},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+                <ellipse cx="${x}" cy="${y+s*0.2}" rx="${s*0.25}" ry="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.25},${y+s*0.1} Q${x-s*0.5},${y} ${x-s*0.55},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.25},${y+s*0.1} Q${x+s*0.5},${y} ${x+s*0.55},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x},${y+s*0.5} Q${x+s*0.3},${y+s*0.7} ${x+s*0.5},${y+s*0.5} Q${x+s*0.6},${y+s*0.3} ${x+s*0.4},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     parrot: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.3}" ry="${s*0.45}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <circle cx="${x+s*0.15}" cy="${y-s*0.55}" r="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.3}" ry="${s*0.45}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.15}" cy="${y-s*0.55}" r="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x+s*0.22}" cy="${y-s*0.58}" r="${s*0.05}" fill="currentColor"/>
-                <path d="M${x+s*0.35},${y-s*0.5} L${x+s*0.55},${y-s*0.45} L${x+s*0.35},${y-s*0.55}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.05},${y-s*0.75} Q${x+s*0.1},${y-s*0.95} ${x+s*0.3},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x+s*0.35},${y-s*0.5} L${x+s*0.55},${y-s*0.45} L${x+s*0.35},${y-s*0.55}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.05},${y-s*0.75} Q${x+s*0.1},${y-s*0.95} ${x+s*0.3},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x+s*0.05},${y-s*0.75} Q${x+s*0.2},${y-s*1} ${x+s*0.4},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <path d="M${x-s*0.15},${y+s*0.45} L${x-s*0.25},${y+s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x+s*0.15},${y+s*0.45} L${x+s*0.25},${y+s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x},${y+s*0.45} Q${x-s*0.1},${y+s*0.7} ${x-s*0.3},${y+s} Q${x},${y+s*1.1} ${x+s*0.3},${y+s}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+                <path d="M${x-s*0.15},${y+s*0.45} L${x-s*0.25},${y+s*0.9}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.15},${y+s*0.45} L${x+s*0.25},${y+s*0.9}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x},${y+s*0.45} Q${x-s*0.1},${y+s*0.7} ${x-s*0.3},${y+s} Q${x},${y+s*1.1} ${x+s*0.3},${y+s}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Additional Candy characters
     candyFairy: (x, y, size) => {
         const s = size * 0.4;
-        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<circle cx="${x}" cy="${y-s*0.5}" r="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x-s*0.15},${y-s*0.7} Q${x-s*0.3},${y-s*0.9} ${x-s*0.1},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x+s*0.15},${y-s*0.7} Q${x+s*0.3},${y-s*0.9} ${x+s*0.1},${y-s*0.85}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <path d="M${x},${y-s*0.25} L${x},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.15},${y+s*0.4} L${x},${y-s*0.1} L${x+s*0.15},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M${x},${y-s*0.25} L${x},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.15},${y+s*0.4} L${x},${y-s*0.1} L${x+s*0.15},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x-s*0.45}" cy="${y-s*0.2}" rx="${s*0.3}" ry="${s*0.15}" transform="rotate(-30 ${x-s*0.45} ${y-s*0.2})" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x+s*0.45}" cy="${y-s*0.2}" rx="${s*0.3}" ry="${s*0.15}" transform="rotate(30 ${x+s*0.45} ${y-s*0.2})" fill="none" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x}" y1="${y+s*0.4}" x2="${x}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="${x}" y1="${y+s*0.4}" x2="${x}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x}" cy="${y+s*1}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Additional Space characters
     alien: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y-s*0.4}" rx="${s*0.4}" ry="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x-s*0.2}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x+s*0.2}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y-s*0.4}" rx="${s*0.4}" ry="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x-s*0.2}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x+s*0.2}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.2}" cy="${y-s*0.5}" r="${s*0.05}" fill="currentColor"/>
                 <circle cx="${x+s*0.2}" cy="${y-s*0.5}" r="${s*0.05}" fill="currentColor"/>
-                <ellipse cx="${x}" cy="${y+s*0.3}" rx="${s*0.2}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.2}" y1="${y+s*0.2}" x2="${x-s*0.45}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.2}" y1="${y+s*0.2}" x2="${x+s*0.45}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.1}" y1="${y+s*0.55}" x2="${x-s*0.15}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.1}" y1="${y+s*0.55}" x2="${x+s*0.15}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1.5"/>`;
+                <ellipse cx="${x}" cy="${y+s*0.3}" rx="${s*0.2}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.2}" y1="${y+s*0.2}" x2="${x-s*0.45}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.2}" y1="${y+s*0.2}" x2="${x+s*0.45}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.1}" y1="${y+s*0.55}" x2="${x-s*0.15}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.1}" y1="${y+s*0.55}" x2="${x+s*0.15}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>`;
     }
 };
 
@@ -709,19 +1091,19 @@ const GoalArt = {
     // Classic theme
     treasure: (x, y, size) => {
         const s = size * 0.4;
-        return `<rect x="${x-s*0.5}" y="${y-s*0.1}" width="${s}" height="${s*0.7}" rx="${s*0.05}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.5},${y-s*0.1} Q${x-s*0.55},${y-s*0.4} ${x-s*0.3},${y-s*0.5} L${x+s*0.3},${y-s*0.5} Q${x+s*0.55},${y-s*0.4} ${x+s*0.5},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<rect x="${x-s*0.5}" y="${y-s*0.1}" width="${s}" height="${s*0.7}" rx="${s*0.05}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.5},${y-s*0.1} Q${x-s*0.55},${y-s*0.4} ${x-s*0.3},${y-s*0.5} L${x+s*0.3},${y-s*0.5} Q${x+s*0.55},${y-s*0.4} ${x+s*0.5},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.5}" y1="${y+s*0.15}" x2="${x+s*0.5}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1"/>
-                <circle cx="${x}" cy="${y+s*0.15}" r="${s*0.12}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+                <circle cx="${x}" cy="${y+s*0.15}" r="${s*0.12}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Ocean theme
     treasureChest: (x, y, size) => {
         const s = size * 0.4;
-        return `<rect x="${x-s*0.6}" y="${y}" width="${s*1.2}" height="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.6},${y} Q${x-s*0.65},${y-s*0.3} ${x-s*0.4},${y-s*0.4} L${x+s*0.4},${y-s*0.4} Q${x+s*0.65},${y-s*0.3} ${x+s*0.6},${y}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<rect x="${x-s*0.6}" y="${y}" width="${s*1.2}" height="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.6},${y} Q${x-s*0.65},${y-s*0.3} ${x-s*0.4},${y-s*0.4} L${x+s*0.4},${y-s*0.4} Q${x+s*0.65},${y-s*0.3} ${x+s*0.6},${y}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.6}" y1="${y+s*0.25}" x2="${x+s*0.6}" y2="${y+s*0.25}" stroke="currentColor" stroke-width="1"/>
-                <rect x="${x-s*0.1}" y="${y+s*0.1}" width="${s*0.2}" height="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="${x-s*0.1}" y="${y+s*0.1}" width="${s*0.2}" height="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.3}" cy="${y-s*0.55}" r="${s*0.1}" fill="currentColor"/>
                 <circle cx="${x+s*0.2}" cy="${y-s*0.6}" r="${s*0.08}" fill="currentColor"/>
                 <circle cx="${x}" cy="${y-s*0.5}" r="${s*0.12}" fill="currentColor"/>`;
@@ -730,9 +1112,9 @@ const GoalArt = {
     // Space theme
     spaceStation: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.6}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="${x-s*0.15}" y="${y-s*0.6}" width="${s*0.3}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="${x-s*0.15}" y="${y+s*0.1}" width="${s*0.3}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.6}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.15}" y="${y-s*0.6}" width="${s*0.3}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.15}" y="${y+s*0.1}" width="${s*0.3}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x}" cy="${y-s*0.6}" rx="${s*0.2}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x}" cy="${y+s*0.6}" rx="${s*0.2}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <rect x="${x-s*0.8}" y="${y-s*0.08}" width="${s*0.25}" height="${s*0.16}" fill="none" stroke="currentColor" stroke-width="1"/>
@@ -746,7 +1128,7 @@ const GoalArt = {
         for (let i = 0; i < 4; i++) {
             const w = s * (0.8 - i * 0.15);
             const yy = y - s * 0.5 + i * s * 0.35;
-            svg += `<ellipse cx="${x}" cy="${yy}" rx="${w}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<ellipse cx="${x}" cy="${yy}" rx="${w}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>`;
         }
         svg += `<circle cx="${x}" cy="${y+s*0.5}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>`;
         return svg;
@@ -773,11 +1155,11 @@ const GoalArt = {
     // Candy theme
     candyCastle: (x, y, size) => {
         const s = size * 0.4;
-        return `<rect x="${x-s*0.5}" y="${y-s*0.2}" width="${s}" height="${s*0.8}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="${x-s*0.7}" y="${y-s*0.6}" width="${s*0.35}" height="${s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="${x+s*0.35}" y="${y-s*0.6}" width="${s*0.35}" height="${s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.7},${y-s*0.6} L${x-s*0.52},${y-s*0.9} L${x-s*0.35},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x+s*0.35},${y-s*0.6} L${x+s*0.52},${y-s*0.9} L${x+s*0.7},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<rect x="${x-s*0.5}" y="${y-s*0.2}" width="${s}" height="${s*0.8}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.7}" y="${y-s*0.6}" width="${s*0.35}" height="${s*0.9}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x+s*0.35}" y="${y-s*0.6}" width="${s*0.35}" height="${s*0.9}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.7},${y-s*0.6} L${x-s*0.52},${y-s*0.9} L${x-s*0.35},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.35},${y-s*0.6} L${x+s*0.52},${y-s*0.9} L${x+s*0.7},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.52}" cy="${y-s*0.95}" r="${s*0.08}" fill="currentColor"/>
                 <circle cx="${x+s*0.52}" cy="${y-s*0.95}" r="${s*0.08}" fill="currentColor"/>
                 <rect x="${x-s*0.12}" y="${y+s*0.2}" width="${s*0.24}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>`;
@@ -786,21 +1168,21 @@ const GoalArt = {
     // Jungle theme
     temple: (x, y, size) => {
         const s = size * 0.4;
-        return `<rect x="${x-s*0.6}" y="${y+s*0.2}" width="${s*1.2}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="${x-s*0.45}" y="${y-s*0.1}" width="${s*0.9}" height="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="${x-s*0.3}" y="${y-s*0.35}" width="${s*0.6}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.35},${y-s*0.35} L${x},${y-s*0.7} L${x+s*0.35},${y-s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<rect x="${x-s*0.6}" y="${y+s*0.2}" width="${s*1.2}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.45}" y="${y-s*0.1}" width="${s*0.9}" height="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.3}" y="${y-s*0.35}" width="${s*0.6}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.35},${y-s*0.35} L${x},${y-s*0.7} L${x+s*0.35},${y-s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <rect x="${x-s*0.08}" y="${y+s*0.3}" width="${s*0.16}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
-                <line x1="${x-s*0.6}" y1="${y+s*0.35}" x2="${x-s*0.6}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x+s*0.6}" y1="${y+s*0.35}" x2="${x+s*0.6}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1.5"/>`;
+                <line x1="${x-s*0.6}" y1="${y+s*0.35}" x2="${x-s*0.6}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.6}" y1="${y+s*0.35}" x2="${x+s*0.6}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Additional Ocean goals
     coralPalace: (x, y, size) => {
         const s = size * 0.4;
-        return `<path d="M${x-s*0.6},${y+s*0.5} L${x-s*0.6},${y-s*0.2} Q${x-s*0.5},${y-s*0.5} ${x-s*0.3},${y-s*0.4} L${x-s*0.3},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x+s*0.6},${y+s*0.5} L${x+s*0.6},${y-s*0.2} Q${x+s*0.5},${y-s*0.5} ${x+s*0.3},${y-s*0.4} L${x+s*0.3},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.3},${y-s*0.4} Q${x},${y-s*0.8} ${x+s*0.3},${y-s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<path d="M${x-s*0.6},${y+s*0.5} L${x-s*0.6},${y-s*0.2} Q${x-s*0.5},${y-s*0.5} ${x-s*0.3},${y-s*0.4} L${x-s*0.3},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.6},${y+s*0.5} L${x+s*0.6},${y-s*0.2} Q${x+s*0.5},${y-s*0.5} ${x+s*0.3},${y-s*0.4} L${x+s*0.3},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.3},${y-s*0.4} Q${x},${y-s*0.8} ${x+s*0.3},${y-s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x}" cy="${y-s*0.5}" rx="${s*0.15}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <rect x="${x-s*0.1}" y="${y+s*0.1}" width="${s*0.2}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.45}" cy="${y+s*0.3}" r="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>
@@ -809,9 +1191,9 @@ const GoalArt = {
 
     sunkenShip: (x, y, size) => {
         const s = size * 0.4;
-        return `<path d="M${x-s*0.7},${y+s*0.4} Q${x-s*0.6},${y+s*0.6} ${x},${y+s*0.5} Q${x+s*0.6},${y+s*0.4} ${x+s*0.7},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.5},${y+s*0.3} L${x-s*0.4},${y-s*0.1} L${x+s*0.3},${y-s*0.1} L${x+s*0.5},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x-s*0.1}" y1="${y-s*0.1}" x2="${x-s*0.1}" y2="${y-s*0.7}" stroke="currentColor" stroke-width="2"/>
+        return `<path d="M${x-s*0.7},${y+s*0.4} Q${x-s*0.6},${y+s*0.6} ${x},${y+s*0.5} Q${x+s*0.6},${y+s*0.4} ${x+s*0.7},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.5},${y+s*0.3} L${x-s*0.4},${y-s*0.1} L${x+s*0.3},${y-s*0.1} L${x+s*0.5},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.1}" y1="${y-s*0.1}" x2="${x-s*0.1}" y2="${y-s*0.7}" stroke="currentColor" stroke-width="1.3"/>
                 <path d="M${x-s*0.1},${y-s*0.65} L${x+s*0.3},${y-s*0.45} L${x+s*0.3},${y-s*0.25} L${x-s*0.1},${y-s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.1}" y1="${y-s*0.5}" x2="${x+s*0.3}" y2="${y-s*0.35}" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.3}" cy="${y+s*0.1}" r="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>
@@ -821,8 +1203,8 @@ const GoalArt = {
     // Additional Space goals
     warpGate: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.7}" ry="${s*0.9}" fill="none" stroke="currentColor" stroke-width="2"/>
-                <ellipse cx="${x}" cy="${y}" rx="${s*0.55}" ry="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y}" rx="${s*0.7}" ry="${s*0.9}" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                <ellipse cx="${x}" cy="${y}" rx="${s*0.55}" ry="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x}" cy="${y}" rx="${s*0.4}" ry="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <ellipse cx="${x}" cy="${y}" rx="${s*0.2}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.5}" cy="${y-s*0.6}" r="${s*0.08}" fill="currentColor"/>
@@ -833,10 +1215,10 @@ const GoalArt = {
 
     moonBase: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y+s*0.5}" rx="${s*0.8}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.4},${y+s*0.4} L${x-s*0.4},${y} Q${x-s*0.4},${y-s*0.3} ${x-s*0.2},${y-s*0.3} L${x+s*0.2},${y-s*0.3} Q${x+s*0.4},${y-s*0.3} ${x+s*0.4},${y} L${x+s*0.4},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <circle cx="${x}" cy="${y-s*0.5}" r="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x}" y1="${y-s*0.3}" x2="${x}" y2="${y-s*0.7}" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y+s*0.5}" rx="${s*0.8}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.4},${y+s*0.4} L${x-s*0.4},${y} Q${x-s*0.4},${y-s*0.3} ${x-s*0.2},${y-s*0.3} L${x+s*0.2},${y-s*0.3} Q${x+s*0.4},${y-s*0.3} ${x+s*0.4},${y} L${x+s*0.4},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x}" cy="${y-s*0.5}" r="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y-s*0.3}" x2="${x}" y2="${y-s*0.7}" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.2}" cy="${y+s*0.1}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x+s*0.2}" cy="${y+s*0.15}" r="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <rect x="${x-s*0.65}" y="${y+s*0.2}" width="${s*0.2}" height="${s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
@@ -845,18 +1227,18 @@ const GoalArt = {
 
     rocketShip: (x, y, size) => {
         const s = size * 0.4;
-        return `<path d="M${x},${y-s*0.9} Q${x-s*0.3},${y-s*0.6} ${x-s*0.3},${y+s*0.3} L${x+s*0.3},${y+s*0.3} Q${x+s*0.3},${y-s*0.6} ${x},${y-s*0.9}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <circle cx="${x}" cy="${y-s*0.3}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.3},${y+s*0.1} L${x-s*0.5},${y+s*0.5} L${x-s*0.3},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x+s*0.3},${y+s*0.1} L${x+s*0.5},${y+s*0.5} L${x+s*0.3},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.15},${y+s*0.3} L${x-s*0.2},${y+s*0.7} Q${x},${y+s*0.9} ${x+s*0.2},${y+s*0.7} L${x+s*0.15},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+        return `<path d="M${x},${y-s*0.9} Q${x-s*0.3},${y-s*0.6} ${x-s*0.3},${y+s*0.3} L${x+s*0.3},${y+s*0.3} Q${x+s*0.3},${y-s*0.6} ${x},${y-s*0.9}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x}" cy="${y-s*0.3}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.3},${y+s*0.1} L${x-s*0.5},${y+s*0.5} L${x-s*0.3},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.3},${y+s*0.1} L${x+s*0.5},${y+s*0.5} L${x+s*0.3},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.15},${y+s*0.3} L${x-s*0.2},${y+s*0.7} Q${x},${y+s*0.9} ${x+s*0.2},${y+s*0.7} L${x+s*0.15},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     // Additional Garden goals
     mushroomHouse: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y-s*0.2}" rx="${s*0.6}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="${x-s*0.25}" y="${y-s*0.1}" width="${s*0.5}" height="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<ellipse cx="${x}" cy="${y-s*0.2}" rx="${s*0.6}" ry="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x-s*0.25}" y="${y-s*0.1}" width="${s*0.5}" height="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <circle cx="${x-s*0.25}" cy="${y-s*0.35}" r="${s*0.12}" fill="currentColor"/>
                 <circle cx="${x+s*0.2}" cy="${y-s*0.25}" r="${s*0.1}" fill="currentColor"/>
                 <circle cx="${x+s*0.35}" cy="${y-s*0.45}" r="${s*0.08}" fill="currentColor"/>
@@ -866,8 +1248,8 @@ const GoalArt = {
 
     greenhouse: (x, y, size) => {
         const s = size * 0.4;
-        return `<rect x="${x-s*0.6}" y="${y}" width="${s*1.2}" height="${s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.6},${y} L${x},${y-s*0.5} L${x+s*0.6},${y}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<rect x="${x-s*0.6}" y="${y}" width="${s*1.2}" height="${s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.6},${y} L${x},${y-s*0.5} L${x+s*0.6},${y}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x}" y1="${y-s*0.5}" x2="${x}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.6}" y1="${y+s*0.3}" x2="${x+s*0.6}" y2="${y+s*0.3}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.3}" y1="${y-s*0.25}" x2="${x-s*0.3}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="1"/>
@@ -887,8 +1269,8 @@ const GoalArt = {
             const lx = x + px * s;
             const ly = y + py * s;
             const r = s * (0.3 + i * 0.05);
-            svg += `<line x1="${lx}" y1="${ly}" x2="${lx}" y2="${ly+s*0.8}" stroke="currentColor" stroke-width="2"/>`;
-            svg += `<circle cx="${lx}" cy="${ly-r*0.3}" r="${r}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<line x1="${lx}" y1="${ly}" x2="${lx}" y2="${ly+s*0.8}" stroke="currentColor" stroke-width="1.3"/>`;
+            svg += `<circle cx="${lx}" cy="${ly-r*0.3}" r="${r}" fill="none" stroke="currentColor" stroke-width="1"/>`;
             svg += `<path d="M${lx-r*0.7},${ly-r*0.3} Q${lx},${ly-r} ${lx+r*0.7},${ly-r*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>`;
         }
         return svg;
@@ -896,11 +1278,11 @@ const GoalArt = {
 
     chocolateFountain: (x, y, size) => {
         const s = size * 0.4;
-        return `<ellipse cx="${x}" cy="${y+s*0.5}" rx="${s*0.7}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x}" cy="${y+s*0.2}" rx="${s*0.5}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x}" cy="${y-s*0.1}" rx="${s*0.35}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x}" cy="${y-s*0.35}" rx="${s*0.2}" ry="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="${x}" y1="${y+s*0.35}" x2="${x}" y2="${y-s*0.35}" stroke="currentColor" stroke-width="2"/>
+        return `<ellipse cx="${x}" cy="${y+s*0.5}" rx="${s*0.7}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y+s*0.2}" rx="${s*0.5}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y-s*0.1}" rx="${s*0.35}" ry="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y-s*0.35}" rx="${s*0.2}" ry="${s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y+s*0.35}" x2="${x}" y2="${y-s*0.35}" stroke="currentColor" stroke-width="1.3"/>
                 <path d="M${x-s*0.2},${y-s*0.35} Q${x-s*0.35},${y-s*0.1} ${x-s*0.5},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x+s*0.2},${y-s*0.35} Q${x+s*0.35},${y-s*0.1} ${x+s*0.5},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
@@ -908,23 +1290,23 @@ const GoalArt = {
     // Additional Jungle goals
     waterfall: (x, y, size) => {
         const s = size * 0.4;
-        return `<path d="M${x-s*0.6},${y-s*0.6} L${x-s*0.3},${y-s*0.5} L${x-s*0.3},${y-s*0.3} L${x+s*0.3},${y-s*0.3} L${x+s*0.3},${y-s*0.5} L${x+s*0.6},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.2},${y-s*0.3} Q${x-s*0.25},${y} ${x-s*0.15},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x},${y-s*0.3} Q${x+s*0.05},${y+s*0.1} ${x},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x+s*0.2},${y-s*0.3} Q${x+s*0.15},${y} ${x+s*0.2},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <ellipse cx="${x}" cy="${y+s*0.6}" rx="${s*0.5}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<path d="M${x-s*0.6},${y-s*0.6} L${x-s*0.3},${y-s*0.5} L${x-s*0.3},${y-s*0.3} L${x+s*0.3},${y-s*0.3} L${x+s*0.3},${y-s*0.5} L${x+s*0.6},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.2},${y-s*0.3} Q${x-s*0.25},${y} ${x-s*0.15},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x},${y-s*0.3} Q${x+s*0.05},${y+s*0.1} ${x},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.2},${y-s*0.3} Q${x+s*0.15},${y} ${x+s*0.2},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <ellipse cx="${x}" cy="${y+s*0.6}" rx="${s*0.5}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x-s*0.7},${y-s*0.5} Q${x-s*0.8},${y-s*0.3} ${x-s*0.65},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x+s*0.7},${y-s*0.5} Q${x+s*0.8},${y-s*0.3} ${x+s*0.65},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>`;
     },
 
     treehouseVillage: (x, y, size) => {
         const s = size * 0.4;
-        return `<line x1="${x-s*0.4}" y1="${y+s*0.7}" x2="${x-s*0.4}" y2="${y-s*0.3}" stroke="currentColor" stroke-width="2"/>
-                <line x1="${x+s*0.4}" y1="${y+s*0.7}" x2="${x+s*0.4}" y2="${y-s*0.2}" stroke="currentColor" stroke-width="2"/>
-                <rect x="${x-s*0.65}" y="${y-s*0.1}" width="${s*0.5}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x-s*0.7},${y-s*0.1} L${x-s*0.4},${y-s*0.4} L${x-s*0.1},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="${x+s*0.15}" y="${y-s*0.2}" width="${s*0.5}" height="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M${x+s*0.1},${y-s*0.2} L${x+s*0.4},${y-s*0.5} L${x+s*0.7},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        return `<line x1="${x-s*0.4}" y1="${y+s*0.7}" x2="${x-s*0.4}" y2="${y-s*0.3}" stroke="currentColor" stroke-width="1.3"/>
+                <line x1="${x+s*0.4}" y1="${y+s*0.7}" x2="${x+s*0.4}" y2="${y-s*0.2}" stroke="currentColor" stroke-width="1.3"/>
+                <rect x="${x-s*0.65}" y="${y-s*0.1}" width="${s*0.5}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.7},${y-s*0.1} L${x-s*0.4},${y-s*0.4} L${x-s*0.1},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <rect x="${x+s*0.15}" y="${y-s*0.2}" width="${s*0.5}" height="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.1},${y-s*0.2} L${x+s*0.4},${y-s*0.5} L${x+s*0.7},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <path d="M${x-s*0.15},${y+s*0.1} Q${x},${y+s*0.2} ${x+s*0.15},${y+s*0.05}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.4}" y1="${y+s*0.5}" x2="${x-s*0.6}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x+s*0.4}" y1="${y+s*0.5}" x2="${x+s*0.6}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1"/>`;
@@ -936,7 +1318,7 @@ const BorderPatterns = {
     simple: (width, height, padding, rng) => {
         // Simple double-line border
         const inset = 4;
-        return `<rect x="${inset}" y="${inset}" width="${width - inset*2}" height="${height - inset*2}" fill="none" stroke="currentColor" stroke-width="2" rx="3"/>
+        return `<rect x="${inset}" y="${inset}" width="${width - inset*2}" height="${height - inset*2}" fill="none" stroke="currentColor" stroke-width="1.3" rx="3"/>
                 <rect x="${inset + 6}" y="${inset + 6}" width="${width - inset*2 - 12}" height="${height - inset*2 - 12}" fill="none" stroke="currentColor" stroke-width="1" rx="2"/>`;
     },
 
@@ -946,17 +1328,17 @@ const BorderPatterns = {
         const waveW = 16;
         // Top and bottom wave borders
         for (let x = 10; x < width - 10; x += waveW) {
-            svg += `<path d="M${x},8 Q${x + waveW/2},${8 + waveH} ${x + waveW},8" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
-            svg += `<path d="M${x},${height-8} Q${x + waveW/2},${height-8-waveH} ${x + waveW},${height-8}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<path d="M${x},8 Q${x + waveW/2},${8 + waveH} ${x + waveW},8" fill="none" stroke="currentColor" stroke-width="1"/>`;
+            svg += `<path d="M${x},${height-8} Q${x + waveW/2},${height-8-waveH} ${x + waveW},${height-8}" fill="none" stroke="currentColor" stroke-width="1"/>`;
         }
         // Side borders
-        svg += `<line x1="6" y1="15" x2="6" y2="${height-15}" stroke="currentColor" stroke-width="2"/>`;
-        svg += `<line x1="${width-6}" y1="15" x2="${width-6}" y2="${height-15}" stroke="currentColor" stroke-width="2"/>`;
+        svg += `<line x1="6" y1="15" x2="6" y2="${height-15}" stroke="currentColor" stroke-width="1.3"/>`;
+        svg += `<line x1="${width-6}" y1="15" x2="${width-6}" y2="${height-15}" stroke="currentColor" stroke-width="1.3"/>`;
         return svg;
     },
 
     stars: (width, height, padding, rng) => {
-        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="2" rx="2"/>`;
+        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="1.3" rx="2"/>`;
         // Scatter small stars in corners
         for (let i = 0; i < 8; i++) {
             const x = rng.nextInt(8, 25);
@@ -971,12 +1353,12 @@ const BorderPatterns = {
     },
 
     vines: (width, height, padding, rng) => {
-        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="2" rx="2"/>`;
+        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="1.3" rx="2"/>`;
         // Left and right vines
         for (let y = 20; y < height - 20; y += 25) {
-            svg += `<path d="M8,${y} Q15,${y+12} 8,${y+25}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<path d="M8,${y} Q15,${y+12} 8,${y+25}" fill="none" stroke="currentColor" stroke-width="1"/>`;
             svg += `<circle cx="12" cy="${y+8}" r="3" fill="none" stroke="currentColor" stroke-width="1"/>`;
-            svg += `<path d="M${width-8},${y} Q${width-15},${y+12} ${width-8},${y+25}" fill="none" stroke="currentColor" stroke-width="1.5"/>`;
+            svg += `<path d="M${width-8},${y} Q${width-15},${y+12} ${width-8},${y+25}" fill="none" stroke="currentColor" stroke-width="1"/>`;
             svg += `<circle cx="${width-12}" cy="${y+8}" r="3" fill="none" stroke="currentColor" stroke-width="1"/>`;
         }
         return svg;
@@ -996,16 +1378,16 @@ const BorderPatterns = {
     },
 
     leaves: (width, height, padding, rng) => {
-        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="2" rx="2"/>`;
+        let svg = `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="1.3" rx="2"/>`;
         // Leaves in corners
         for (let i = 0; i < 6; i++) {
             const x = 12 + rng.nextInt(0, 15);
             const y = 12 + rng.nextInt(0, 15);
             const angle = rng.nextInt(0, 360);
-            svg += `<g transform="translate(${x},${y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>`;
-            svg += `<g transform="translate(${width-x},${y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>`;
-            svg += `<g transform="translate(${x},${height-y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>`;
-            svg += `<g transform="translate(${width-x},${height-y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>`;
+            svg += `<g transform="translate(${x},${y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1"/></g>`;
+            svg += `<g transform="translate(${width-x},${y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1"/></g>`;
+            svg += `<g transform="translate(${x},${height-y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1"/></g>`;
+            svg += `<g transform="translate(${width-x},${height-y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1"/></g>`;
         }
         return svg;
     }
