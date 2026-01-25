@@ -96,24 +96,30 @@ const ageDifficulty = {
 
 ### High Priority
 
-1. **Story Mode**
-   - Grammar: "Help [character] get [item] and avoid [obstacle] to reach [goal]"
-   - Generate story text based on theme
-   - Display story above maze
+1. **Story Mode** (NEXT)
+   - Grammar template: "Help [character] get [X] and [Y] and avoid [Z] to reach [goal]"
+   - Theme-based story generation:
+     - Ocean: "Help the diver collect shells and pearls while avoiding jellyfish to reach the treasure chest"
+     - Space: "Help the astronaut gather fuel cells and oxygen while avoiding asteroids to reach the space station"
+     - Garden: "Help the bee collect nectar and pollen while avoiding spiders to reach the hive"
+   - Display story text prominently above the maze
+   - Path items (X, Y) should be collectable along the solution path
+   - Distractions (Z) should be in dead ends or off-path areas
+   - Goal should be in the end room
 
-2. **Start/End Rooms**
-   - Create 2x2 open spaces at start and end
-   - Allow character art in start room
-   - Allow goal art in end room
+2. ~~**Start/End Rooms**~~ DONE
+   - ~~Create 2x2 open spaces at start and end~~
+   - Allow character art in start room (future)
+   - Allow goal art in end room (future)
 
-3. **Arrows and Labels Outside Maze**
-   - Position START/END labels outside maze boundary
-   - Use arrows pointing into/out of maze
-   - Always black in print mode
+3. ~~**Arrows and Labels Outside Maze**~~ DONE
+   - ~~Position START/END labels outside maze boundary~~
+   - ~~Use arrows pointing into/out of maze~~
+   - ~~Always black in print mode~~
 
-4. **Harder Difficulty Scaling**
-   - Level 10 should be more challenging
-   - Current max: 29x37, target: ~45x58
+4. ~~**Harder Difficulty Scaling**~~ DONE
+   - ~~Level 10 should be more challenging~~
+   - ~~Current max: 29x37, target: ~45x58~~
 
 ### Medium Priority
 
