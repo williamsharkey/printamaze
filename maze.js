@@ -2756,6 +2756,401 @@ function testMaze(seed, theme, shape, difficulty, curved = false) {
     return maze;
 }
 
+// =============================================================================
+// BOUNDING BOX TESTING SYSTEM
+// =============================================================================
+
+// Calculate layout metrics for a maze (bounding boxes of all elements)
+function getLayoutMetrics(maze) {
+    const cellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(maze.width, maze.height))));
+    const strokeWidth = Math.max(1.5, cellSize / 8);
+    const mazeWidth = maze.width * cellSize;
+    const mazeHeight = maze.height * cellSize;
+
+    const titleHeight = maze.story && maze.story.title ? 20 : 0;
+    const questHeight = maze.story && maze.story.quest ? 24 : 0;
+    const sidePadding = 35;
+    const topPadding = 20 + titleHeight;
+    const bottomPadding = 16 + questHeight;
+
+    const svgWidth = mazeWidth + sidePadding * 2;
+    const svgHeight = mazeHeight + topPadding + bottomPadding;
+
+    // Border inner bounds (where content should stay inside)
+    // Most borders have ~10-15px margin from edge
+    const borderInset = 16;
+    const borderBounds = {
+        left: borderInset,
+        top: borderInset,
+        right: svgWidth - borderInset,
+        bottom: svgHeight - borderInset
+    };
+
+    // Maze bounds
+    const mazeBounds = {
+        left: sidePadding,
+        top: topPadding,
+        right: sidePadding + mazeWidth,
+        bottom: topPadding + mazeHeight
+    };
+
+    // Title bounds
+    let titleBounds = null;
+    if (maze.story && maze.story.title) {
+        const maxTitleWidth = svgWidth - 32;
+        let titleSize = Math.min(14, Math.max(10, svgWidth / 25));
+        let titleWidth = VectorFont.measureText(maze.story.title, titleSize);
+        while (titleWidth > maxTitleWidth && titleSize > 6) {
+            titleSize -= 0.5;
+            titleWidth = VectorFont.measureText(maze.story.title, titleSize);
+        }
+        const titleY = 14 + titleSize * 0.3;
+        const titleX = (svgWidth - titleWidth) / 2;
+        titleBounds = {
+            left: titleX,
+            top: titleY,
+            right: titleX + titleWidth,
+            bottom: titleY + titleSize,
+            text: maze.story.title,
+            size: titleSize
+        };
+    }
+
+    // Quest bounds
+    let questBounds = null;
+    if (maze.story && maze.story.quest) {
+        const questSize = Math.min(8, Math.max(5, svgWidth / 50));
+        const questY = svgHeight - questHeight + 4 - questSize * 1.4;
+        const maxWidth = svgWidth - 24;
+
+        // Calculate word wrap
+        const words = maze.story.quest.split(' ');
+        let lines = [];
+        let currentLine = '';
+        for (const word of words) {
+            const testLine = currentLine ? currentLine + ' ' + word : word;
+            const testWidth = VectorFont.measureText(testLine, questSize);
+            if (testWidth > maxWidth && currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) lines.push(currentLine);
+
+        // Find widest line and total height
+        let maxLineWidth = 0;
+        for (const line of lines.slice(0, 2)) {
+            maxLineWidth = Math.max(maxLineWidth, VectorFont.measureText(line, questSize));
+        }
+        const numLines = Math.min(lines.length, 2);
+        const totalQuestHeight = numLines * questSize + (numLines - 1) * 3;
+
+        questBounds = {
+            left: (svgWidth - maxLineWidth) / 2,
+            top: questY,
+            right: (svgWidth + maxLineWidth) / 2,
+            bottom: questY + totalQuestHeight,
+            lines: lines.slice(0, 2),
+            size: questSize
+        };
+    }
+
+    // START label bounds
+    let startBounds = null;
+    if (maze.startPos) {
+        const roomSize = maze.startRoomSize || 2;
+        const roomCenterY = topPadding + (maze.startPos.y + roomSize / 2) * cellSize;
+        const baseLabelSize = Math.min(10, Math.max(6, sidePadding * 0.25));
+        const startLabelSize = baseLabelSize * 0.7;
+        const arrowX = 4;
+        const arrowY = roomCenterY;
+        const startWidth = VectorFont.measureText('START', startLabelSize);
+        const startY = arrowY - startLabelSize / 2 - 7;
+
+        startBounds = {
+            left: arrowX,
+            top: startY,
+            right: arrowX + startWidth,
+            bottom: startY + startLabelSize,
+            arrowRight: arrowX + 5 + 4, // arrow tip
+            arrowY: arrowY,
+            size: startLabelSize
+        };
+    }
+
+    // END label bounds
+    let endBounds = null;
+    if (maze.endPos) {
+        const roomSize = maze.endRoomSize || 2;
+        const roomCenterY = topPadding + (maze.endPos.y + roomSize / 2) * cellSize;
+        const baseLabelSize = Math.min(10, Math.max(6, sidePadding * 0.25));
+        const endLabelSize = baseLabelSize * 0.9;
+        const arrowX = svgWidth - 15 - cellSize * 0.5;
+        const arrowY = roomCenterY;
+        const endWidth = VectorFont.measureText('END', endLabelSize);
+        const endX = arrowX - endWidth - 2;
+        const endY = arrowY - endLabelSize / 2 - 7;
+
+        endBounds = {
+            left: endX,
+            top: endY,
+            right: arrowX + 5, // arrow tip
+            bottom: endY + endLabelSize,
+            arrowLeft: arrowX,
+            arrowY: arrowY,
+            size: endLabelSize
+        };
+    }
+
+    return {
+        svgWidth,
+        svgHeight,
+        cellSize,
+        sidePadding,
+        topPadding,
+        bottomPadding,
+        borderBounds,
+        mazeBounds,
+        titleBounds,
+        questBounds,
+        startBounds,
+        endBounds
+    };
+}
+
+// Check if two rectangles overlap
+function rectsOverlap(a, b) {
+    if (!a || !b) return false;
+    return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+}
+
+// Check if rect A is fully inside rect B
+function rectInside(inner, outer) {
+    if (!inner || !outer) return true;
+    return inner.left >= outer.left && inner.right <= outer.right &&
+           inner.top >= outer.top && inner.bottom <= outer.bottom;
+}
+
+// Test bounding boxes for a single maze
+function testMazeBoundingBoxes(maze) {
+    const metrics = getLayoutMetrics(maze);
+    const issues = [];
+
+    // Check title within border and not overlapping maze
+    if (metrics.titleBounds) {
+        if (!rectInside(metrics.titleBounds, metrics.borderBounds)) {
+            issues.push({
+                element: 'title',
+                type: 'outside_border',
+                bounds: metrics.titleBounds,
+                border: metrics.borderBounds,
+                detail: `Title extends outside border: L${metrics.titleBounds.left.toFixed(1)} < ${metrics.borderBounds.left} or R${metrics.titleBounds.right.toFixed(1)} > ${metrics.borderBounds.right}`
+            });
+        }
+        if (rectsOverlap(metrics.titleBounds, metrics.mazeBounds)) {
+            issues.push({
+                element: 'title',
+                type: 'overlaps_maze',
+                bounds: metrics.titleBounds,
+                maze: metrics.mazeBounds,
+                detail: `Title overlaps maze area`
+            });
+        }
+    }
+
+    // Check quest within border and not overlapping maze
+    if (metrics.questBounds) {
+        if (!rectInside(metrics.questBounds, metrics.borderBounds)) {
+            issues.push({
+                element: 'quest',
+                type: 'outside_border',
+                bounds: metrics.questBounds,
+                border: metrics.borderBounds,
+                detail: `Quest extends outside border: B${metrics.questBounds.bottom.toFixed(1)} > ${metrics.borderBounds.bottom}`
+            });
+        }
+        if (rectsOverlap(metrics.questBounds, metrics.mazeBounds)) {
+            issues.push({
+                element: 'quest',
+                type: 'overlaps_maze',
+                bounds: metrics.questBounds,
+                maze: metrics.mazeBounds,
+                detail: `Quest overlaps maze area`
+            });
+        }
+    }
+
+    // Check START within border (on left side, can be outside maze)
+    if (metrics.startBounds) {
+        if (metrics.startBounds.left < metrics.borderBounds.left) {
+            issues.push({
+                element: 'start',
+                type: 'outside_border',
+                bounds: metrics.startBounds,
+                border: metrics.borderBounds,
+                detail: `START extends left of border: ${metrics.startBounds.left.toFixed(1)} < ${metrics.borderBounds.left}`
+            });
+        }
+        if (metrics.startBounds.top < metrics.borderBounds.top || metrics.startBounds.bottom > metrics.borderBounds.bottom) {
+            issues.push({
+                element: 'start',
+                type: 'outside_border_vertical',
+                bounds: metrics.startBounds,
+                border: metrics.borderBounds,
+                detail: `START extends vertically outside border`
+            });
+        }
+        // START should not overlap maze
+        if (metrics.startBounds.right > metrics.mazeBounds.left) {
+            issues.push({
+                element: 'start',
+                type: 'overlaps_maze',
+                bounds: metrics.startBounds,
+                maze: metrics.mazeBounds,
+                detail: `START overlaps maze: right edge ${metrics.startBounds.right.toFixed(1)} > maze left ${metrics.mazeBounds.left}`
+            });
+        }
+    }
+
+    // Check END within border (on right side)
+    if (metrics.endBounds) {
+        if (metrics.endBounds.right > metrics.borderBounds.right) {
+            issues.push({
+                element: 'end',
+                type: 'outside_border',
+                bounds: metrics.endBounds,
+                border: metrics.borderBounds,
+                detail: `END extends right of border: ${metrics.endBounds.right.toFixed(1)} > ${metrics.borderBounds.right}`
+            });
+        }
+        if (metrics.endBounds.top < metrics.borderBounds.top || metrics.endBounds.bottom > metrics.borderBounds.bottom) {
+            issues.push({
+                element: 'end',
+                type: 'outside_border_vertical',
+                bounds: metrics.endBounds,
+                border: metrics.borderBounds,
+                detail: `END extends vertically outside border`
+            });
+        }
+        // END should not overlap maze
+        if (metrics.endBounds.left < metrics.mazeBounds.right) {
+            issues.push({
+                element: 'end',
+                type: 'overlaps_maze',
+                bounds: metrics.endBounds,
+                maze: metrics.mazeBounds,
+                detail: `END overlaps maze: left edge ${metrics.endBounds.left.toFixed(1)} < maze right ${metrics.mazeBounds.right}`
+            });
+        }
+    }
+
+    return {
+        passed: issues.length === 0,
+        issues,
+        metrics
+    };
+}
+
+// Test all maze configurations
+function runBoundingBoxTests() {
+    const themes = Object.keys(Themes);
+    const shapes = Object.keys(ShapeMasks);
+    const difficulties = [3, 5, 7, 10];
+    const results = [];
+    let totalTests = 0;
+    let passedTests = 0;
+    let failedTests = [];
+
+    console.log('='.repeat(70));
+    console.log('BOUNDING BOX TEST SUITE');
+    console.log('='.repeat(70));
+
+    for (const themeName of themes) {
+        for (const shape of shapes) {
+            for (const difficulty of difficulties) {
+                for (let seed = 1; seed <= 3; seed++) { // 3 seeds per config
+                    totalTests++;
+                    const gen = new MazeGenerator(seed * 1000 + difficulty);
+                    const dims = {
+                        3: { w: 5, h: 6 },
+                        5: { w: 10, h: 13 },
+                        7: { w: 17, h: 22 },
+                        10: { w: 33, h: 43 }
+                    }[difficulty];
+
+                    const maze = gen.generate(dims.w, dims.h, 'recursive_backtracker', shape, themeName, false);
+                    const storyGen = new StoryGenerator(new SeededRandom(seed * 1000 + difficulty));
+                    maze.story = storyGen.generateQuest(themeName, difficulty);
+
+                    const result = testMazeBoundingBoxes(maze);
+
+                    if (result.passed) {
+                        passedTests++;
+                    } else {
+                        failedTests.push({
+                            config: `${themeName}/${shape}/L${difficulty}/S${seed}`,
+                            issues: result.issues,
+                            metrics: result.metrics
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    console.log(`\nResults: ${passedTests}/${totalTests} passed`);
+
+    if (failedTests.length > 0) {
+        console.log(`\n${'!'.repeat(70)}`);
+        console.log(`FAILURES (${failedTests.length}):`);
+        console.log('!'.repeat(70));
+
+        for (const fail of failedTests.slice(0, 20)) { // Show first 20 failures
+            console.log(`\n[${fail.config}]`);
+            console.log(`  SVG: ${fail.metrics.svgWidth}x${fail.metrics.svgHeight}`);
+            console.log(`  Border: L${fail.metrics.borderBounds.left} T${fail.metrics.borderBounds.top} R${fail.metrics.borderBounds.right} B${fail.metrics.borderBounds.bottom}`);
+            console.log(`  Maze: L${fail.metrics.mazeBounds.left} T${fail.metrics.mazeBounds.top} R${fail.metrics.mazeBounds.right} B${fail.metrics.mazeBounds.bottom}`);
+            for (const issue of fail.issues) {
+                console.log(`  ✗ ${issue.element}: ${issue.detail}`);
+            }
+        }
+
+        if (failedTests.length > 20) {
+            console.log(`\n... and ${failedTests.length - 20} more failures`);
+        }
+    }
+
+    // Analyze failure patterns
+    if (failedTests.length > 0) {
+        console.log('\n' + '='.repeat(70));
+        console.log('FAILURE ANALYSIS');
+        console.log('='.repeat(70));
+
+        const byElement = {};
+        const byType = {};
+        for (const fail of failedTests) {
+            for (const issue of fail.issues) {
+                byElement[issue.element] = (byElement[issue.element] || 0) + 1;
+                byType[issue.type] = (byType[issue.type] || 0) + 1;
+            }
+        }
+
+        console.log('\nBy Element:');
+        for (const [elem, count] of Object.entries(byElement).sort((a, b) => b[1] - a[1])) {
+            console.log(`  ${elem}: ${count} failures`);
+        }
+
+        console.log('\nBy Type:');
+        for (const [type, count] of Object.entries(byType).sort((a, b) => b[1] - a[1])) {
+            console.log(`  ${type}: ${count} failures`);
+        }
+    }
+
+    return { totalTests, passedTests, failedTests };
+}
+
 // Generate batch of stories for review and enhancement
 function generateStoryBatch(themeName, count = 100, seed = Date.now()) {
     const rng = new SeededRandom(seed);
@@ -2817,4 +3212,7 @@ if (typeof window !== 'undefined') {
     window.ShapeMasks = ShapeMasks;
     window.runMazeTests = runMazeTests;
     window.testMaze = testMaze;
+    window.getLayoutMetrics = getLayoutMetrics;
+    window.testMazeBoundingBoxes = testMazeBoundingBoxes;
+    window.runBoundingBoxTests = runBoundingBoxTests;
 }
