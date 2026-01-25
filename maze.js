@@ -1414,7 +1414,7 @@ class Maze {
             svg += `<g color="${borderColor}">${BorderPatterns[this.theme.borderPattern](svgWidth, svgHeight, sidePadding, this.rng)}</g>`;
         }
 
-        // Title at top (vector font) - auto-scale to fit
+        // Title at top (vector font) - auto-scale to fit, white outline for readability
         if (this.story && this.story.title) {
             const maxTitleWidth = svgWidth - 32; // Leave margin from borders
             let titleSize = Math.min(14, Math.max(10, svgWidth / 25));
@@ -1426,6 +1426,8 @@ class Maze {
             }
             // Position 0.3 line heights lower (14 + 0.3 * titleSize)
             const titleY = 14 + titleSize * 0.3;
+            // White outline (thicker stroke) then normal stroke on top
+            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, '#fff', 3);
             svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, textColor, 1.2);
         }
 
@@ -1551,12 +1553,12 @@ class Maze {
             const roomSize = this.startRoomSize || 2;
             const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
             const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
-            // START: 60% of base size, moved up 0.6 line heights (relative to center)
-            const startLabelSize = labelSize * 0.6;
+            // START: 40% smaller than previous (0.6 * 0.6 = 0.36), moved up 1 line height
+            const startLabelSize = labelSize * 0.36;
             const artBottom = cy + roomSize * cellSize * 0.28;
             const startWidth = VectorFont.measureText('START', startLabelSize);
-            // Move center up by 0.6 line heights
-            const startY = artBottom + 2 - startLabelSize * 0.6;
+            // Move center up by 1 line height
+            const startY = artBottom + 2 - startLabelSize * 1.0;
             svg += VectorFont.renderText('START', cx - startWidth / 2, startY, startLabelSize, textColor, 0.7);
         }
 
@@ -1564,14 +1566,14 @@ class Maze {
             const roomSize = this.endRoomSize || 2;
             const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize;
             const cy = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
-            // END: 20% smaller, half letter width left, 0.1 letter height higher (relative to center)
-            const endLabelSize = labelSize * 0.8;
+            // END: 30% smaller than previous (0.8 * 0.7 = 0.56), moved left 1 character width
+            const endLabelSize = labelSize * 0.56;
             const artBottom = cy + roomSize * cellSize * 0.36;
             const endWidth = VectorFont.measureText('END', endLabelSize);
             const letterWidth = endWidth / 3; // Approximate width per letter
-            // Move center left by half letter width, up by 0.1 letter heights
-            const endX = cx - endWidth / 2 - letterWidth * 0.5;
-            const endY = artBottom + 2 - endLabelSize * 0.1;
+            // Move center left by 1 character width
+            const endX = cx - endWidth / 2 - letterWidth * 1.0;
+            const endY = artBottom + 2;
             svg += VectorFont.renderText('END', endX, endY, endLabelSize, textColor, 0.7);
         }
 
@@ -1599,9 +1601,12 @@ class Maze {
             }
             if (currentLine) lines.push(currentLine);
 
-            // Render lines centered
+            // Render lines centered with white outline for readability
             for (let i = 0; i < lines.length && i < 2; i++) {
-                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, questY + i * (questSize + 3), questSize, textColor, 1);
+                const lineY = questY + i * (questSize + 3);
+                // White outline (thicker stroke) then normal stroke on top
+                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, questSize, '#fff', 2.5);
+                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, questSize, textColor, 1);
             }
         }
 
@@ -2893,18 +2898,18 @@ function getLayoutMetrics(maze) {
         };
     }
 
-    // START label bounds - 60% of base size, moved up 0.6 line heights
+    // START label bounds - 36% of base size (40% smaller than 0.6), moved up 1 line height
     let startBounds = null;
     if (maze.startPos) {
         const roomSize = maze.startRoomSize || 2;
         const cx = sidePadding + (maze.startPos.x + roomSize / 2) * cellSize;
         const cy = topPadding + (maze.startPos.y + roomSize / 2) * cellSize;
         const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
-        const startLabelSize = labelSize * 0.6;
+        const startLabelSize = labelSize * 0.36;
         const startWidth = VectorFont.measureText('START', startLabelSize);
         const artBottom = cy + roomSize * cellSize * 0.28;
         const startX = cx - startWidth / 2;
-        const startY = artBottom + 2 - startLabelSize * 0.6;
+        const startY = artBottom + 2 - startLabelSize * 1.0;
 
         startBounds = {
             left: startX,
@@ -2915,19 +2920,19 @@ function getLayoutMetrics(maze) {
         };
     }
 
-    // END label bounds - 20% smaller, half letter width left, 0.1 letter height higher
+    // END label bounds - 56% of base size (30% smaller than 0.8), moved left 1 character width
     let endBounds = null;
     if (maze.endPos) {
         const roomSize = maze.endRoomSize || 2;
         const cx = sidePadding + (maze.endPos.x + roomSize / 2) * cellSize;
         const cy = topPadding + (maze.endPos.y + roomSize / 2) * cellSize;
         const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
-        const endLabelSize = labelSize * 0.8;
+        const endLabelSize = labelSize * 0.56;
         const endWidth = VectorFont.measureText('END', endLabelSize);
         const letterWidth = endWidth / 3;
         const artBottom = cy + roomSize * cellSize * 0.36;
-        const endX = cx - endWidth / 2 - letterWidth * 0.5;
-        const endY = artBottom + 2 - endLabelSize * 0.1;
+        const endX = cx - endWidth / 2 - letterWidth * 1.0;
+        const endY = artBottom + 2;
 
         endBounds = {
             left: endX,
