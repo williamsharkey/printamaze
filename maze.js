@@ -909,6 +909,473 @@ class Maze {
     }
 }
 
+// =============================================================================
+// STORY GENERATION SYSTEM
+// =============================================================================
+
+// Story templates with grammar variations
+const StoryTemplates = {
+    simple: [
+        "Help the {character} find the {goal}!",
+        "Guide the {character} to the {goal}!",
+        "Can you help the {character} reach the {goal}?",
+        "The {character} needs to find the {goal}!",
+        "Lead the {character} through the maze to the {goal}!"
+    ],
+    collect: [
+        "Help the {character} collect the {item1} and reach the {goal}!",
+        "Guide the {character} to gather the {item1}, then find the {goal}!",
+        "The {character} must find the {item1} on the way to the {goal}!"
+    ],
+    collectTwo: [
+        "Help the {character} collect the {item1} and {item2}, then reach the {goal}!",
+        "Guide the {character} to find the {item1} and {item2} before reaching the {goal}!",
+        "The {character} needs the {item1} and {item2} to unlock the {goal}!"
+    ],
+    avoid: [
+        "Help the {character} avoid the {danger} and reach the {goal}!",
+        "Guide the {character} past the {danger} to find the {goal}!",
+        "Watch out for the {danger}! Help the {character} reach the {goal}!"
+    ],
+    full: [
+        "Help the {character} collect the {item1} and {item2}, avoid the {danger}, and reach the {goal}!",
+        "Guide the {character} to gather the {item1} and {item2} while avoiding the {danger} on the way to the {goal}!",
+        "The {character} must find the {item1} and {item2}, steer clear of the {danger}, and make it to the {goal}!"
+    ]
+};
+
+// Title templates
+const TitleTemplates = [
+    "{adjective} {noun} Adventure",
+    "The {adjective} {noun}",
+    "{noun} Quest",
+    "Journey to the {noun}",
+    "The Secret {noun}",
+    "{adjective} {noun} Mystery",
+    "Escape to the {noun}",
+    "The {noun} Challenge",
+    "Mission: {noun}",
+    "The Great {noun} Hunt"
+];
+
+// Theme-specific story vocabulary
+const ThemeVocabulary = {
+    classic: {
+        characters: ["explorer", "adventurer", "traveler", "seeker"],
+        items: ["key", "map", "compass", "torch", "rope", "coin"],
+        dangers: ["trap", "dead end", "wrong turn", "locked gate"],
+        goals: ["exit", "treasure", "finish line", "golden key"],
+        adjectives: ["Amazing", "Mystery", "Secret", "Great"],
+        nouns: ["Maze", "Labyrinth", "Quest", "Adventure"]
+    },
+    ocean: {
+        characters: ["diver", "mermaid", "sailor", "sea turtle", "dolphin"],
+        items: ["pearl", "shell", "starfish", "treasure map", "golden compass", "magic conch"],
+        dangers: ["jellyfish", "shark", "whirlpool", "sea urchin", "giant squid"],
+        goals: ["treasure chest", "sunken ship", "coral palace", "mermaid kingdom"],
+        adjectives: ["Deep", "Ocean", "Underwater", "Coral"],
+        nouns: ["Dive", "Sea", "Reef", "Voyage"]
+    },
+    space: {
+        characters: ["astronaut", "space explorer", "robot", "alien friend", "star pilot"],
+        items: ["fuel cell", "oxygen tank", "star map", "crystal", "power core", "data chip"],
+        dangers: ["asteroid", "black hole", "space junk", "meteor shower", "alien trap"],
+        goals: ["space station", "home planet", "mother ship", "warp gate"],
+        adjectives: ["Cosmic", "Stellar", "Galactic", "Space"],
+        nouns: ["Mission", "Voyage", "Station", "Galaxy"]
+    },
+    garden: {
+        characters: ["bee", "butterfly", "ladybug", "garden fairy", "little gardener"],
+        items: ["nectar", "pollen", "flower seed", "dewdrop", "golden petal", "honey"],
+        dangers: ["spider", "wasp", "thorn", "raindrop", "garden snake"],
+        goals: ["flower garden", "beehive", "fairy house", "rainbow flower"],
+        adjectives: ["Blooming", "Garden", "Flower", "Secret"],
+        nouns: ["Garden", "Meadow", "Bloom", "Grove"]
+    },
+    candy: {
+        characters: ["gingerbread kid", "candy fairy", "sugar sprite", "lollipop friend"],
+        items: ["gumdrop", "candy cane", "chocolate coin", "sugar crystal", "magic sprinkle"],
+        dangers: ["sour candy", "sticky taffy", "melting chocolate", "sugar crash"],
+        goals: ["candy castle", "chocolate fountain", "gummy palace", "sweet shop"],
+        adjectives: ["Sweet", "Candy", "Sugar", "Yummy"],
+        nouns: ["Kingdom", "Factory", "Land", "Palace"]
+    },
+    jungle: {
+        characters: ["explorer", "baby monkey", "parrot", "jungle kid", "tree frog"],
+        items: ["golden idol", "ancient map", "magic fruit", "vine rope", "jungle gem"],
+        dangers: ["quicksand", "snake", "spider web", "falling rock", "thorny bush"],
+        goals: ["hidden temple", "treetop village", "ancient ruins", "jungle treasure"],
+        adjectives: ["Wild", "Jungle", "Lost", "Ancient"],
+        nouns: ["Temple", "Jungle", "Safari", "Expedition"]
+    }
+};
+
+// Enhanced sentence cache - hand-crafted improved versions
+const EnhancedSentenceCache = {
+    // Keyed by hash of original pattern, stores enhanced versions
+    cache: new Map(),
+
+    // Add enhanced version
+    add(original, enhanced) {
+        const key = this.hash(original);
+        if (!this.cache.has(key)) {
+            this.cache.set(key, []);
+        }
+        this.cache.get(key).push(enhanced);
+    },
+
+    // Get enhanced version if available
+    get(original, rng) {
+        const key = this.hash(original);
+        if (this.cache.has(key)) {
+            const options = this.cache.get(key);
+            return rng.choice(options);
+        }
+        return null;
+    },
+
+    // Simple hash function
+    hash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0;
+        }
+        return hash.toString(16);
+    }
+};
+
+// Pre-populate with enhanced sentences
+const enhancedSentences = [
+    // Ocean theme enhancements
+    ["Help the diver collect the pearl and reach the treasure chest!",
+     "Dive deep with the brave diver to find the shimmering pearl and discover the legendary treasure chest!"],
+    ["Help the mermaid avoid the jellyfish and reach the coral palace!",
+     "Guide the graceful mermaid through stinging jellyfish swarms to the magnificent coral palace!"],
+    ["Help the sea turtle find the shell!",
+     "Join the wise sea turtle on a quest to find the precious ancient shell!"],
+
+    // Space theme enhancements
+    ["Help the astronaut collect the fuel cell and reach the space station!",
+     "Navigate through the cosmos with the courageous astronaut, gathering fuel cells to reach the orbiting space station!"],
+    ["Help the robot avoid the asteroid and reach the warp gate!",
+     "Steer the clever robot through a dangerous asteroid field to the glowing warp gate!"],
+
+    // Garden theme enhancements
+    ["Help the bee collect the nectar and pollen, then reach the beehive!",
+     "Buzz along with the busy bee, gathering sweet nectar and golden pollen before returning to the cozy beehive!"],
+    ["Help the butterfly avoid the spider and reach the flower garden!",
+     "Flutter carefully with the beautiful butterfly, dodging sneaky spiders to reach the blooming flower garden!"],
+
+    // Jungle theme enhancements
+    ["Help the explorer collect the golden idol and reach the hidden temple!",
+     "Venture deep into the wilderness with the daring explorer, seeking the legendary golden idol in the mysterious hidden temple!"],
+    ["Help the baby monkey avoid the snake and reach the treetop village!",
+     "Swing through the vines with the playful baby monkey, staying clear of slithering snakes on the way to the treetop village!"],
+
+    // Candy theme enhancements
+    ["Help the candy fairy collect the gumdrop and reach the candy castle!",
+     "Sprinkle magic dust with the candy fairy while collecting sparkling gumdrops on the path to the magnificent candy castle!"],
+
+    // Classic theme enhancements
+    ["Help the explorer find the treasure!",
+     "Embark on an exciting journey with the brave explorer to discover the hidden treasure!"],
+    ["Guide the adventurer to the exit!",
+     "Lead the resourceful adventurer through twisting passages to find the way out!"]
+];
+
+// Initialize enhanced cache
+enhancedSentences.forEach(([original, enhanced]) => {
+    EnhancedSentenceCache.add(original, enhanced);
+});
+
+// Story Generator class
+class StoryGenerator {
+    constructor(rng) {
+        this.rng = rng;
+    }
+
+    generateTitle(themeName) {
+        const vocab = ThemeVocabulary[themeName] || ThemeVocabulary.classic;
+        const template = this.rng.choice(TitleTemplates);
+        return template
+            .replace('{adjective}', this.rng.choice(vocab.adjectives))
+            .replace('{noun}', this.rng.choice(vocab.nouns));
+    }
+
+    generateQuest(themeName, difficulty = 5) {
+        const vocab = ThemeVocabulary[themeName] || ThemeVocabulary.classic;
+
+        // Select template type based on difficulty
+        let templateType;
+        if (difficulty <= 3) {
+            templateType = 'simple';
+        } else if (difficulty <= 5) {
+            templateType = this.rng.next() > 0.5 ? 'collect' : 'avoid';
+        } else if (difficulty <= 7) {
+            templateType = 'collectTwo';
+        } else {
+            templateType = 'full';
+        }
+
+        const templates = StoryTemplates[templateType];
+        const template = this.rng.choice(templates);
+
+        // Select vocabulary items (ensure uniqueness)
+        const items = this.rng.shuffle([...vocab.items]);
+        const item1 = items[0];
+        const item2 = items[1] || items[0];
+
+        // Fill template
+        let story = template
+            .replace('{character}', this.rng.choice(vocab.characters))
+            .replace('{item1}', item1)
+            .replace('{item2}', item2)
+            .replace('{danger}', this.rng.choice(vocab.dangers))
+            .replace('{goal}', this.rng.choice(vocab.goals));
+
+        // Check for enhanced version
+        const enhanced = EnhancedSentenceCache.get(story, this.rng);
+        if (enhanced) {
+            story = enhanced;
+        }
+
+        return {
+            title: this.generateTitle(themeName),
+            quest: story,
+            templateType,
+            items: templateType === 'full' || templateType === 'collectTwo' ? [item1, item2] :
+                   templateType === 'collect' ? [item1] : []
+        };
+    }
+
+    // Generate batch of stories for review/enhancement
+    generateBatch(themeName, count = 100) {
+        const stories = [];
+        for (let i = 0; i < count; i++) {
+            const difficulty = 1 + (i % 10);
+            stories.push(this.generateQuest(themeName, difficulty));
+        }
+        return stories;
+    }
+}
+
+// =============================================================================
+// COMPACT TEXT REPRESENTATION (for debugging/AI review)
+// =============================================================================
+
+// Wall encoding: 4 bits = N,S,E,W -> hex digit (0-F)
+// Special markers: X=blocked, S=start room, E=end room, R=interior room
+// Art items: lowercase letters (a-z)
+
+const CompactMazeEncoder = {
+    // Encode wall configuration to hex
+    encodeWalls(cell) {
+        let bits = 0;
+        if (cell.walls.north) bits |= 8;  // 1000
+        if (cell.walls.south) bits |= 4;  // 0100
+        if (cell.walls.east)  bits |= 2;  // 0010
+        if (cell.walls.west)  bits |= 1;  // 0001
+        return bits.toString(16).toUpperCase();
+    },
+
+    // Decode hex to wall configuration
+    decodeWalls(hex) {
+        const bits = parseInt(hex, 16);
+        return {
+            north: !!(bits & 8),
+            south: !!(bits & 4),
+            east:  !!(bits & 2),
+            west:  !!(bits & 1)
+        };
+    },
+
+    // Generate compact text representation
+    encode(maze) {
+        const lines = [];
+
+        // Header: dimensions, shape, theme, curved
+        lines.push(`MAZE:${maze.width}x${maze.height}|${maze.shape}|${maze.theme.name}|${maze.curvedWalls ? 'C' : 'S'}`);
+
+        // Start/End positions
+        if (maze.startPos) {
+            const rs = maze.startRoomSize || 2;
+            lines.push(`START:${maze.startPos.x},${maze.startPos.y}|${rs}x${rs}`);
+        }
+        if (maze.endPos) {
+            const re = maze.endRoomSize || 2;
+            lines.push(`END:${maze.endPos.x},${maze.endPos.y}|${re}x${re}`);
+        }
+
+        // Interior rooms
+        if (maze.rooms && maze.rooms.length > 0) {
+            const roomStrs = maze.rooms.map(r => `${r.x},${r.y}:${r.w}x${r.h}`);
+            lines.push(`ROOMS:${roomStrs.join(';')}`);
+        }
+
+        // Border pattern
+        if (maze.theme.borderPattern) {
+            lines.push(`BORDER:${maze.theme.borderPattern}`);
+        }
+
+        // Solution path length (without full path, for brevity)
+        if (maze.solution) {
+            lines.push(`SOLUTION:${maze.solution.length} cells`);
+        }
+
+        // Grid representation
+        lines.push('GRID:');
+
+        // Build room/start/end lookup for quick access
+        const specialCells = new Map();
+        if (maze.startPos) {
+            const rs = maze.startRoomSize || 2;
+            for (let dy = 0; dy < rs; dy++) {
+                for (let dx = 0; dx < rs; dx++) {
+                    specialCells.set(`${maze.startPos.x+dx},${maze.startPos.y+dy}`, 'S');
+                }
+            }
+        }
+        if (maze.endPos) {
+            const re = maze.endRoomSize || 2;
+            for (let dy = 0; dy < re; dy++) {
+                for (let dx = 0; dx < re; dx++) {
+                    specialCells.set(`${maze.endPos.x+dx},${maze.endPos.y+dy}`, 'E');
+                }
+            }
+        }
+        if (maze.rooms) {
+            maze.rooms.forEach((room, i) => {
+                for (let dy = 0; dy < room.h; dy++) {
+                    for (let dx = 0; dx < room.w; dx++) {
+                        const key = `${room.x+dx},${room.y+dy}`;
+                        if (!specialCells.has(key)) {
+                            specialCells.set(key, String.fromCharCode(97 + (i % 26))); // a-z
+                        }
+                    }
+                }
+            });
+        }
+
+        // Encode each row
+        for (let y = 0; y < maze.height; y++) {
+            let row = '';
+            for (let x = 0; x < maze.width; x++) {
+                const cell = maze.cells[y][x];
+                const key = `${x},${y}`;
+
+                if (cell.blocked) {
+                    row += '.';
+                } else if (specialCells.has(key)) {
+                    row += specialCells.get(key);
+                } else {
+                    row += this.encodeWalls(cell);
+                }
+            }
+            lines.push(row);
+        }
+
+        return lines.join('\n');
+    },
+
+    // Generate human-readable ASCII art maze (walls as lines)
+    toASCII(maze) {
+        const lines = [];
+
+        // Top border
+        let topLine = '+';
+        for (let x = 0; x < maze.width; x++) {
+            const cell = maze.cells[0][x];
+            topLine += cell.blocked ? '...' : (cell.walls.north ? '---' : '   ');
+            topLine += '+';
+        }
+        lines.push(topLine);
+
+        for (let y = 0; y < maze.height; y++) {
+            // Cell row
+            let cellLine = '';
+            let bottomLine = '+';
+
+            for (let x = 0; x < maze.width; x++) {
+                const cell = maze.cells[y][x];
+
+                // West wall / cell content
+                if (x === 0) {
+                    cellLine += cell.blocked ? '.' : (cell.walls.west ? '|' : ' ');
+                }
+
+                // Cell content
+                if (cell.blocked) {
+                    cellLine += '...';
+                } else {
+                    // Check if start/end/room
+                    let marker = '   ';
+                    if (maze.startPos && x >= maze.startPos.x && x < maze.startPos.x + (maze.startRoomSize || 2) &&
+                        y >= maze.startPos.y && y < maze.startPos.y + (maze.startRoomSize || 2)) {
+                        marker = ' S ';
+                    } else if (maze.endPos && x >= maze.endPos.x && x < maze.endPos.x + (maze.endRoomSize || 2) &&
+                               y >= maze.endPos.y && y < maze.endPos.y + (maze.endRoomSize || 2)) {
+                        marker = ' E ';
+                    }
+                    cellLine += marker;
+                }
+
+                // East wall
+                cellLine += cell.blocked ? '.' : (cell.walls.east ? '|' : ' ');
+
+                // Bottom wall
+                bottomLine += cell.blocked ? '...' : (cell.walls.south ? '---' : '   ');
+                bottomLine += '+';
+            }
+
+            lines.push(cellLine);
+            lines.push(bottomLine);
+        }
+
+        return lines.join('\n');
+    },
+
+    // Summary stats for quick review
+    stats(maze) {
+        let blockedCount = 0;
+        let totalCells = maze.width * maze.height;
+        let wallCount = 0;
+
+        for (let y = 0; y < maze.height; y++) {
+            for (let x = 0; x < maze.width; x++) {
+                const cell = maze.cells[y][x];
+                if (cell.blocked) {
+                    blockedCount++;
+                } else {
+                    if (cell.walls.north) wallCount++;
+                    if (cell.walls.south) wallCount++;
+                    if (cell.walls.east) wallCount++;
+                    if (cell.walls.west) wallCount++;
+                }
+            }
+        }
+
+        return {
+            dimensions: `${maze.width}x${maze.height}`,
+            totalCells,
+            activeCells: totalCells - blockedCount,
+            blockedCells: blockedCount,
+            shape: maze.shape,
+            theme: maze.theme.name,
+            curved: maze.curvedWalls,
+            startRoom: maze.startPos ? `${maze.startPos.x},${maze.startPos.y} (${maze.startRoomSize}x${maze.startRoomSize})` : null,
+            endRoom: maze.endPos ? `${maze.endPos.x},${maze.endPos.y} (${maze.endRoomSize}x${maze.endRoomSize})` : null,
+            interiorRooms: maze.rooms.length,
+            solutionLength: maze.solution ? maze.solution.length : 0,
+            wallSegments: wallCount / 2 // Each wall counted twice (once per cell)
+        };
+    }
+};
+
+// =============================================================================
+// MAZE GENERATOR
+// =============================================================================
+
 // Maze Generator
 class MazeGenerator {
     constructor(seed = Date.now()) {
@@ -1061,4 +1528,118 @@ class MazeGenerator {
             }
         }
     }
+
+    // Generate complete maze with story
+    generateWithStory(width, height, algorithm, shape, themeName, curved, difficulty) {
+        const maze = this.generate(width, height, algorithm, shape, themeName, curved);
+
+        // Generate story for this maze
+        const storyGen = new StoryGenerator(this.rng);
+        const story = storyGen.generateQuest(themeName, difficulty);
+
+        maze.story = story;
+        return maze;
+    }
+}
+
+// =============================================================================
+// DEBUG OUTPUT HELPERS
+// =============================================================================
+
+// Generate debug output for a maze (for AI review)
+function generateMazeDebugOutput(maze) {
+    const lines = [];
+
+    lines.push('=' .repeat(60));
+    lines.push('MAZE DEBUG OUTPUT');
+    lines.push('='.repeat(60));
+
+    // Stats
+    const stats = CompactMazeEncoder.stats(maze);
+    lines.push('\n[STATS]');
+    for (const [key, value] of Object.entries(stats)) {
+        lines.push(`  ${key}: ${value}`);
+    }
+
+    // Story if present
+    if (maze.story) {
+        lines.push('\n[STORY]');
+        lines.push(`  Title: ${maze.story.title}`);
+        lines.push(`  Quest: ${maze.story.quest}`);
+        lines.push(`  Type: ${maze.story.templateType}`);
+        if (maze.story.items.length > 0) {
+            lines.push(`  Items: ${maze.story.items.join(', ')}`);
+        }
+    }
+
+    // Compact encoding
+    lines.push('\n[COMPACT ENCODING]');
+    lines.push(CompactMazeEncoder.encode(maze));
+
+    // ASCII art (only for small mazes)
+    if (maze.width <= 20 && maze.height <= 25) {
+        lines.push('\n[ASCII ART]');
+        lines.push(CompactMazeEncoder.toASCII(maze));
+    }
+
+    lines.push('\n' + '='.repeat(60));
+
+    return lines.join('\n');
+}
+
+// Generate batch of stories for review and enhancement
+function generateStoryBatch(themeName, count = 100, seed = Date.now()) {
+    const rng = new SeededRandom(seed);
+    const storyGen = new StoryGenerator(rng);
+    const stories = [];
+
+    for (let i = 0; i < count; i++) {
+        const difficulty = 1 + (i % 10);
+        const story = storyGen.generateQuest(themeName, difficulty);
+        stories.push({
+            id: i + 1,
+            difficulty,
+            ...story
+        });
+    }
+
+    return stories;
+}
+
+// Format stories for review (text output)
+function formatStoriesForReview(stories) {
+    const lines = [];
+    lines.push('STORY GENERATION REVIEW');
+    lines.push('=' .repeat(70));
+    lines.push(`Total: ${stories.length} stories\n`);
+
+    for (const s of stories) {
+        lines.push(`[${s.id}] Difficulty ${s.difficulty} (${s.templateType})`);
+        lines.push(`  Title: ${s.title}`);
+        lines.push(`  Quest: ${s.quest}`);
+        if (s.items.length > 0) {
+            lines.push(`  Items: ${s.items.join(', ')}`);
+        }
+        lines.push('');
+    }
+
+    return lines.join('\n');
+}
+
+// Add enhanced sentence to cache (call this with reviewed/improved sentences)
+function addEnhancedSentence(original, enhanced) {
+    EnhancedSentenceCache.add(original, enhanced);
+}
+
+// Export for browser use
+if (typeof window !== 'undefined') {
+    window.MazeGenerator = MazeGenerator;
+    window.StoryGenerator = StoryGenerator;
+    window.CompactMazeEncoder = CompactMazeEncoder;
+    window.generateMazeDebugOutput = generateMazeDebugOutput;
+    window.generateStoryBatch = generateStoryBatch;
+    window.formatStoriesForReview = formatStoriesForReview;
+    window.addEnhancedSentence = addEnhancedSentence;
+    window.ThemeVocabulary = ThemeVocabulary;
+    window.EnhancedSentenceCache = EnhancedSentenceCache;
 }
