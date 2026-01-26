@@ -570,6 +570,295 @@ const ShapeMasks = {
         // Flag
         const flag = nx >= 0.5 && nx <= 0.7 && ny >= 0.15 && ny <= 0.4 && ny >= 0.15 + (nx - 0.5) * 0.5;
         return head || stem || flag;
+    },
+
+    // === BUILDING MASKS - Thin corridors only work at high resolution ===
+
+    // Village: 4 small houses with very thin paths between them
+    // At low resolution, paths won't be wide enough to sample
+    village: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Four houses in corners
+        const house1 = nx >= 0.05 && nx <= 0.35 && ny >= 0.05 && ny <= 0.35;
+        const house2 = nx >= 0.65 && nx <= 0.95 && ny >= 0.05 && ny <= 0.35;
+        const house3 = nx >= 0.05 && nx <= 0.35 && ny >= 0.65 && ny <= 0.95;
+        const house4 = nx >= 0.65 && nx <= 0.95 && ny >= 0.65 && ny <= 0.95;
+        // Thin corridors (2-3% width - only visible at high resolution)
+        const corridor = 0.02;
+        const hPath1 = ny >= 0.49 - corridor && ny <= 0.51 + corridor && nx >= 0.35 && nx <= 0.65; // horizontal center
+        const vPath1 = nx >= 0.49 - corridor && nx <= 0.51 + corridor && ny >= 0.35 && ny <= 0.65; // vertical center
+        const hPath2 = ny >= 0.19 - corridor && ny <= 0.21 + corridor && nx >= 0.35 && nx <= 0.65; // top horizontal
+        const hPath3 = ny >= 0.79 - corridor && ny <= 0.81 + corridor && nx >= 0.35 && nx <= 0.65; // bottom horizontal
+        return house1 || house2 || house3 || house4 || hPath1 || vPath1 || hPath2 || hPath3;
+    },
+
+    // Towers: 3 tall thin towers with hairline bridges
+    towers: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Three towers
+        const tower1 = nx >= 0.1 && nx <= 0.25 && ny >= 0.1 && ny <= 0.9;
+        const tower2 = nx >= 0.42 && nx <= 0.58 && ny >= 0.05 && ny <= 0.95;
+        const tower3 = nx >= 0.75 && nx <= 0.9 && ny >= 0.1 && ny <= 0.9;
+        // Very thin bridges (1.5% - nearly invisible at low res)
+        const bridge = 0.015;
+        const b1 = ny >= 0.3 - bridge && ny <= 0.3 + bridge && nx >= 0.25 && nx <= 0.42;
+        const b2 = ny >= 0.3 - bridge && ny <= 0.3 + bridge && nx >= 0.58 && nx <= 0.75;
+        const b3 = ny >= 0.7 - bridge && ny <= 0.7 + bridge && nx >= 0.25 && nx <= 0.42;
+        const b4 = ny >= 0.7 - bridge && ny <= 0.7 + bridge && nx >= 0.58 && nx <= 0.75;
+        return tower1 || tower2 || tower3 || b1 || b2 || b3 || b4;
+    },
+
+    // Islands: Scattered small islands with threadlike connections
+    islands: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // 6 small islands of varying sizes
+        const i1 = Math.pow((nx - 0.15) / 0.12, 2) + Math.pow((ny - 0.2) / 0.12, 2) <= 1;
+        const i2 = Math.pow((nx - 0.5) / 0.15, 2) + Math.pow((ny - 0.15) / 0.1, 2) <= 1;
+        const i3 = Math.pow((nx - 0.85) / 0.1, 2) + Math.pow((ny - 0.25) / 0.15, 2) <= 1;
+        const i4 = Math.pow((nx - 0.2) / 0.14, 2) + Math.pow((ny - 0.75) / 0.14, 2) <= 1;
+        const i5 = Math.pow((nx - 0.5) / 0.18, 2) + Math.pow((ny - 0.6) / 0.12, 2) <= 1;
+        const i6 = Math.pow((nx - 0.8) / 0.12, 2) + Math.pow((ny - 0.8) / 0.12, 2) <= 1;
+        // Threadlike bridges (1% width - only works at very high res)
+        const t = 0.01;
+        const b1 = Math.abs(ny - (0.2 + (nx - 0.15) * 0.1)) <= t && nx >= 0.15 && nx <= 0.5;
+        const b2 = Math.abs(ny - (0.15 + (nx - 0.5) * 0.3)) <= t && nx >= 0.5 && nx <= 0.85;
+        const b3 = Math.abs(ny - (0.6 - (nx - 0.2) * 0.5)) <= t && nx >= 0.2 && nx <= 0.5;
+        const b4 = Math.abs(ny - (0.6 + (nx - 0.5) * 0.65)) <= t && nx >= 0.5 && nx <= 0.8;
+        return i1 || i2 || i3 || i4 || i5 || i6 || b1 || b2 || b3 || b4;
+    },
+
+    // Compound: Main building with small outbuildings, connected by thin paths
+    compound: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Main central building
+        const main = nx >= 0.3 && nx <= 0.7 && ny >= 0.35 && ny <= 0.75;
+        // Four small outbuildings
+        const out1 = nx >= 0.05 && nx <= 0.2 && ny >= 0.1 && ny <= 0.3;
+        const out2 = nx >= 0.8 && nx <= 0.95 && ny >= 0.1 && ny <= 0.3;
+        const out3 = nx >= 0.05 && nx <= 0.2 && ny >= 0.7 && ny <= 0.9;
+        const out4 = nx >= 0.8 && nx <= 0.95 && ny >= 0.7 && ny <= 0.9;
+        // Thin diagonal paths (1.5% wide)
+        const t = 0.015;
+        const p1 = Math.abs((ny - 0.3) - (nx - 0.2) * 0.5) <= t && nx >= 0.2 && nx <= 0.3;
+        const p2 = Math.abs((ny - 0.3) + (nx - 0.8) * 0.5) <= t && nx >= 0.7 && nx <= 0.8;
+        const p3 = Math.abs((ny - 0.7) + (nx - 0.2) * 0.5) <= t && nx >= 0.2 && nx <= 0.3;
+        const p4 = Math.abs((ny - 0.7) - (nx - 0.8) * 0.5) <= t && nx >= 0.7 && nx <= 0.8;
+        return main || out1 || out2 || out3 || out4 || p1 || p2 || p3 || p4;
+    },
+
+    // Blocks: City blocks with alleyways
+    blocks: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // 9 city blocks in a 3x3 grid with thin alleys
+        const alley = 0.02;
+        const gapX = (nx > 0.32 - alley && nx < 0.32 + alley) || (nx > 0.67 - alley && nx < 0.67 + alley);
+        const gapY = (ny > 0.32 - alley && ny < 0.32 + alley) || (ny > 0.67 - alley && ny < 0.67 + alley);
+        // Include alleys only when within outer bounds
+        const inBounds = nx >= 0.05 && nx <= 0.95 && ny >= 0.05 && ny <= 0.95;
+        const isAlley = inBounds && (gapX || gapY);
+        // Blocks are the spaces between alleys
+        const isBlock = inBounds && !((nx > 0.3 && nx < 0.34) || (nx > 0.65 && nx < 0.69) ||
+                                       (ny > 0.3 && ny < 0.34) || (ny > 0.65 && ny < 0.69));
+        return isBlock || isAlley;
+    },
+
+    // Archipelago: Many tiny islands, some completely unreachable
+    archipelago: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+        // Many small scattered islands (some will be unreachable)
+        const islands = [];
+        const positions = [
+            [0.1, 0.1, 0.08], [0.3, 0.08, 0.06], [0.55, 0.12, 0.09], [0.8, 0.1, 0.07],
+            [0.15, 0.35, 0.1], [0.45, 0.3, 0.08], [0.75, 0.35, 0.09],
+            [0.08, 0.6, 0.07], [0.35, 0.55, 0.11], [0.6, 0.58, 0.07], [0.88, 0.55, 0.08],
+            [0.2, 0.85, 0.09], [0.5, 0.82, 0.08], [0.75, 0.88, 0.1]
+        ];
+        for (const [cx, cy, r] of positions) {
+            if (Math.pow((nx - cx) / r, 2) + Math.pow((ny - cy) / r, 2) <= 1) return true;
+        }
+        // Only a few threadlike connections (many islands unreachable by design)
+        const t = 0.012;
+        const c1 = Math.abs(ny - 0.35 - (nx - 0.15) * 0.15) <= t && nx >= 0.15 && nx <= 0.45;
+        const c2 = Math.abs(ny - 0.55 + (nx - 0.35) * 0.25) <= t && nx >= 0.35 && nx <= 0.6;
+        const c3 = Math.abs(ny - 0.82 - (nx - 0.5) * 0.25) <= t && nx >= 0.5 && nx <= 0.75;
+        return c1 || c2 || c3;
+    },
+
+    // =============================================================================
+    // DOLPHIN THEME-SPECIFIC MASKS - Educational marine scenes
+    // =============================================================================
+
+    // Dolphin jumping out of water with waves
+    // Educational: Shows iconic breaching behavior dolphins use for communication
+    dolphinJump: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+
+        // Dolphin body - curved jumping arc
+        // Main body curve
+        const bodyCx = 0.5, bodyCy = 0.35;
+        const bodyRx = 0.25, bodyRy = 0.15;
+        // Rotated ellipse for jumping angle
+        const angle = -0.4; // tilted forward
+        const cosA = Math.cos(angle), sinA = Math.sin(angle);
+        const dxBody = nx - bodyCx, dyBody = ny - bodyCy;
+        const rotX = dxBody * cosA + dyBody * sinA;
+        const rotY = -dxBody * sinA + dyBody * cosA;
+        const inBody = (rotX * rotX) / (bodyRx * bodyRx) + (rotY * rotY) / (bodyRy * bodyRy) <= 1;
+
+        // Rostrum (beak)
+        const rostrumStart = 0.7, rostrumWidth = 0.08;
+        const inRostrum = nx >= rostrumStart && nx <= 0.85 &&
+            Math.abs(ny - (0.3 + (nx - rostrumStart) * 0.3)) <= rostrumWidth * (1 - (nx - rostrumStart) / 0.15);
+
+        // Dorsal fin
+        const dorsalX = 0.45, dorsalY = 0.25;
+        const inDorsal = nx >= dorsalX && nx <= dorsalX + 0.12 &&
+            ny >= dorsalY - 0.15 && ny <= dorsalY &&
+            ny <= dorsalY - (nx - dorsalX) * 0.8 &&
+            ny >= dorsalY - 0.15 + (nx - dorsalX) * 0.5;
+
+        // Tail fluke
+        const flukeX = 0.2, flukeY = 0.45;
+        const inUpperFluke = Math.pow((nx - flukeX) / 0.08, 2) + Math.pow((ny - (flukeY - 0.06)) / 0.05, 2) <= 1;
+        const inLowerFluke = Math.pow((nx - flukeX) / 0.08, 2) + Math.pow((ny - (flukeY + 0.06)) / 0.05, 2) <= 1;
+
+        // Water/waves at bottom
+        const waveBase = 0.7;
+        const waveAmp = 0.06;
+        const waveFreq = 4;
+        const waveLine = waveBase + Math.sin(nx * Math.PI * waveFreq) * waveAmp;
+        const inWater = ny >= waveLine && ny <= 1;
+
+        // Splash near dolphin entry point
+        const splashCx = 0.25, splashCy = 0.6;
+        const inSplash = Math.pow((nx - splashCx) / 0.1, 2) + Math.pow((ny - splashCy) / 0.15, 2) <= 1;
+
+        return inBody || inRostrum || inDorsal || inUpperFluke || inLowerFluke || inWater || inSplash;
+    },
+
+    // Tropical ocean scene with palm trees and moon
+    // Educational: Shows coastal habitat where dolphins are often spotted
+    tropicalSea: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+
+        // Moon in upper right
+        const moonCx = 0.8, moonCy = 0.15, moonR = 0.1;
+        const inMoon = Math.pow((nx - moonCx) / moonR, 2) + Math.pow((ny - moonCy) / moonR, 2) <= 1;
+
+        // Palm tree on left island
+        // Trunk
+        const trunkX = 0.12;
+        const inTrunk = nx >= trunkX - 0.02 && nx <= trunkX + 0.02 && ny >= 0.25 && ny <= 0.55;
+
+        // Palm fronds (simplified)
+        const frondCy = 0.22;
+        const inFrond1 = ny >= 0.1 && ny <= frondCy && nx >= 0.02 && nx <= trunkX &&
+            ny >= 0.1 + (nx - 0.02) * 0.5;
+        const inFrond2 = ny >= 0.1 && ny <= frondCy && nx >= trunkX && nx <= 0.25 &&
+            ny >= 0.1 + (0.25 - nx) * 0.6;
+        const inFrond3 = ny >= 0.15 && ny <= 0.25 && nx >= 0.05 && nx <= 0.2;
+
+        // Left island/beach
+        const inLeftIsland = ny >= 0.5 && ny <= 0.65 &&
+            nx <= 0.25 && Math.pow((nx - 0) / 0.25, 2) + Math.pow((ny - 0.5) / 0.15, 2) <= 1.2;
+
+        // Right island with palm
+        const inRightIsland = ny >= 0.55 && ny <= 0.68 &&
+            nx >= 0.75 && Math.pow((nx - 1) / 0.25, 2) + Math.pow((ny - 0.55) / 0.13, 2) <= 1.2;
+
+        // Right palm trunk
+        const rTrunkX = 0.88;
+        const inRTrunk = nx >= rTrunkX - 0.015 && nx <= rTrunkX + 0.015 && ny >= 0.35 && ny <= 0.55;
+        const inRFrond = ny >= 0.28 && ny <= 0.38 && nx >= 0.78 && nx <= 0.98;
+
+        // Ocean - main area
+        const oceanTop = 0.6;
+        const waveAmp = 0.03;
+        const waveLine = oceanTop + Math.sin(nx * Math.PI * 3) * waveAmp;
+        const inOcean = ny >= waveLine;
+
+        // Dolphin silhouette in water
+        const dCx = 0.5, dCy = 0.75;
+        const inDolphin = Math.pow((nx - dCx) / 0.15, 2) + Math.pow((ny - dCy) / 0.06, 2) <= 1;
+        const inDFin = nx >= dCx - 0.02 && nx <= dCx + 0.04 && ny >= dCy - 0.12 && ny <= dCy - 0.02 &&
+            ny >= dCy - 0.12 + (nx - (dCx - 0.02)) * 1.5;
+
+        return inMoon || inTrunk || inFrond1 || inFrond2 || inFrond3 || inLeftIsland ||
+               inRightIsland || inRTrunk || inRFrond || inOcean || inDolphin || inDFin;
+    },
+
+    // Pod of dolphins swimming - shows social behavior
+    // Educational: Dolphins are highly social, living in groups called pods
+    dolphinPod: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+
+        // Multiple dolphins at different positions
+        const dolphins = [
+            { cx: 0.25, cy: 0.3, rx: 0.12, ry: 0.06, angle: 0.2 },   // Leader
+            { cx: 0.5, cy: 0.4, rx: 0.14, ry: 0.07, angle: 0.1 },    // Center
+            { cx: 0.75, cy: 0.35, rx: 0.11, ry: 0.055, angle: -0.1 }, // Right
+            { cx: 0.35, cy: 0.55, rx: 0.1, ry: 0.05, angle: 0.15 },  // Lower left
+            { cx: 0.6, cy: 0.6, rx: 0.08, ry: 0.04, angle: 0 },      // Calf
+            { cx: 0.85, cy: 0.55, rx: 0.09, ry: 0.045, angle: -0.2 } // Lower right
+        ];
+
+        for (const d of dolphins) {
+            const dx = nx - d.cx, dy = ny - d.cy;
+            const cosA = Math.cos(d.angle), sinA = Math.sin(d.angle);
+            const rotX = dx * cosA + dy * sinA;
+            const rotY = -dx * sinA + dy * cosA;
+            if ((rotX * rotX) / (d.rx * d.rx) + (rotY * rotY) / (d.ry * d.ry) <= 1) return true;
+
+            // Dorsal fins
+            const finX = d.cx - d.rx * 0.2;
+            const finTop = d.cy - d.ry - 0.03;
+            if (nx >= finX - 0.02 && nx <= finX + 0.03 &&
+                ny >= finTop && ny <= d.cy - d.ry * 0.5 &&
+                ny >= finTop + (nx - finX + 0.02) * 0.8) return true;
+        }
+
+        // Wave pattern at bottom
+        const waveY = 0.8 + Math.sin(nx * Math.PI * 4) * 0.03;
+        if (ny >= waveY) return true;
+
+        return false;
+    },
+
+    // Ocean waves pattern - shows marine environment
+    // Educational: Dolphins use waves to help them swim efficiently
+    oceanWaves: (x, y, w, h) => {
+        const nx = x / (w - 1);
+        const ny = y / (h - 1);
+
+        // Multiple wave layers
+        const wave1 = 0.25 + Math.sin(nx * Math.PI * 2.5 + 0.5) * 0.08;
+        const wave2 = 0.45 + Math.sin(nx * Math.PI * 3 + 1) * 0.07;
+        const wave3 = 0.65 + Math.sin(nx * Math.PI * 2 + 2) * 0.09;
+        const wave4 = 0.85 + Math.sin(nx * Math.PI * 3.5) * 0.06;
+
+        // Each wave is a band
+        const inWave1 = ny >= wave1 - 0.06 && ny <= wave1 + 0.06;
+        const inWave2 = ny >= wave2 - 0.07 && ny <= wave2 + 0.07;
+        const inWave3 = ny >= wave3 - 0.08 && ny <= wave3 + 0.08;
+        const inWave4 = ny >= wave4 - 0.05 && ny <= wave4 + 0.05;
+
+        // Foam/crest areas
+        const inCrest1 = ny >= wave1 - 0.03 && ny <= wave1 + 0.03;
+        const inCrest2 = ny >= wave2 - 0.03 && ny <= wave2 + 0.03;
+
+        // Bottom ocean
+        const inDeep = ny >= 0.92;
+
+        return inWave1 || inWave2 || inWave3 || inWave4 || inDeep;
     }
 };
 
@@ -702,6 +991,37 @@ const Themes = {
             { art: 'temple', name: 'hidden temple' },
             { art: 'waterfall', name: 'secret waterfall' },
             { art: 'treehouseVillage', name: 'treetop village' }
+        ]
+    },
+    // === DOLPHIN EDUCATIONAL THEME ===
+    // Dolphins are highly intelligent marine mammals in the family Delphinidae.
+    // They use echolocation to navigate and hunt, can swim up to 20 mph,
+    // and live in social groups called pods.
+    dolphin: {
+        name: 'Dolphin',
+        wallColor: '#1a4971',       // Deep ocean blue
+        pathColor: '#e6f3ff',       // Light sea foam
+        bgColor: '#87CEEB',         // Sky blue (ocean surface)
+        solutionColor: '#00CED1',   // Dark turquoise
+        startColor: '#20B2AA',      // Light sea green
+        endColor: '#FF6347',        // Tomato (like a life ring)
+        borderPattern: 'dolphins',  // Custom dolphin wave border
+        decorations: ['herring', 'mackerel', 'squid', 'jellyfish', 'plankton', 'bubble', 'seaweed', 'coral', 'starfish', 'waveCrest'],
+        characters: [
+            { art: 'bottlenoseDolphin', name: 'bottlenose dolphin' },
+            { art: 'dolphinCalf', name: 'dolphin calf' },
+            { art: 'orca', name: 'orca' },
+            { art: 'marineTrainer', name: 'dolphin trainer' },
+            { art: 'marineBiologist', name: 'marine biologist' },
+            { art: 'spinnerDolphin', name: 'spinner dolphin' }
+        ],
+        goals: [
+            { art: 'dolphinPod', name: 'dolphin pod' },
+            { art: 'researchStation', name: 'research station' },
+            { art: 'coralReefHabitat', name: 'coral reef' },
+            { art: 'conservationCenter', name: 'marine sanctuary' },
+            { art: 'openOcean', name: 'open ocean' },
+            { art: 'feedingGrounds', name: 'feeding grounds' }
         ]
     }
 };
@@ -888,6 +1208,96 @@ const ArtGenerators = {
         return `<circle cx="${x}" cy="${y}" r="${s}" fill="none" stroke="currentColor" stroke-width="1.3"/>
                 <circle cx="${x}" cy="${y}" r="${s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <text x="${x}" y="${y+s*0.25}" font-size="${s*0.8}" text-anchor="middle" fill="currentColor" style="font-family:serif;font-weight:bold">$</text>`;
+    },
+
+    // =============================================================================
+    // DOLPHIN THEME DECORATIONS - Educational marine life
+    // =============================================================================
+
+    // Herring - small schooling fish, major food source for dolphins
+    // Fact: Dolphins eat 15-30 lbs of fish daily
+    herring: (x, y, size, rng) => {
+        const s = size * 0.35;
+        const flip = rng.next() > 0.5 ? 1 : -1;
+        return `<g transform="translate(${x},${y}) scale(${flip},1)">
+            <ellipse cx="0" cy="0" rx="${s*0.4}" ry="${s*0.15}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+            <path d="M${s*0.35},0 L${s*0.55},${-s*0.12} L${s*0.55},${s*0.12} Z" fill="none" stroke="currentColor" stroke-width="0.8"/>
+            <circle cx="${-s*0.25}" cy="${-s*0.02}" r="${s*0.04}" fill="currentColor"/>
+            <line x1="${-s*0.05}" y1="${-s*0.1}" x2="${s*0.15}" y2="${-s*0.1}" stroke="currentColor" stroke-width="0.5"/>
+        </g>`;
+    },
+
+    // Mackerel - fast swimming fish dolphins chase
+    // Fact: Mackerel can swim up to 30 mph
+    mackerel: (x, y, size, rng) => {
+        const s = size * 0.4;
+        const flip = rng.next() > 0.5 ? 1 : -1;
+        return `<g transform="translate(${x},${y}) scale(${flip},1)">
+            <path d="M${-s*0.45},0 Q${-s*0.2},${-s*0.2} ${s*0.2},${-s*0.1} Q${s*0.35},0 ${s*0.2},${s*0.1} Q${-s*0.2},${s*0.2} ${-s*0.45},0" fill="none" stroke="currentColor" stroke-width="1"/>
+            <path d="M${s*0.2},0 L${s*0.45},${-s*0.15} L${s*0.45},${s*0.15} Z" fill="none" stroke="currentColor" stroke-width="0.8"/>
+            <circle cx="${-s*0.3}" cy="${-s*0.03}" r="${s*0.05}" fill="currentColor"/>
+            <path d="M${-s*0.1},${-s*0.15} L${0},${-s*0.25} L${s*0.1},${-s*0.15}" fill="none" stroke="currentColor" stroke-width="0.7"/>
+            <line x1="${-s*0.1}" y1="0" x2="${s*0.05}" y2="0" stroke="currentColor" stroke-width="0.5" stroke-dasharray="2,2"/>
+        </g>`;
+    },
+
+    // Squid - another favorite dolphin food
+    // Fact: Some dolphins dive 1000+ feet to catch squid
+    squid: (x, y, size, rng) => {
+        const s = size * 0.4;
+        return `<ellipse cx="${x}" cy="${y-s*0.2}" rx="${s*0.25}" ry="${s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.15},${y+s*0.15} Q${x-s*0.25},${y+s*0.5} ${x-s*0.2},${y+s*0.6}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x},${y+s*0.15} L${x},${y+s*0.65}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x+s*0.15},${y+s*0.15} Q${x+s*0.25},${y+s*0.5} ${x+s*0.2},${y+s*0.6}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <circle cx="${x-s*0.1}" cy="${y-s*0.25}" r="${s*0.06}" fill="currentColor"/>
+                <circle cx="${x+s*0.1}" cy="${y-s*0.25}" r="${s*0.06}" fill="currentColor"/>
+                <path d="M${x-s*0.25},${y-s*0.55} L${x},${y-s*0.35} L${x+s*0.25},${y-s*0.55}" fill="none" stroke="currentColor" stroke-width="0.8"/>`;
+    },
+
+    // Jellyfish - dolphins avoid stinging tentacles
+    // Fact: Some dolphins use jellyfish as toys
+    jellyfish: (x, y, size, rng) => {
+        const s = size * 0.35;
+        return `<path d="M${x-s*0.4},${y} Q${x-s*0.4},${y-s*0.5} ${x},${y-s*0.5} Q${x+s*0.4},${y-s*0.5} ${x+s*0.4},${y}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.3},${y} Q${x-s*0.35},${y+s*0.3} ${x-s*0.25},${y+s*0.6}" fill="none" stroke="currentColor" stroke-width="0.7"/>
+                <path d="M${x-s*0.1},${y} Q${x-s*0.05},${y+s*0.4} ${x-s*0.15},${y+s*0.7}" fill="none" stroke="currentColor" stroke-width="0.7"/>
+                <path d="M${x+s*0.1},${y} Q${x+s*0.05},${y+s*0.4} ${x+s*0.15},${y+s*0.7}" fill="none" stroke="currentColor" stroke-width="0.7"/>
+                <path d="M${x+s*0.3},${y} Q${x+s*0.35},${y+s*0.3} ${x+s*0.25},${y+s*0.6}" fill="none" stroke="currentColor" stroke-width="0.7"/>`;
+    },
+
+    // Plankton - base of the ocean food chain
+    // Fact: Plankton produces 50% of Earth's oxygen
+    plankton: (x, y, size, rng) => {
+        const s = size * 0.2;
+        let svg = '';
+        // Multiple tiny organisms
+        for (let i = 0; i < 5; i++) {
+            const ox = (rng.next() - 0.5) * s * 2;
+            const oy = (rng.next() - 0.5) * s * 2;
+            const r = s * (0.15 + rng.next() * 0.15);
+            svg += `<circle cx="${x+ox}" cy="${y+oy}" r="${r}" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.7"/>`;
+        }
+        return svg;
+    },
+
+    // Coral - dolphins live near reefs
+    // Fact: Coral reefs support 25% of all marine life
+    coral: (x, y, size, rng) => {
+        const s = size * 0.35;
+        return `<path d="M${x},${y+s*0.4} L${x},${y} Q${x-s*0.1},${y-s*0.2} ${x-s*0.2},${y-s*0.4} M${x},${y} Q${x+s*0.1},${y-s*0.15} ${x+s*0.25},${y-s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.15},${y+s*0.4} L${x-s*0.15},${y+s*0.1} Q${x-s*0.3},${y-s*0.1} ${x-s*0.4},${y-s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.15},${y+s*0.4} L${x+s*0.15},${y+s*0.15} Q${x+s*0.3},${y} ${x+s*0.35},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x-s*0.2}" cy="${y-s*0.4}" r="${s*0.08}" fill="currentColor" opacity="0.6"/>
+                <circle cx="${x+s*0.25}" cy="${y-s*0.35}" r="${s*0.08}" fill="currentColor" opacity="0.6"/>
+                <circle cx="${x-s*0.4}" cy="${y-s*0.25}" r="${s*0.06}" fill="currentColor" opacity="0.6"/>`;
+    },
+
+    // Wave crest - dolphins love to surf waves
+    // Fact: Dolphins can ride waves to conserve energy
+    waveCrest: (x, y, size, rng) => {
+        const s = size * 0.4;
+        return `<path d="M${x-s*0.6},${y+s*0.1} Q${x-s*0.3},${y-s*0.2} ${x},${y+s*0.05} Q${x+s*0.3},${y+s*0.3} ${x+s*0.6},${y+s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.4},${y+s*0.25} Q${x-s*0.1},${y+s*0.1} ${x+s*0.2},${y+s*0.25}" fill="none" stroke="currentColor" stroke-width="0.7"/>`;
     }
 };
 
@@ -1119,6 +1529,152 @@ const CharacterArt = {
                 <line x1="${x+s*0.2}" y1="${y+s*0.2}" x2="${x+s*0.45}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.1}" y1="${y+s*0.55}" x2="${x-s*0.15}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x+s*0.1}" y1="${y+s*0.55}" x2="${x+s*0.15}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // =============================================================================
+    // DOLPHIN THEME CHARACTERS - Educational marine mammals
+    // =============================================================================
+
+    // Bottlenose Dolphin - most well-known species
+    // Fact: Brain is 40% larger than humans, uses echolocation
+    bottlenoseDolphin: (x, y, size) => {
+        const s = size * 0.45;
+        return `<!-- Body - streamlined for speed up to 20mph -->
+                <path d="M${x-s*0.8},${y} Q${x-s*0.6},${y-s*0.3} ${x},${y-s*0.2} Q${x+s*0.5},${y-s*0.15} ${x+s*0.7},${y+s*0.1}" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                <path d="M${x-s*0.8},${y} Q${x-s*0.5},${y+s*0.25} ${x},${y+s*0.15} Q${x+s*0.4},${y+s*0.1} ${x+s*0.7},${y+s*0.1}" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                <!-- Rostrum (beak) - 88 teeth for catching fish -->
+                <path d="M${x+s*0.7},${y+s*0.1} Q${x+s*0.85},${y+s*0.05} ${x+s*0.95},${y+s*0.08}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.7},${y+s*0.1} Q${x+s*0.85},${y+s*0.15} ${x+s*0.95},${y+s*0.12}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Dorsal fin - unique to each dolphin like fingerprint -->
+                <path d="M${x-s*0.1},${y-s*0.2} Q${x},${y-s*0.6} ${x+s*0.2},${y-s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Pectoral fin - contains bones similar to human hand -->
+                <path d="M${x+s*0.2},${y+s*0.1} Q${x+s*0.1},${y+s*0.35} ${x+s*0.3},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Tail fluke - moves up/down unlike fish -->
+                <path d="M${x-s*0.8},${y} Q${x-s*0.9},${y-s*0.2} ${x-s*1.05},${y-s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.8},${y} Q${x-s*0.9},${y+s*0.2} ${x-s*1.05},${y+s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Eye - dolphins sleep with one eye open -->
+                <circle cx="${x+s*0.5}" cy="${y}" r="${s*0.06}" fill="currentColor"/>
+                <!-- Blowhole - breathes air, not water -->
+                <ellipse cx="${x+s*0.3}" cy="${y-s*0.22}" rx="${s*0.06}" ry="${s*0.03}" fill="currentColor"/>`;
+    },
+
+    // Dolphin Calf - baby dolphin
+    // Fact: Calves nurse for 2-3 years, stay with mom for 3-6 years
+    dolphinCalf: (x, y, size) => {
+        const s = size * 0.35;
+        return `<!-- Smaller, rounder body of a calf -->
+                <path d="M${x-s*0.6},${y} Q${x-s*0.4},${y-s*0.35} ${x+s*0.2},${y-s*0.2} Q${x+s*0.5},${y-s*0.1} ${x+s*0.6},${y+s*0.05}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.6},${y} Q${x-s*0.3},${y+s*0.3} ${x+s*0.2},${y+s*0.2} Q${x+s*0.45},${y+s*0.1} ${x+s*0.6},${y+s*0.05}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Short rostrum -->
+                <path d="M${x+s*0.6},${y+s*0.05} Q${x+s*0.75},${y} ${x+s*0.8},${y+s*0.05}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Small dorsal fin -->
+                <path d="M${x},${y-s*0.2} Q${x+s*0.1},${y-s*0.45} ${x+s*0.2},${y-s*0.15}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Small pectoral fin -->
+                <path d="M${x+s*0.2},${y+s*0.15} Q${x+s*0.15},${y+s*0.3} ${x+s*0.25},${y+s*0.35}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Tail -->
+                <path d="M${x-s*0.6},${y} Q${x-s*0.7},${y-s*0.15} ${x-s*0.8},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x-s*0.6},${y} Q${x-s*0.7},${y+s*0.15} ${x-s*0.8},${y+s*0.1}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Cute eye -->
+                <circle cx="${x+s*0.4}" cy="${y-s*0.05}" r="${s*0.06}" fill="currentColor"/>`;
+    },
+
+    // Orca (Killer Whale) - largest dolphin family member
+    // Fact: Orcas are dolphins! They can live 50-90 years
+    orca: (x, y, size) => {
+        const s = size * 0.45;
+        return `<!-- Large body with distinctive black/white pattern -->
+                <path d="M${x-s*0.85},${y} Q${x-s*0.6},${y-s*0.4} ${x},${y-s*0.3} Q${x+s*0.4},${y-s*0.2} ${x+s*0.65},${y}" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M${x-s*0.85},${y} Q${x-s*0.5},${y+s*0.35} ${x},${y+s*0.25} Q${x+s*0.35},${y+s*0.15} ${x+s*0.65},${y}" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                <!-- Rounded head -->
+                <path d="M${x+s*0.65},${y} Q${x+s*0.85},${y-s*0.05} ${x+s*0.85},${y+s*0.1} Q${x+s*0.75},${y+s*0.15} ${x+s*0.65},${y}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Tall dorsal fin - males can be 6 feet tall! -->
+                <path d="M${x-s*0.15},${y-s*0.3} L${x},${y-s*0.8} Q${x+s*0.15},${y-s*0.5} ${x+s*0.15},${y-s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Eye patch - distinctive white marking -->
+                <ellipse cx="${x+s*0.5}" cy="${y-s*0.08}" rx="${s*0.12}" ry="${s*0.08}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <circle cx="${x+s*0.52}" cy="${y-s*0.08}" r="${s*0.04}" fill="currentColor"/>
+                <!-- Pectoral fin - paddle-shaped -->
+                <path d="M${x+s*0.15},${y+s*0.2} Q${x},${y+s*0.45} ${x+s*0.2},${y+s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Tail flukes -->
+                <path d="M${x-s*0.85},${y} Q${x-s*0.95},${y-s*0.25} ${x-s*1.1},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.85},${y} Q${x-s*0.95},${y+s*0.25} ${x-s*1.1},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Saddle patch behind dorsal -->
+                <path d="M${x-s*0.25},${y-s*0.15} Q${x-s*0.35},${y-s*0.1} ${x-s*0.4},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="0.7"/>`;
+    },
+
+    // Marine Trainer - works with dolphins for enrichment
+    // Fact: Trainers use positive reinforcement only
+    marineTrainer: (x, y, size) => {
+        const s = size * 0.4;
+        return `<!-- Head with cap -->
+                <circle cx="${x}" cy="${y-s*0.55}" r="${s*0.28}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.35},${y-s*0.65} L${x-s*0.4},${y-s*0.8} L${x+s*0.4},${y-s*0.8} L${x+s*0.35},${y-s*0.65}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.45}" y1="${y-s*0.8}" x2="${x+s*0.45}" y2="${y-s*0.8}" stroke="currentColor" stroke-width="1"/>
+                <!-- Eyes and smile -->
+                <circle cx="${x-s*0.1}" cy="${y-s*0.58}" r="${s*0.04}" fill="currentColor"/>
+                <circle cx="${x+s*0.1}" cy="${y-s*0.58}" r="${s*0.04}" fill="currentColor"/>
+                <path d="M${x-s*0.1},${y-s*0.42} Q${x},${y-s*0.35} ${x+s*0.1},${y-s*0.42}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Wetsuit body -->
+                <path d="M${x-s*0.25},${y-s*0.27} L${x-s*0.3},${y+s*0.4} L${x+s*0.3},${y+s*0.4} L${x+s*0.25},${y-s*0.27}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Arms - one raised with whistle/target -->
+                <line x1="${x-s*0.3}" y1="${y-s*0.1}" x2="${x-s*0.55}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.3}" y1="${y-s*0.1}" x2="${x+s*0.5}" y2="${y-s*0.4}" stroke="currentColor" stroke-width="1"/>
+                <!-- Target pole for training -->
+                <line x1="${x+s*0.5}" y1="${y-s*0.4}" x2="${x+s*0.5}" y2="${y-s*0.8}" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x+s*0.5}" cy="${y-s*0.85}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Legs -->
+                <line x1="${x-s*0.15}" y1="${y+s*0.4}" x2="${x-s*0.2}" y2="${y+s*0.85}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.4}" x2="${x+s*0.2}" y2="${y+s*0.85}" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Marine Biologist - studies dolphins in the wild
+    // Fact: Scientists ID dolphins by dorsal fin photos
+    marineBiologist: (x, y, size) => {
+        const s = size * 0.4;
+        return `<!-- Head with glasses -->
+                <circle cx="${x}" cy="${y-s*0.55}" r="${s*0.28}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <circle cx="${x-s*0.12}" cy="${y-s*0.58}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <circle cx="${x+s*0.12}" cy="${y-s*0.58}" r="${s*0.1}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <line x1="${x-s*0.02}" y1="${y-s*0.58}" x2="${x+s*0.02}" y2="${y-s*0.58}" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Hair -->
+                <path d="M${x-s*0.25},${y-s*0.7} Q${x},${y-s*0.9} ${x+s*0.25},${y-s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Lab coat -->
+                <path d="M${x-s*0.3},${y-s*0.27} L${x-s*0.35},${y+s*0.5} L${x+s*0.35},${y+s*0.5} L${x+s*0.3},${y-s*0.27}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x}" y1="${y-s*0.27}" x2="${x}" y2="${y+s*0.3}" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Arms holding clipboard -->
+                <line x1="${x-s*0.35}" y1="${y-s*0.05}" x2="${x-s*0.5}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.35}" y1="${y-s*0.05}" x2="${x+s*0.45}" y2="${y+s*0.2}" stroke="currentColor" stroke-width="1"/>
+                <!-- Clipboard with data -->
+                <rect x="${x+s*0.35}" y="${y+s*0.05}" width="${s*0.35}" height="${s*0.4}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <line x1="${x+s*0.4}" y1="${y+s*0.15}" x2="${x+s*0.6}" y2="${y+s*0.15}" stroke="currentColor" stroke-width="0.5"/>
+                <line x1="${x+s*0.4}" y1="${y+s*0.25}" x2="${x+s*0.55}" y2="${y+s*0.25}" stroke="currentColor" stroke-width="0.5"/>
+                <!-- Legs -->
+                <line x1="${x-s*0.15}" y1="${y+s*0.5}" x2="${x-s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x+s*0.15}" y1="${y+s*0.5}" x2="${x+s*0.2}" y2="${y+s*0.9}" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Spinner Dolphin - known for acrobatic spins
+    // Fact: Can spin 7 times in a single leap!
+    spinnerDolphin: (x, y, size) => {
+        const s = size * 0.4;
+        // Shown mid-spin, slightly rotated
+        return `<!-- Sleek body - spinners are smaller than bottlenose -->
+                <path d="M${x-s*0.7},${y+s*0.2} Q${x-s*0.4},${y-s*0.3} ${x+s*0.2},${y-s*0.35} Q${x+s*0.5},${y-s*0.25} ${x+s*0.65},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.7},${y+s*0.2} Q${x-s*0.3},${y+s*0.15} ${x+s*0.2},${y-s*0.05} Q${x+s*0.45},${y-s*0.1} ${x+s*0.65},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Long thin beak -->
+                <path d="M${x+s*0.65},${y-s*0.1} Q${x+s*0.8},${y-s*0.15} ${x+s*0.9},${y-s*0.12}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x+s*0.65},${y-s*0.1} Q${x+s*0.8},${y-s*0.05} ${x+s*0.9},${y-s*0.08}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Triangular dorsal -->
+                <path d="M${x},${y-s*0.35} Q${x+s*0.05},${y-s*0.65} ${x+s*0.2},${y-s*0.3}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Pectoral -->
+                <path d="M${x+s*0.25},${y-s*0.1} Q${x+s*0.2},${y+s*0.1} ${x+s*0.35},${y+s*0.15}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Tail mid-spin -->
+                <path d="M${x-s*0.7},${y+s*0.2} Q${x-s*0.85},${y+s*0.35} ${x-s*0.9},${y+s*0.25}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x-s*0.7},${y+s*0.2} Q${x-s*0.8},${y+s*0.1} ${x-s*0.95},${y+s*0.15}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Eye -->
+                <circle cx="${x+s*0.5}" cy="${y-s*0.2}" r="${s*0.05}" fill="currentColor"/>
+                <!-- Spin motion lines -->
+                <path d="M${x-s*0.4},${y-s*0.5} Q${x-s*0.2},${y-s*0.6} ${x},${y-s*0.55}" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.5"/>
+                <path d="M${x-s*0.5},${y+s*0.4} Q${x-s*0.3},${y+s*0.5} ${x-s*0.1},${y+s*0.45}" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.5"/>`;
     }
 };
 
@@ -1349,6 +1905,135 @@ const GoalArt = {
                 <path d="M${x-s*0.15},${y+s*0.1} Q${x},${y+s*0.2} ${x+s*0.15},${y+s*0.05}" fill="none" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x-s*0.4}" y1="${y+s*0.5}" x2="${x-s*0.6}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1"/>
                 <line x1="${x+s*0.4}" y1="${y+s*0.5}" x2="${x+s*0.6}" y2="${y+s*0.7}" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // =============================================================================
+    // DOLPHIN THEME GOALS - Educational destinations
+    // =============================================================================
+
+    // Dolphin Pod - dolphins live in groups
+    // Fact: Pods can have 2-30 dolphins, sometimes 1000+
+    dolphinPod: (x, y, size) => {
+        const s = size * 0.35;
+        // Multiple dolphins swimming together
+        return `<!-- Lead dolphin -->
+                <path d="M${x-s*0.2},${y-s*0.3} Q${x},${y-s*0.5} ${x+s*0.4},${y-s*0.4} Q${x+s*0.6},${y-s*0.35} ${x+s*0.7},${y-s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.2},${y-s*0.3} Q${x+s*0.1},${y-s*0.15} ${x+s*0.5},${y-s*0.2} Q${x+s*0.6},${y-s*0.25} ${x+s*0.7},${y-s*0.3}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x+s*0.3},${y-s*0.4} L${x+s*0.35},${y-s*0.55}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Second dolphin -->
+                <path d="M${x-s*0.5},${y} Q${x-s*0.3},${y-s*0.15} ${x+s*0.1},${y-s*0.1} Q${x+s*0.25},${y-s*0.05} ${x+s*0.35},${y}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.5},${y} Q${x-s*0.25},${y+s*0.1} ${x+s*0.1},${y+s*0.05} Q${x+s*0.25},${y} ${x+s*0.35},${y}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x},${y-s*0.1} L${x+s*0.05},${y-s*0.22}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Third dolphin (calf) -->
+                <path d="M${x-s*0.3},${y+s*0.35} Q${x-s*0.1},${y+s*0.2} ${x+s*0.15},${y+s*0.25}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x-s*0.3},${y+s*0.35} Q${x-s*0.15},${y+s*0.45} ${x+s*0.1},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <!-- Water splashes -->
+                <path d="M${x+s*0.5},${y-s*0.5} Q${x+s*0.55},${y-s*0.6} ${x+s*0.65},${y-s*0.55}" fill="none" stroke="currentColor" stroke-width="0.5"/>
+                <path d="M${x+s*0.2},${y-s*0.15} Q${x+s*0.25},${y-s*0.2} ${x+s*0.3},${y-s*0.18}" fill="none" stroke="currentColor" stroke-width="0.5"/>`;
+    },
+
+    // Marine Research Station - for studying dolphins
+    // Fact: Photo-ID databases track individual dolphins
+    researchStation: (x, y, size) => {
+        const s = size * 0.4;
+        return `<!-- Main building -->
+                <rect x="${x-s*0.5}" y="${y-s*0.2}" width="${s*0.7}" height="${s*0.6}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Observation tower -->
+                <rect x="${x+s*0.1}" y="${y-s*0.7}" width="${s*0.35}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.05},${y-s*0.7} L${x+s*0.275},${y-s*0.9} L${x+s*0.5},${y-s*0.7}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Windows -->
+                <rect x="${x-s*0.4}" y="${y-s*0.1}" width="${s*0.15}" height="${s*0.15}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <rect x="${x-s*0.15}" y="${y-s*0.1}" width="${s*0.15}" height="${s*0.15}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <rect x="${x+s*0.2}" y="${y-s*0.55}" width="${s*0.12}" height="${s*0.15}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Satellite dish -->
+                <path d="M${x-s*0.3},${y-s*0.35} Q${x-s*0.5},${y-s*0.5} ${x-s*0.35},${y-s*0.6}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <line x1="${x-s*0.35}" y1="${y-s*0.2}" x2="${x-s*0.4}" y2="${y-s*0.45}" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Dock/pier -->
+                <line x1="${x-s*0.5}" y1="${y+s*0.4}" x2="${x-s*0.8}" y2="${y+s*0.4}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.65}" y1="${y+s*0.4}" x2="${x-s*0.65}" y2="${y+s*0.6}" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Water -->
+                <path d="M${x-s*0.9},${y+s*0.55} Q${x-s*0.7},${y+s*0.5} ${x-s*0.5},${y+s*0.55}" fill="none" stroke="currentColor" stroke-width="0.6"/>`;
+    },
+
+    // Coral Reef Habitat - dolphins visit reefs
+    // Fact: Reefs provide shelter and food for dolphins
+    coralReefHabitat: (x, y, size) => {
+        const s = size * 0.4;
+        return `<!-- Coral formations -->
+                <path d="M${x-s*0.5},${y+s*0.5} L${x-s*0.5},${y+s*0.1} Q${x-s*0.6},${y-s*0.1} ${x-s*0.5},${y-s*0.25} Q${x-s*0.4},${y-s*0.1} ${x-s*0.5},${y+s*0.1}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.35},${y+s*0.5} L${x-s*0.35},${y+s*0.2} Q${x-s*0.25},${y} ${x-s*0.3},${y-s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x},${y+s*0.5} L${x},${y+s*0.15} Q${x-s*0.1},${y-s*0.05} ${x-s*0.15},${y-s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x},${y+s*0.15} Q${x+s*0.1},${y} ${x+s*0.15},${y-s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Brain coral -->
+                <ellipse cx="${x+s*0.35}" cy="${y+s*0.3}" rx="${s*0.25}" ry="${s*0.2}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.2},${y+s*0.3} Q${x+s*0.35},${y+s*0.2} ${x+s*0.5},${y+s*0.3}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <path d="M${x+s*0.25},${y+s*0.35} Q${x+s*0.35},${y+s*0.4} ${x+s*0.45},${y+s*0.35}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <!-- Small fish -->
+                <ellipse cx="${x+s*0.1}" cy="${y-s*0.35}" rx="${s*0.1}" ry="${s*0.05}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <ellipse cx="${x-s*0.2}" cy="${y-s*0.4}" rx="${s*0.08}" ry="${s*0.04}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <!-- Bubbles -->
+                <circle cx="${x+s*0.45}" cy="${y-s*0.2}" r="${s*0.04}" fill="none" stroke="currentColor" stroke-width="0.5"/>
+                <circle cx="${x+s*0.5}" cy="${y-s*0.35}" r="${s*0.03}" fill="none" stroke="currentColor" stroke-width="0.5"/>`;
+    },
+
+    // Marine Conservation Center - protects dolphins
+    // Fact: Many dolphins are rescued and rehabilitated
+    conservationCenter: (x, y, size) => {
+        const s = size * 0.4;
+        return `<!-- Main building with pool -->
+                <rect x="${x-s*0.6}" y="${y-s*0.3}" width="${s*0.8}" height="${s*0.5}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.65},${y-s*0.3} L${x-s*0.2},${y-s*0.6} L${x+s*0.25},${y-s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Pool area -->
+                <ellipse cx="${x+s*0.35}" cy="${y+s*0.2}" rx="${s*0.4}" ry="${s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.15},${y+s*0.15} Q${x+s*0.35},${y+s*0.05} ${x+s*0.55},${y+s*0.15}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <!-- Dolphin in pool -->
+                <path d="M${x+s*0.2},${y+s*0.25} Q${x+s*0.35},${y+s*0.15} ${x+s*0.5},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Heart symbol (care) -->
+                <path d="M${x-s*0.2},${y-s*0.5} Q${x-s*0.3},${y-s*0.6} ${x-s*0.2},${y-s*0.45} Q${x-s*0.1},${y-s*0.6} ${x-s*0.2},${y-s*0.5}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Medical cross -->
+                <line x1="${x-s*0.4}" y1="${y-s*0.1}" x2="${x-s*0.4}" y2="${y+s*0.1}" stroke="currentColor" stroke-width="1"/>
+                <line x1="${x-s*0.5}" y1="${y}" x2="${x-s*0.3}" y2="${y}" stroke="currentColor" stroke-width="1"/>`;
+    },
+
+    // Open Ocean - dolphin's natural habitat
+    // Fact: Some dolphins migrate thousands of miles
+    openOcean: (x, y, size) => {
+        const s = size * 0.45;
+        return `<!-- Horizon line -->
+                <line x1="${x-s*0.8}" y1="${y-s*0.2}" x2="${x+s*0.8}" y2="${y-s*0.2}" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Sun/Moon -->
+                <circle cx="${x+s*0.4}" cy="${y-s*0.5}" r="${s*0.15}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Waves -->
+                <path d="M${x-s*0.8},${y} Q${x-s*0.5},${y-s*0.15} ${x-s*0.2},${y} T${x+s*0.4},${y} T${x+s*0.8},${y}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.7},${y+s*0.2} Q${x-s*0.4},${y+s*0.1} ${x-s*0.1},${y+s*0.2} T${x+s*0.5},${y+s*0.2}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x-s*0.6},${y+s*0.4} Q${x-s*0.3},${y+s*0.3} ${x},${y+s*0.4} T${x+s*0.6},${y+s*0.4}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <!-- Dolphin jumping -->
+                <path d="M${x-s*0.3},${y-s*0.1} Q${x-s*0.1},${y-s*0.5} ${x+s*0.2},${y-s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.3},${y-s*0.1} Q${x-s*0.05},${y-s*0.25} ${x+s*0.2},${y-s*0.35}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M${x},${y-s*0.4} L${x+s*0.05},${y-s*0.55}" fill="none" stroke="currentColor" stroke-width="0.8"/>
+                <!-- Splash -->
+                <path d="M${x-s*0.35},${y-s*0.05} Q${x-s*0.4},${y-s*0.15} ${x-s*0.3},${y-s*0.1}" fill="none" stroke="currentColor" stroke-width="0.5"/>`;
+    },
+
+    // Feeding Grounds - where dolphins hunt
+    // Fact: Dolphins use teamwork to herd fish
+    feedingGrounds: (x, y, size) => {
+        const s = size * 0.4;
+        return `<!-- School of fish being herded -->
+                <ellipse cx="${x-s*0.1}" cy="${y}" rx="${s*0.08}" ry="${s*0.04}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <ellipse cx="${x+s*0.05}" cy="${y-s*0.1}" rx="${s*0.07}" ry="${s*0.035}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <ellipse cx="${x-s*0.05}" cy="${y+s*0.12}" rx="${s*0.08}" ry="${s*0.04}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <ellipse cx="${x+s*0.15}" cy="${y+s*0.05}" rx="${s*0.07}" ry="${s*0.035}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <ellipse cx="${x}" cy="${y-s*0.2}" rx="${s*0.06}" ry="${s*0.03}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <ellipse cx="${x+s*0.1}" cy="${y+s*0.2}" rx="${s*0.07}" ry="${s*0.035}" fill="none" stroke="currentColor" stroke-width="0.6"/>
+                <!-- Dolphins surrounding fish -->
+                <path d="M${x-s*0.6},${y-s*0.2} Q${x-s*0.45},${y-s*0.35} ${x-s*0.3},${y-s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.5},${y-s*0.3} Q${x+s*0.35},${y-s*0.4} ${x+s*0.25},${y-s*0.3}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x-s*0.5},${y+s*0.35} Q${x-s*0.35},${y+s*0.45} ${x-s*0.2},${y+s*0.35}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M${x+s*0.55},${y+s*0.25} Q${x+s*0.4},${y+s*0.35} ${x+s*0.3},${y+s*0.25}" fill="none" stroke="currentColor" stroke-width="1"/>
+                <!-- Bubbles from echolocation -->
+                <circle cx="${x-s*0.25}" cy="${y-s*0.3}" r="${s*0.03}" fill="none" stroke="currentColor" stroke-width="0.4"/>
+                <circle cx="${x+s*0.2}" cy="${y-s*0.35}" r="${s*0.025}" fill="none" stroke="currentColor" stroke-width="0.4"/>`;
     }
 };
 
@@ -1429,6 +2114,49 @@ const BorderPatterns = {
             svg += `<g transform="translate(${width-x},${height-y}) rotate(${angle})" opacity="0.6"><path d="M0,-5 Q4,0 0,5 Q-4,0 0,-5" fill="none" stroke="currentColor" stroke-width="1"/></g>`;
         }
         return svg;
+    },
+
+    // Dolphin educational border - waves with small dolphin silhouettes
+    dolphins: (width, height, padding, rng) => {
+        let svg = '';
+        // Outer frame
+        svg += `<rect x="4" y="4" width="${width-8}" height="${height-8}" fill="none" stroke="currentColor" stroke-width="1.3" rx="3"/>`;
+
+        // Top wave border with foam
+        const waveW = 20;
+        for (let x = 12; x < width - 20; x += waveW) {
+            svg += `<path d="M${x},10 Q${x + waveW/4},6 ${x + waveW/2},10 T${x + waveW},10" fill="none" stroke="currentColor" stroke-width="1"/>`;
+        }
+
+        // Bottom wave border
+        for (let x = 12; x < width - 20; x += waveW) {
+            svg += `<path d="M${x},${height-10} Q${x + waveW/4},${height-14} ${x + waveW/2},${height-10} T${x + waveW},${height-10}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+        }
+
+        // Small dolphin silhouettes in corners (educational - shows iconic shape)
+        const drawMiniDolphin = (cx, cy, scale, flip) => {
+            const f = flip ? -1 : 1;
+            return `<g transform="translate(${cx},${cy}) scale(${f * scale},${scale})">
+                <path d="M-8,0 Q-6,-4 0,-3 Q4,-2 7,0 Q4,2 0,1 Q-6,2 -8,0" fill="currentColor" opacity="0.5"/>
+                <path d="M4,-2 Q6,-5 5,-3" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+            </g>`;
+        };
+
+        // Add dolphins to corners
+        svg += drawMiniDolphin(20, 20, 0.8, false);
+        svg += drawMiniDolphin(width - 20, 20, 0.8, true);
+        svg += drawMiniDolphin(20, height - 20, 0.8, false);
+        svg += drawMiniDolphin(width - 20, height - 20, 0.8, true);
+
+        // Side bubbles (educational - dolphins are mammals, breathe air)
+        for (let y = 30; y < height - 30; y += 40) {
+            svg += `<circle cx="8" cy="${y}" r="2" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.4"/>`;
+            svg += `<circle cx="12" cy="${y + 8}" r="1.5" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.4"/>`;
+            svg += `<circle cx="${width-8}" cy="${y}" r="2" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.4"/>`;
+            svg += `<circle cx="${width-12}" cy="${y + 8}" r="1.5" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.4"/>`;
+        }
+
+        return svg;
     }
 };
 
@@ -1507,25 +2235,129 @@ class Maze {
         }
     }
 
-    findValidStartEnd(roomSize = 1) {
-        // Collect ALL valid perimeter positions for rooms
-        const perimeterPositions = [];
+    // Find all connected regions of unblocked cells
+    // OPTIMIZED: Uses 2D array instead of Set with string keys for 5-10x speedup
+    findConnectedRegions() {
+        const visited = new Array(this.height);
+        for (let i = 0; i < this.height; i++) visited[i] = new Array(this.width).fill(false);
 
-        // Check if a position can hold a room of given size
+        const regions = [];
+
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                if (visited[y][x] || this.cells[y][x].blocked) continue;
+
+                // Flood fill to find this region - use array of coords
+                const regionCells = [];
+                const stack = [[x, y]];
+
+                while (stack.length > 0) {
+                    const [cx, cy] = stack.pop();
+                    if (cx < 0 || cy < 0 || cx >= this.width || cy >= this.height) continue;
+                    if (visited[cy][cx] || this.cells[cy][cx].blocked) continue;
+
+                    visited[cy][cx] = true;
+                    regionCells.push([cx, cy]);
+
+                    // Check 4 neighbors - push in order that tends to fill faster
+                    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+                }
+
+                if (regionCells.length > 0) {
+                    // Convert to Set for fast lookup
+                    const region = new Set();
+                    for (const [rx, ry] of regionCells) region.add(`${rx},${ry}`);
+                    regions.push(region);
+                }
+            }
+        }
+
+        // Sort by size descending - largest region first
+        regions.sort((a, b) => b.size - a.size);
+        return regions;
+    }
+
+    findValidStartEnd(roomSize = 1) {
+        // OPTIMIZATION: For rectangle shapes, skip connected regions check (all cells connected)
+        let mainRegion;
+        if (this.shape === 'rectangle') {
+            mainRegion = new Set();
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    mainRegion.add(`${x},${y}`);
+                }
+            }
+        } else {
+            // Find connected regions - we only want start/end in the largest (main) region
+            const regions = this.findConnectedRegions();
+            mainRegion = regions[0] || new Set();
+        }
+
+        // Check if a position can hold a room of given size AND can connect to maze
         const canPlaceRoom = (x, y) => {
             if (x < 0 || y < 0 || x + roomSize > this.width || y + roomSize > this.height) return false;
+
+            // All room cells must be unblocked
             for (let dy = 0; dy < roomSize; dy++) {
                 for (let dx = 0; dx < roomSize; dx++) {
                     if (this.cells[y + dy][x + dx].blocked) return false;
                 }
             }
-            return true;
+
+            // Room must have at least one cell in the main region
+            let inMainRegion = false;
+            for (let dy = 0; dy < roomSize; dy++) {
+                for (let dx = 0; dx < roomSize; dx++) {
+                    if (mainRegion.has(`${x + dx},${y + dy}`)) {
+                        inMainRegion = true;
+                        break;
+                    }
+                }
+                if (inMainRegion) break;
+            }
+            if (!inMainRegion) return false;
+
+            // Room should have at least one adjacent non-blocked cell to connect to
+            // For very small mazes, skip this check as rooms might fill most of the space
+            if (this.width * this.height < 100) {
+                return true; // Small maze - accept any valid position
+            }
+
+            // Check all cells adjacent to the room boundary
+            let hasConnection = false;
+            for (let i = 0; i < roomSize && !hasConnection; i++) {
+                // Check north edge (y - 1)
+                if (y > 0 && !this.cells[y - 1][x + i].blocked) hasConnection = true;
+                // Check south edge (y + roomSize)
+                if (y + roomSize < this.height && !this.cells[y + roomSize][x + i].blocked) hasConnection = true;
+                // Check west edge (x - 1)
+                if (x > 0 && !this.cells[y + i][x - 1].blocked) hasConnection = true;
+                // Check east edge (x + roomSize)
+                if (x + roomSize < this.width && !this.cells[y + i][x + roomSize].blocked) hasConnection = true;
+            }
+
+            return hasConnection;
         };
 
-        // Check if position is on perimeter (room touches edge)
+        // Check if position is on perimeter (room touches edge of shape, not just grid)
         const isOnPerimeter = (x, y) => {
-            return x === 0 || y === 0 || x + roomSize >= this.width || y + roomSize >= this.height;
+            // Grid edge counts as perimeter
+            if (x === 0 || y === 0 || x + roomSize >= this.width || y + roomSize >= this.height) {
+                return true;
+            }
+            // For shaped mazes, also check if room is adjacent to blocked cells (shape edge)
+            for (let i = 0; i < roomSize; i++) {
+                // Check if any room edge cell has a blocked neighbor
+                if (y > 0 && this.cells[y - 1][x + i].blocked) return true;  // North
+                if (y + roomSize < this.height && this.cells[y + roomSize][x + i].blocked) return true;  // South
+                if (x > 0 && this.cells[y + i][x - 1].blocked) return true;  // West
+                if (x + roomSize < this.width && this.cells[y + i][x + roomSize].blocked) return true;  // East
+            }
+            return false;
         };
+
+        // Collect ALL valid perimeter positions for rooms in main region
+        const perimeterPositions = [];
 
         // Collect all valid perimeter positions
         for (let y = 0; y <= this.height - roomSize; y++) {
@@ -1543,7 +2375,7 @@ class Maze {
         }
 
         if (perimeterPositions.length < 2) {
-            // Fallback: just find any two positions
+            // Fallback: just find any two positions in main region
             for (let y = 0; y <= this.height - roomSize && !this.startPos; y++) {
                 for (let x = 0; x <= this.width - roomSize && !this.startPos; x++) {
                     if (canPlaceRoom(x, y)) this.startPos = { x, y };
@@ -1631,15 +2463,33 @@ class Maze {
     }
 
     createEntranceExit() {
-        // Calculate room size - keep it small (2x2 for most, 3x3 for very large)
-        const minDim = Math.min(this.width, this.height);
-        let roomSize = minDim >= 30 ? 3 : 2;
+        // Calculate room size - needs to be big enough for readable art
+        // Larger mazes have smaller cells, so need MORE cells for same physical size
+        // Target: ~40px minimum art space, with cellSize = floor(350 / max(w,h))
+        const cellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(this.width, this.height))));
+        const MIN_ART_PIXELS = 40; // Minimum pixels for readable art
+        const minRoomCells = Math.ceil(MIN_ART_PIXELS / cellSize);
+        // Clamp between 2 and 6 cells
+        let targetRoomSize = Math.min(6, Math.max(2, minRoomCells));
 
-        if (!this.findValidStartEnd(roomSize)) {
-            // Try with smaller room size
-            roomSize = 1;
-            if (!this.findValidStartEnd(roomSize)) return;
+        // For very small mazes, use smaller rooms to ensure they fit
+        if (this.width * this.height < 100) {
+            targetRoomSize = Math.min(2, targetRoomSize);
         }
+
+        // Try progressively smaller room sizes until one fits
+        let roomSize = targetRoomSize;
+        let foundValid = false;
+        while (roomSize >= 1 && !foundValid) {
+            if (this.findValidStartEnd(roomSize)) {
+                foundValid = true;
+            } else {
+                roomSize--;
+            }
+        }
+
+        // If no valid position found at all, return without setting solution
+        if (!foundValid || roomSize < 1) return;
 
         // Validate positions exist and are within bounds
         if (!this.startPos || !this.endPos) return;
@@ -1653,24 +2503,79 @@ class Maze {
         this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
         this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
 
-        // Open start entrance (west wall) - with bounds check
-        for (let dy = 0; dy < roomSize; dy++) {
-            const y = this.startPos.y + dy;
-            if (y < this.height && this.cells[y] && this.cells[y][this.startPos.x]) {
-                this.cells[y][this.startPos.x].walls.west = false;
-            }
-        }
-
-        // Open end exit (east wall) - with bounds check
-        const endX = this.endPos.x + roomSize - 1;
-        for (let dy = 0; dy < roomSize; dy++) {
-            const y = this.endPos.y + dy;
-            if (y < this.height && this.cells[y] && this.cells[y][endX]) {
-                this.cells[y][endX].walls.east = false;
-            }
-        }
+        // Connect rooms to the maze interior (not just to the outside)
+        // Find adjacent cells that are part of the maze and open walls to them
+        this.connectRoomToMaze(this.startPos.x, this.startPos.y, roomSize);
+        this.connectRoomToMaze(this.endPos.x, this.endPos.y, roomSize);
 
         this.solution = this.findPath(this.startPos, this.endPos);
+    }
+
+    // Connect a room to the adjacent maze passages
+    connectRoomToMaze(roomX, roomY, roomSize) {
+        // Find all cells adjacent to the room that are not blocked and not part of the room
+        const adjacentCells = [];
+
+        // Check cells adjacent to each edge of the room
+        for (let i = 0; i < roomSize; i++) {
+            // North edge - check cell above
+            if (roomY > 0) {
+                const cell = this.cells[roomY - 1]?.[roomX + i];
+                if (cell && !cell.blocked) {
+                    adjacentCells.push({ x: roomX + i, y: roomY - 1, roomX: roomX + i, roomY: roomY, dir: 'north' });
+                }
+            }
+            // South edge - check cell below
+            if (roomY + roomSize < this.height) {
+                const cell = this.cells[roomY + roomSize]?.[roomX + i];
+                if (cell && !cell.blocked) {
+                    adjacentCells.push({ x: roomX + i, y: roomY + roomSize, roomX: roomX + i, roomY: roomY + roomSize - 1, dir: 'south' });
+                }
+            }
+            // West edge - check cell to the left
+            if (roomX > 0) {
+                const cell = this.cells[roomY + i]?.[roomX - 1];
+                if (cell && !cell.blocked) {
+                    adjacentCells.push({ x: roomX - 1, y: roomY + i, roomX: roomX, roomY: roomY + i, dir: 'west' });
+                }
+            }
+            // East edge - check cell to the right
+            if (roomX + roomSize < this.width) {
+                const cell = this.cells[roomY + i]?.[roomX + roomSize];
+                if (cell && !cell.blocked) {
+                    adjacentCells.push({ x: roomX + roomSize, y: roomY + i, roomX: roomX + roomSize - 1, roomY: roomY + i, dir: 'east' });
+                }
+            }
+        }
+
+        // Open walls to connect room to at least one adjacent maze cell
+        // Open multiple connections for better maze flow
+        const maxConnections = Math.min(3, adjacentCells.length);
+        const shuffled = this.rng ? this.rng.shuffle([...adjacentCells]) : adjacentCells;
+
+        for (let i = 0; i < maxConnections; i++) {
+            const adj = shuffled[i];
+            if (!adj) continue;
+
+            const roomCell = this.cells[adj.roomY]?.[adj.roomX];
+            const adjCell = this.cells[adj.y]?.[adj.x];
+            if (!roomCell || !adjCell) continue;
+
+            // Open the wall between room cell and adjacent cell
+            if (adj.dir === 'north') {
+                roomCell.walls.north = false;
+                adjCell.walls.south = false;
+            } else if (adj.dir === 'south') {
+                roomCell.walls.south = false;
+                adjCell.walls.north = false;
+            } else if (adj.dir === 'west') {
+                roomCell.walls.west = false;
+                adjCell.walls.east = false;
+            } else if (adj.dir === 'east') {
+                roomCell.walls.east = false;
+                adjCell.walls.west = false;
+            }
+        }
     }
 
     findPath(start, end) {
@@ -1819,21 +2724,205 @@ class Maze {
         return regions;
     }
 
-    toSVG(showSolution = false, printMode = false) {
+    // Debug mode for art placement verification
+    // Returns object with svg and debug info for LLM verification
+    toSVGDebug() {
+        const result = {
+            svg: '',
+            artPlacements: [],
+            cellSize: 0,
+            dimensions: { w: this.width, h: this.height }
+        };
+
         const cellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(this.width, this.height))));
+        result.cellSize = cellSize;
         const strokeWidth = Math.max(1.5, cellSize / 8);
         const mazeWidth = this.width * cellSize;
         const mazeHeight = this.height * cellSize;
-
-        // Calculate margins for title, quest, and START/END labels
-        const titleHeight = this.story && this.story.title ? 20 : 0;
-        const questHeight = this.story && this.story.quest ? 52 : 0; // Extra space for 3 lines
-        const sidePadding = 35; // Space for START/END on sides
-        const topPadding = 20 + titleHeight;
-        const bottomPadding = 24 + questHeight; // More padding between maze and quest
-
+        const sidePadding = 35;
+        const topPadding = 40;
         const svgWidth = mazeWidth + sidePadding * 2;
-        const svgHeight = mazeHeight + topPadding + bottomPadding;
+        const svgHeight = mazeHeight + topPadding + 70;
+
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" style="background:#f0f0f0">`;
+        svg += `<rect width="${svgWidth}" height="${svgHeight}" fill="#f0f0f0"/>`;
+
+        // Cell backgrounds
+        svg += `<g fill="#fff">`;
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                if (!this.cells[y][x].blocked) {
+                    const cx = sidePadding + x * cellSize;
+                    const cy = topPadding + y * cellSize;
+                    svg += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}"/>`;
+                }
+            }
+        }
+        svg += '</g>';
+
+        // Character art debug box
+        if (this.startPos) {
+            const roomSize = this.startRoomSize || 2;
+            const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
+            const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
+            const artSize = roomSize * cellSize * 0.56;
+            result.artPlacements.push({
+                type: 'character',
+                name: this.selectedCharacter || this.theme.character,
+                cx, cy, size: artSize,
+                cellX: this.startPos.x, cellY: this.startPos.y, roomSize
+            });
+            svg += `<rect x="${cx - artSize/2}" y="${cy - artSize/2}" width="${artSize}" height="${artSize}" fill="none" stroke="blue" stroke-width="2" stroke-dasharray="4"/>`;
+            svg += `<text x="${cx}" y="${cy}" fill="blue" font-size="8" text-anchor="middle">CHAR</text>`;
+        }
+
+        // Goal art debug box
+        if (this.endPos) {
+            const roomSize = this.endRoomSize || 2;
+            const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize - cellSize * 0.5;
+            const cy = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
+            const artSize = roomSize * cellSize * 0.72;
+            result.artPlacements.push({
+                type: 'goal',
+                name: this.selectedGoal || this.theme.goal,
+                cx, cy, size: artSize,
+                cellX: this.endPos.x, cellY: this.endPos.y, roomSize
+            });
+            svg += `<rect x="${cx - artSize/2}" y="${cy - artSize/2}" width="${artSize}" height="${artSize}" fill="none" stroke="green" stroke-width="2" stroke-dasharray="4"/>`;
+            svg += `<text x="${cx}" y="${cy}" fill="green" font-size="8" text-anchor="middle">GOAL</text>`;
+        }
+
+        // Room decoration debug boxes
+        if (this.rooms) {
+            for (const room of this.rooms) {
+                const cx = sidePadding + (room.x + room.w / 2) * cellSize;
+                const cy = topPadding + (room.y + room.h / 2) * cellSize;
+                const artSize = Math.min(room.w, room.h) * cellSize;
+                result.artPlacements.push({
+                    type: 'room_decoration',
+                    cx, cy, size: artSize,
+                    cellX: room.x, cellY: room.y, roomW: room.w, roomH: room.h
+                });
+                svg += `<rect x="${cx - artSize/2}" y="${cy - artSize/2}" width="${artSize}" height="${artSize}" fill="none" stroke="orange" stroke-width="1" stroke-dasharray="2"/>`;
+                svg += `<text x="${cx}" y="${cy}" fill="orange" font-size="6" text-anchor="middle">ROOM</text>`;
+            }
+        }
+
+        // Walls
+        svg += `<g stroke="#000" stroke-width="${strokeWidth}" stroke-linecap="round">`;
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const cell = this.cells[y][x];
+                if (cell.blocked) continue;
+                const cx = sidePadding + x * cellSize;
+                const cy = topPadding + y * cellSize;
+                if (cell.walls.north) svg += `<line x1="${cx}" y1="${cy}" x2="${cx + cellSize}" y2="${cy}"/>`;
+                if (y === this.height - 1 && cell.walls.south) svg += `<line x1="${cx}" y1="${cy + cellSize}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+                if (cell.walls.west) svg += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy + cellSize}"/>`;
+                if (x === this.width - 1 && cell.walls.east) svg += `<line x1="${cx + cellSize}" y1="${cy}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+            }
+        }
+        svg += '</g>';
+
+        // START/END labels in margins (FIXED SIZE)
+        const FIXED_LABEL_SIZE = 5;
+        const FIXED_ARROW_SIZE = 10;
+
+        if (this.startPos) {
+            const roomSize = this.startRoomSize || 2;
+            const entryCenterY = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
+            const startWidth = VectorFont.measureText('START', FIXED_LABEL_SIZE);
+            const startX = (sidePadding - startWidth) / 2;
+            const startY = entryCenterY - FIXED_ARROW_SIZE - 2;
+            const arrowX = sidePadding - FIXED_ARROW_SIZE - 3;
+
+            result.artPlacements.push({
+                type: 'start_label',
+                name: 'START',
+                cx: startX + startWidth/2, cy: startY + FIXED_LABEL_SIZE/2,
+                size: FIXED_LABEL_SIZE,
+                inMargin: 'left'
+            });
+
+            // Debug box for START label
+            svg += `<rect x="${startX - 2}" y="${startY - 2}" width="${startWidth + 4}" height="${FIXED_LABEL_SIZE + 4}" fill="none" stroke="purple" stroke-width="1" stroke-dasharray="2"/>`;
+            svg += `<text x="${startX + startWidth/2}" y="${startY + FIXED_LABEL_SIZE/2 + 2}" fill="purple" font-size="4" text-anchor="middle">START</text>`;
+            // Arrow debug
+            svg += `<polyline points="${arrowX},${entryCenterY - FIXED_ARROW_SIZE/2} ${arrowX + FIXED_ARROW_SIZE},${entryCenterY} ${arrowX},${entryCenterY + FIXED_ARROW_SIZE/2}" fill="none" stroke="purple" stroke-width="1"/>`;
+        }
+
+        if (this.endPos) {
+            const roomSize = this.endRoomSize || 2;
+            const exitCenterY = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
+            const endWidth = VectorFont.measureText('END', FIXED_LABEL_SIZE);
+            const endX = sidePadding + mazeWidth + (sidePadding - endWidth) / 2;
+            const endY = exitCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
+            const arrowX = sidePadding + mazeWidth + 3;
+
+            result.artPlacements.push({
+                type: 'end_label',
+                name: 'END',
+                cx: endX + endWidth/2, cy: endY + FIXED_LABEL_SIZE/2,
+                size: FIXED_LABEL_SIZE,
+                inMargin: 'right'
+            });
+
+            // Debug box for END label
+            svg += `<rect x="${endX - 2}" y="${endY - 2}" width="${endWidth + 4}" height="${FIXED_LABEL_SIZE + 4}" fill="none" stroke="red" stroke-width="1" stroke-dasharray="2"/>`;
+            svg += `<text x="${endX + endWidth/2}" y="${endY + FIXED_LABEL_SIZE/2 + 2}" fill="red" font-size="4" text-anchor="middle">END</text>`;
+            // Arrow debug
+            svg += `<polyline points="${arrowX},${exitCenterY - FIXED_ARROW_SIZE/2} ${arrowX + FIXED_ARROW_SIZE},${exitCenterY} ${arrowX},${exitCenterY + FIXED_ARROW_SIZE/2}" fill="none" stroke="red" stroke-width="1"/>`;
+        }
+
+        // Debug info text
+        svg += `<text x="10" y="15" fill="#333" font-size="10">Debug: ${this.width}x${this.height}, cellSize=${cellSize}px, minArtCell=${cellSize >= 10 ? 'OK' : 'TOO SMALL'}</text>`;
+        svg += `<text x="10" y="${svgHeight - 10}" fill="#333" font-size="8">Art: ${result.artPlacements.length} | Blue=Char, Green=Goal, Orange=Room, Purple=START, Red=END</text>`;
+
+        svg += '</svg>';
+        result.svg = svg;
+        return result;
+    }
+
+    toSVG(showSolution = false, printMode = false) {
+        // FIXED PAGE DIMENSIONS - all mazes render at same size (letter paper ratio)
+        const PAGE_WIDTH = 850;
+        const PAGE_HEIGHT = 1100;
+
+        // Fixed margins (in page units)
+        const TITLE_AREA_HEIGHT = 70;    // Space for title at top
+        const QUEST_AREA_HEIGHT = 90;    // Space for quest at bottom
+        const SIDE_MARGIN = 55;          // Space for START/END labels on sides
+        const TOP_MARGIN = 15;           // Small top margin above title
+        const BOTTOM_MARGIN = 15;        // Small bottom margin below quest
+
+        // Calculate available area for maze
+        const mazeAreaWidth = PAGE_WIDTH - SIDE_MARGIN * 2;
+        const mazeAreaHeight = PAGE_HEIGHT - TITLE_AREA_HEIGHT - QUEST_AREA_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN;
+
+        // Calculate cell size to fit maze in available area
+        const cellSizeW = mazeAreaWidth / this.width;
+        const cellSizeH = mazeAreaHeight / this.height;
+        const cellSize = Math.min(cellSizeW, cellSizeH);
+
+        // Actual maze dimensions (may be smaller than available area)
+        const mazeWidth = this.width * cellSize;
+        const mazeHeight = this.height * cellSize;
+
+        // Center maze in available area
+        const mazeOffsetX = SIDE_MARGIN + (mazeAreaWidth - mazeWidth) / 2;
+        const mazeOffsetY = TOP_MARGIN + TITLE_AREA_HEIGHT + (mazeAreaHeight - mazeHeight) / 2;
+
+        const strokeWidth = Math.max(1, cellSize / 10);
+
+        // Minimum cell size for scattered decorations
+        const MIN_CELL_SIZE_FOR_DECORATIONS = 8;
+        const allowScatteredDecorations = cellSize >= MIN_CELL_SIZE_FOR_DECORATIONS;
+
+        // Use fixed page dimensions
+        const svgWidth = PAGE_WIDTH;
+        const svgHeight = PAGE_HEIGHT;
+        const sidePadding = mazeOffsetX;
+        const topPadding = mazeOffsetY;
 
         // Print mode: black walls on white background
         const theme = printMode ? {
@@ -1847,6 +2936,23 @@ class Maze {
 
         const textColor = printMode ? '#000' : this.theme.wallColor;
 
+        // ===========================================
+        // SVG LAYER ORDER (bottom to top):
+        // 1. Background fill
+        // 2. Border pattern (decorative, in margin)
+        // 3. Title text
+        // 4. Cell backgrounds (opaque white/pathColor)
+        // 5. Corner decorations (in blocked areas, OUTSIDE maze)
+        // 6. Solution path (if shown)
+        // 7. Character art (in start room, UNDER walls)
+        // 8. Goal art (in end room, UNDER walls)
+        // 9. Room decorations (UNDER walls)
+        // 10. Scattered decorations (UNDER walls) - ONLY if cellSize >= 10
+        // 11. WALLS (always on TOP)
+        // 12. Quest text
+        // 13. START/END labels
+        // ===========================================
+
         let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" style="background:${theme.bgColor}">`;
 
         // Background
@@ -1858,35 +2964,41 @@ class Maze {
             svg += `<g color="${borderColor}">${BorderPatterns[this.theme.borderPattern](svgWidth, svgHeight, sidePadding, this.rng)}</g>`;
         }
 
-        // Title at top (vector font) - auto-scale to fit, white outline for readability
+        // Title at top (vector font) - FIXED SIZE for consistency across difficulties
         if (this.story && this.story.title) {
-            const maxTitleWidth = svgWidth - 32; // Leave margin from borders
-            let titleSize = Math.min(14, Math.max(10, svgWidth / 25));
-            // Scale down if title is too wide
+            const TITLE_SIZE = 28; // Fixed title size
+            const maxTitleWidth = svgWidth - 60;
+            let titleSize = TITLE_SIZE;
+            // Only scale down if title is too wide
             let titleWidth = VectorFont.measureText(this.story.title, titleSize);
-            while (titleWidth > maxTitleWidth && titleSize > 6) {
-                titleSize -= 0.5;
+            while (titleWidth > maxTitleWidth && titleSize > 14) {
+                titleSize -= 1;
                 titleWidth = VectorFont.measureText(this.story.title, titleSize);
             }
-            // Position 0.3 line heights lower (14 + 0.3 * titleSize)
-            const titleY = 14 + titleSize * 0.3;
+            const titleY = TOP_MARGIN + TITLE_AREA_HEIGHT / 2 + titleSize / 3;
             // White outline (thicker stroke) then normal stroke on top
-            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, '#fff', 3);
-            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, textColor, 1.2);
+            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, '#fff', 4);
+            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, textColor, 1.5);
         }
 
-        // Cell backgrounds (white for maze area)
-        svg += `<g fill="${theme.pathColor}">`;
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if (!this.cells[y][x].blocked) {
-                    const cx = sidePadding + x * cellSize;
-                    const cy = topPadding + y * cellSize;
-                    svg += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}"/>`;
+        // Cell backgrounds (white for maze area) - OPTIMIZED for rectangles
+        if (this.shape === 'rectangle') {
+            // Single rectangle for entire maze area (much faster)
+            svg += `<rect x="${sidePadding}" y="${topPadding}" width="${mazeWidth}" height="${mazeHeight}" fill="${theme.pathColor}"/>`;
+        } else {
+            // Individual cells for shaped mazes (need to show only unblocked cells)
+            let bgPath = '';
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    if (!this.cells[y][x].blocked) {
+                        const cx = sidePadding + x * cellSize;
+                        const cy = topPadding + y * cellSize;
+                        bgPath += `M${cx},${cy}h${cellSize}v${cellSize}h${-cellSize}z`;
+                    }
                 }
             }
+            svg += `<path d="${bgPath}" fill="${theme.pathColor}"/>`;
         }
-        svg += '</g>';
 
         // Corner decorations for non-rectangle shapes
         if (this.shape !== 'rectangle' && this.theme.decorations && this.theme.decorations.length > 0) {
@@ -1956,6 +3068,82 @@ class Maze {
             svg += '</g>';
         }
 
+        // Scattered decorations in dead ends and along path (fills empty mazes with art)
+        // SKIP if cells are too small - decorations would be illegible and clutter the maze
+        if (allowScatteredDecorations && this.theme.decorations && this.theme.decorations.length > 0) {
+            const artColor = printMode ? '#888' : this.theme.wallColor;
+            const startRoomSize = this.startRoomSize || 2;
+            const endRoomSize = this.endRoomSize || 2;
+
+            // Find dead ends (cells with 3 walls) and some regular cells for decoration
+            const decorationSpots = [];
+            const solutionSet = new Set();
+            if (this.solution) {
+                for (const p of this.solution) {
+                    solutionSet.add(`${p.x},${p.y}`);
+                }
+            }
+
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    const cell = this.cells[y][x];
+                    if (cell.blocked) continue;
+
+                    // Skip start/end rooms
+                    if (this.startPos && x >= this.startPos.x && x < this.startPos.x + startRoomSize &&
+                        y >= this.startPos.y && y < this.startPos.y + startRoomSize) continue;
+                    if (this.endPos && x >= this.endPos.x && x < this.endPos.x + endRoomSize &&
+                        y >= this.endPos.y && y < this.endPos.y + endRoomSize) continue;
+
+                    // Skip cells in interior rooms
+                    let inRoom = false;
+                    if (this.rooms) {
+                        for (const room of this.rooms) {
+                            if (x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h) {
+                                inRoom = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (inRoom) continue;
+
+                    // Count walls
+                    const wallCount = (cell.walls.north ? 1 : 0) + (cell.walls.south ? 1 : 0) +
+                                     (cell.walls.east ? 1 : 0) + (cell.walls.west ? 1 : 0);
+
+                    // Dead ends (3 walls) - always decorate
+                    if (wallCount === 3) {
+                        decorationSpots.push({ x, y, priority: 1 });
+                    }
+                    // Cells NOT on solution path - decorate some of them
+                    else if (!solutionSet.has(`${x},${y}`) && this.rng.next() < 0.15) {
+                        decorationSpots.push({ x, y, priority: 2 });
+                    }
+                }
+            }
+
+            // Limit decorations to avoid clutter (scale with maze size)
+            const maxDecorations = Math.min(decorationSpots.length, Math.floor(Math.sqrt(this.width * this.height) * 1.5));
+            const shuffled = this.rng.shuffle(decorationSpots);
+            // Prioritize dead ends
+            shuffled.sort((a, b) => a.priority - b.priority);
+            const selected = shuffled.slice(0, maxDecorations);
+
+            if (selected.length > 0) {
+                svg += `<g style="color:${artColor}; stroke:${artColor}; fill:${artColor}">`;
+                for (const spot of selected) {
+                    const cx = sidePadding + spot.x * cellSize + cellSize / 2;
+                    const cy = topPadding + spot.y * cellSize + cellSize / 2;
+                    const artType = this.rng.choice(this.theme.decorations);
+                    if (ArtGenerators[artType]) {
+                        // Smaller size for scattered decorations
+                        svg += ArtGenerators[artType](cx, cy, cellSize * 0.7, this.rng);
+                    }
+                }
+                svg += '</g>';
+            }
+        }
+
         // Helper to check if a cell is inside start or end room
         const isInStartRoom = (x, y) => {
             if (!this.startPos) return false;
@@ -1970,18 +3158,17 @@ class Maze {
                    y >= this.endPos.y && y < this.endPos.y + rs;
         };
 
-        // Walls
+        // Walls - OPTIMIZED: batch into single path element for performance
         if (this.curvedWalls) {
             svg += this.renderCurvedWalls(cellSize, sidePadding, topPadding, strokeWidth, theme.wallColor);
         } else {
-            svg += `<g stroke="${theme.wallColor}" stroke-width="${strokeWidth}" stroke-linecap="round">`;
+            // Collect all wall segments into a single path for better performance
+            let pathD = '';
             for (let y = 0; y < this.height; y++) {
                 for (let x = 0; x < this.width; x++) {
                     const cell = this.cells[y][x];
                     if (cell.blocked) continue;
 
-                    // For cells inside start/end rooms, skip ALL interior walls
-                    // (walls facing blocked cells are ok since they define the room boundary visible outside the artwork)
                     const inStartRoom = isInStartRoom(x, y);
                     const inEndRoom = isInEndRoom(x, y);
 
@@ -1993,82 +3180,170 @@ class Maze {
                     const eastBlocked = x < this.width - 1 && this.cells[y][x+1].blocked;
                     const westBlocked = x > 0 && this.cells[y][x-1].blocked;
 
-                    // For start/end rooms: skip internal walls between room cells
-                    // Draw walls only at room perimeter (where neighbor is NOT in same room)
+                    // North wall
                     if (cell.walls.north || northBlocked) {
-                        // Skip if both cells are in the same room
                         if (!((inStartRoom && isInStartRoom(x, y-1)) || (inEndRoom && isInEndRoom(x, y-1)))) {
-                            // For end room cells facing blocked cells, also skip to avoid artwork overlap
                             if (!(inEndRoom && northBlocked)) {
-                                svg += `<line x1="${cx}" y1="${cy}" x2="${cx + cellSize}" y2="${cy}"/>`;
+                                pathD += `M${cx},${cy}L${cx + cellSize},${cy}`;
                             }
                         }
                     }
+                    // South wall (only for bottom row or blocked neighbor)
                     if ((y === this.height - 1 && cell.walls.south) || southBlocked) {
                         if (!((inStartRoom && isInStartRoom(x, y+1)) || (inEndRoom && isInEndRoom(x, y+1)))) {
                             if (!(inEndRoom && southBlocked)) {
-                                svg += `<line x1="${cx}" y1="${cy + cellSize}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+                                pathD += `M${cx},${cy + cellSize}L${cx + cellSize},${cy + cellSize}`;
                             }
                         }
                     }
+                    // West wall
                     if (cell.walls.west || westBlocked) {
                         if (!((inStartRoom && isInStartRoom(x-1, y)) || (inEndRoom && isInEndRoom(x-1, y)))) {
                             if (!(inEndRoom && westBlocked)) {
-                                svg += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy + cellSize}"/>`;
+                                pathD += `M${cx},${cy}L${cx},${cy + cellSize}`;
                             }
                         }
                     }
+                    // East wall (only for right edge or blocked neighbor)
                     if ((x === this.width - 1 && cell.walls.east) || eastBlocked) {
                         if (!((inStartRoom && isInStartRoom(x+1, y)) || (inEndRoom && isInEndRoom(x+1, y)))) {
                             if (!(inEndRoom && eastBlocked)) {
-                                svg += `<line x1="${cx + cellSize}" y1="${cy}" x2="${cx + cellSize}" y2="${cy + cellSize}"/>`;
+                                pathD += `M${cx + cellSize},${cy}L${cx + cellSize},${cy + cellSize}`;
                             }
                         }
                     }
                 }
             }
-            svg += '</g>';
+            svg += `<path d="${pathD}" fill="none" stroke="${theme.wallColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`;
         }
 
-        // START/END labels positioned under the character/goal art in the rooms
-        // (Since start/end positions are randomized, labels go under the art, not on sides)
-        const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
+        // START/END labels and arrows - FIXED SIZE, smart positioning based on room location
+        // Labels are always readable regardless of maze size
+        const FIXED_LABEL_SIZE = 12;  // Larger size for new margins
+        const FIXED_ARROW_SIZE = 20;  // Larger arrow size
+        const FIXED_ARROW_STROKE = 3;
 
-        // Use debug settings if available, otherwise defaults
-        const dbg = (typeof window !== 'undefined' && window.debugLabelSettings) || {
-            startScale: 0.67, startY: 0.7, endScale: 0.61, endX: 2.8, endY: 1.0
-        };
-
+        // Render START label and arrow - smart positioning based on room location
         if (this.startPos) {
             const roomSize = this.startRoomSize || 2;
-            const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
-            const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
-            const startLabelSize = labelSize * dbg.startScale;
-            const artBottom = cy + roomSize * cellSize * 0.28;
-            const startWidth = VectorFont.measureText('START', startLabelSize);
-            const startY = artBottom + 2 - startLabelSize * dbg.startY;
-            svg += VectorFont.renderText('START', cx - startWidth / 2, startY, startLabelSize, textColor, 0.7);
+            const startEdge = findBestLabelPosition(this, this.startPos.x, this.startPos.y, roomSize);
+
+            const roomCenterX = mazeOffsetX + (this.startPos.x + roomSize / 2) * cellSize;
+            const roomCenterY = mazeOffsetY + (this.startPos.y + roomSize / 2) * cellSize;
+            const roomLeft = mazeOffsetX + this.startPos.x * cellSize;
+            const roomRight = mazeOffsetX + (this.startPos.x + roomSize) * cellSize;
+            const roomTop = mazeOffsetY + this.startPos.y * cellSize;
+            const roomBottom = mazeOffsetY + (this.startPos.y + roomSize) * cellSize;
+
+            const startWidth = VectorFont.measureText('START', FIXED_LABEL_SIZE);
+            let startX, startY, arrowX, arrowY, arrowDir;
+
+            switch (startEdge) {
+                case 'left':
+                    arrowX = roomLeft - FIXED_ARROW_SIZE - 3;
+                    arrowY = roomCenterY;
+                    arrowDir = 'right';
+                    startX = (SIDE_MARGIN - startWidth) / 2;
+                    startY = roomCenterY - FIXED_ARROW_SIZE - 2;
+                    break;
+                case 'right':
+                    arrowX = roomRight + 3;
+                    arrowY = roomCenterY;
+                    arrowDir = 'right';
+                    startX = roomRight + (SIDE_MARGIN - startWidth) / 2 + 3;
+                    startY = roomCenterY - FIXED_ARROW_SIZE - 2;
+                    break;
+                case 'top':
+                    arrowX = roomCenterX;
+                    arrowY = roomTop - FIXED_ARROW_SIZE - 3;
+                    arrowDir = 'down';
+                    startX = roomCenterX - startWidth / 2;
+                    startY = roomTop - FIXED_ARROW_SIZE - FIXED_LABEL_SIZE - 8;
+                    break;
+                case 'bottom':
+                    arrowX = roomCenterX;
+                    arrowY = roomBottom + 3;
+                    arrowDir = 'up';
+                    startX = roomCenterX - startWidth / 2;
+                    startY = roomBottom + FIXED_ARROW_SIZE + 8;
+                    break;
+                default:
+                    arrowX = roomLeft - FIXED_ARROW_SIZE - 3;
+                    arrowY = roomCenterY;
+                    arrowDir = 'right';
+                    startX = (SIDE_MARGIN - startWidth) / 2;
+                    startY = roomCenterY - FIXED_ARROW_SIZE - 2;
+            }
+
+            svg += `<g class="start-marker"><!-- START -->`;
+            svg += renderArrow(arrowX, arrowY, FIXED_ARROW_SIZE, arrowDir, textColor, FIXED_ARROW_STROKE);
+            svg += VectorFont.renderText('START', startX, startY, FIXED_LABEL_SIZE, textColor, 0.8);
+            svg += `</g>`;
         }
 
+        // Render END label and arrow - smart positioning based on room location
         if (this.endPos) {
             const roomSize = this.endRoomSize || 2;
-            const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize;
-            const cy = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
-            const endLabelSize = labelSize * dbg.endScale;
-            const artBottom = cy + roomSize * cellSize * 0.36;
-            const endWidth = VectorFont.measureText('END', endLabelSize);
-            const letterWidth = endWidth / 3;
-            const endX = cx - endWidth / 2 - letterWidth * dbg.endX;
-            const endY = artBottom + 2 - endLabelSize * dbg.endY;
-            svg += VectorFont.renderText('END', endX, endY, endLabelSize, textColor, 0.7);
+            const endEdge = findBestLabelPosition(this, this.endPos.x, this.endPos.y, roomSize);
+
+            const roomCenterX = mazeOffsetX + (this.endPos.x + roomSize / 2) * cellSize;
+            const roomCenterY = mazeOffsetY + (this.endPos.y + roomSize / 2) * cellSize;
+            const roomLeft = mazeOffsetX + this.endPos.x * cellSize;
+            const roomRight = mazeOffsetX + (this.endPos.x + roomSize) * cellSize;
+            const roomTop = mazeOffsetY + this.endPos.y * cellSize;
+            const roomBottom = mazeOffsetY + (this.endPos.y + roomSize) * cellSize;
+
+            const endWidth = VectorFont.measureText('END', FIXED_LABEL_SIZE);
+            let endX, endY, arrowX, arrowY, arrowDir;
+
+            switch (endEdge) {
+                case 'left':
+                    arrowX = roomLeft - FIXED_ARROW_SIZE - 3;
+                    arrowY = roomCenterY;
+                    arrowDir = 'left';
+                    endX = (SIDE_MARGIN - endWidth) / 2;
+                    endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
+                    break;
+                case 'right':
+                    arrowX = roomRight + 3;
+                    arrowY = roomCenterY;
+                    arrowDir = 'right';
+                    endX = roomRight + (SIDE_MARGIN - endWidth) / 2 + 3;
+                    endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
+                    break;
+                case 'top':
+                    arrowX = roomCenterX;
+                    arrowY = roomTop - FIXED_ARROW_SIZE - 3;
+                    arrowDir = 'up';
+                    endX = roomCenterX - endWidth / 2;
+                    endY = roomTop - FIXED_ARROW_SIZE - FIXED_LABEL_SIZE - 8;
+                    break;
+                case 'bottom':
+                    arrowX = roomCenterX;
+                    arrowY = roomBottom + 3;
+                    arrowDir = 'down';
+                    endX = roomCenterX - endWidth / 2;
+                    endY = roomBottom + FIXED_ARROW_SIZE + 8;
+                    break;
+                default:
+                    arrowX = roomRight + 3;
+                    arrowY = roomCenterY;
+                    arrowDir = 'right';
+                    endX = roomRight + (SIDE_MARGIN - endWidth) / 2 + 3;
+                    endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
+            }
+
+            svg += `<g class="end-marker"><!-- END -->`;
+            svg += renderArrow(arrowX, arrowY, FIXED_ARROW_SIZE, arrowDir, textColor, FIXED_ARROW_STROKE);
+            svg += VectorFont.renderText('END', endX, endY, FIXED_LABEL_SIZE, textColor, 0.8);
+            svg += `</g>`;
         }
 
-        // Quest at bottom (vector font, word-wrapped if needed) - 2.8 line heights higher for 3 lines
+        // Quest at bottom (vector font, word-wrapped) - FIXED SIZE for consistency
         if (this.story && this.story.quest) {
-            const questSize = Math.min(8, Math.max(5, svgWidth / 50));
-            // Move 2.8 line heights higher (subtract 2.8 * questSize) to fit 3 lines
-            const questY = svgHeight - questHeight + 8;
-            const maxWidth = svgWidth - 24;
+            const QUEST_SIZE = 16; // Fixed quest size
+            const questY = svgHeight - QUEST_AREA_HEIGHT + 20;
+            const maxWidth = svgWidth - 80;
 
             // Simple word wrap
             const words = this.story.quest.split(' ');
@@ -2077,7 +3352,7 @@ class Maze {
 
             for (const word of words) {
                 const testLine = currentLine ? currentLine + ' ' + word : word;
-                const testWidth = VectorFont.measureText(testLine, questSize);
+                const testWidth = VectorFont.measureText(testLine, QUEST_SIZE);
                 if (testWidth > maxWidth && currentLine) {
                     lines.push(currentLine);
                     currentLine = word;
@@ -2088,11 +3363,12 @@ class Maze {
             if (currentLine) lines.push(currentLine);
 
             // Render lines centered with white outline for readability (up to 3 lines)
+            const lineSpacing = QUEST_SIZE + 6;
             for (let i = 0; i < lines.length && i < 3; i++) {
-                const lineY = questY + i * (questSize + 3);
+                const lineY = questY + i * lineSpacing;
                 // White outline (thicker stroke) then normal stroke on top
-                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, questSize, '#fff', 2.5);
-                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, questSize, textColor, 1);
+                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, QUEST_SIZE, '#fff', 3);
+                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, QUEST_SIZE, textColor, 1.2);
             }
         }
 
@@ -2260,6 +3536,37 @@ const ThemeVocabulary = {
         goals: ["hidden temple", "treetop village", "ancient ruins", "jungle treasure", "waterfall cave", "monkey kingdom", "lost city", "tiger shrine", "emerald throne", "canopy castle", "river palace", "volcano treasure"],
         adjectives: ["Wild", "Jungle", "Lost", "Ancient", "Hidden", "Tropical", "Mystic", "Untamed"],
         nouns: ["Temple", "Jungle", "Safari", "Expedition", "Adventure", "Discovery", "Treasure", "Quest"]
+    },
+    // =============================================================================
+    // DOLPHIN EDUCATIONAL THEME - Marine mammal facts and vocabulary
+    // =============================================================================
+    dolphin: {
+        // Characters based on real dolphin species and marine professionals
+        characters: [
+            "bottlenose dolphin", "spinner dolphin", "dolphin calf", "orca",
+            "marine biologist", "dolphin trainer", "ocean researcher",
+            "friendly porpoise", "spotted dolphin", "river dolphin"
+        ],
+        // Items related to dolphin research and behavior
+        items: [
+            "hydrophone", "tracking tag", "fish bucket", "research data",
+            "echolocation click", "dorsal photo", "water sample", "plankton net",
+            "GPS beacon", "underwater camera", "sonar reading", "pod map"
+        ],
+        // Natural challenges dolphins face
+        dangers: [
+            "fishing net", "boat propeller", "plastic pollution", "oil spill",
+            "shark attack", "orca hunt", "strong current", "red tide"
+        ],
+        // Educational destinations
+        goals: [
+            "dolphin pod", "research station", "coral reef", "marine sanctuary",
+            "feeding grounds", "open ocean", "warm lagoon", "kelp forest",
+            "sea grass meadow", "dolphin nursery", "migration route", "protected bay"
+        ],
+        // Educational title words
+        adjectives: ["Marine", "Ocean", "Dolphin", "Aquatic", "Coastal", "Pacific", "Atlantic", "Tropical"],
+        nouns: ["Discovery", "Journey", "Research", "Adventure", "Expedition", "Migration", "Habitat", "Sanctuary"]
     }
 };
 
@@ -2638,17 +3945,11 @@ class StoryGenerator {
         const theme = Themes[themeName] || Themes.classic;
 
         // Select template type based on difficulty
-        // Note: 'avoid' and 'full' templates mention dangers that aren't drawn,
-        // so we only use 'simple', 'collect', and 'collectTwo'
-        let templateType;
-        if (difficulty <= 3) {
-            templateType = 'simple';
-        } else if (difficulty <= 5) {
-            templateType = 'collect';
-        } else {
-            // Level 6+ uses collectTwo (two items to find)
-            templateType = 'collectTwo';
-        }
+        // Note: Only 'simple' templates are used because they only mention
+        // the character (drawn at start) and goal (drawn at end).
+        // 'collect', 'collectTwo', 'avoid', and 'full' templates mention items/dangers
+        // that aren't actually drawn on the maze, which confuses users.
+        let templateType = 'simple';
 
         const templates = StoryTemplates[templateType];
         const template = this.rng.choice(templates);
@@ -2921,9 +4222,13 @@ class MazeGenerator {
     }
 
     generate(width, height, algorithm = 'recursive_backtracker', shape = 'rectangle', themeName = 'classic', curved = false) {
+        const PERF_TIMING = typeof window !== 'undefined' && window.MAZE_PERF_TIMING;
+        const t0 = PERF_TIMING ? performance.now() : 0;
+
         const maze = new Maze(width, height, this.rng);
         maze.theme = Themes[themeName] || Themes.classic;
         maze.curvedWalls = curved;
+        maze.shape = shape; // Store shape for later reference
 
         // Select random character and goal from theme arrays
         const theme = maze.theme;
@@ -2932,7 +4237,6 @@ class MazeGenerator {
             maze.selectedCharacter = charChoice.art;
             maze.selectedCharacterName = charChoice.name;
         } else {
-            // Fallback for old theme format
             maze.selectedCharacter = theme.character;
             maze.selectedCharacterName = theme.characterName;
         }
@@ -2941,16 +4245,21 @@ class MazeGenerator {
             maze.selectedGoal = goalChoice.art;
             maze.selectedGoalName = goalChoice.name;
         } else {
-            // Fallback for old theme format
             maze.selectedGoal = theme.goal;
             maze.selectedGoalName = theme.goalName;
         }
 
+        const t1 = PERF_TIMING ? performance.now() : 0;
+
         // Apply shape mask
         maze.applyShapeMask(shape);
 
-        // Find valid start/end before generation
+        const t2 = PERF_TIMING ? performance.now() : 0;
+
+        // Find valid start/end before generation (includes connected regions check)
         maze.findValidStartEnd();
+
+        const t3 = PERF_TIMING ? performance.now() : 0;
 
         // Generate maze
         switch (algorithm) {
@@ -2959,11 +4268,31 @@ class MazeGenerator {
             default: this.recursiveBacktracker(maze);
         }
 
-        // Add interior rooms
+        const t4 = PERF_TIMING ? performance.now() : 0;
+
+        // Fill disconnected regions (buildings that aren't connected to main maze)
+        // OPTIMIZATION: Skip for rectangle shapes (no disconnected regions possible)
+        if (shape !== 'rectangle') {
+            this.fillDisconnectedRegions(maze, algorithm);
+        }
+
+        const t5 = PERF_TIMING ? performance.now() : 0;
+
+        // Add interior rooms - larger mazes need bigger rooms since cells are smaller
         maze.addRooms();
+
+        const t6 = PERF_TIMING ? performance.now() : 0;
 
         // Create entrance/exit
         maze.createEntranceExit();
+
+        const t7 = PERF_TIMING ? performance.now() : 0;
+
+        if (PERF_TIMING) {
+            console.log(`[MAZE ${width}x${height} ${shape}] Total: ${(t7-t0).toFixed(1)}ms | ` +
+                `Init: ${(t1-t0).toFixed(1)}ms, Mask: ${(t2-t1).toFixed(1)}ms, StartEnd: ${(t3-t2).toFixed(1)}ms, ` +
+                `Algo: ${(t4-t3).toFixed(1)}ms, FillDisc: ${(t5-t4).toFixed(1)}ms, Rooms: ${(t6-t5).toFixed(1)}ms, Entrance: ${(t7-t6).toFixed(1)}ms`);
+        }
 
         return maze;
     }
@@ -3088,9 +4417,148 @@ class MazeGenerator {
         }
     }
 
+    // Fill disconnected regions with maze patterns
+    // This makes unreachable "buildings" look like real mazes instead of graph paper
+    // OPTIMIZED: Collect all unvisited cells upfront instead of rescanning grid each time
+    fillDisconnectedRegions(maze, algorithm) {
+        // Collect all unvisited non-blocked cells in one pass
+        const unvisitedCells = [];
+        for (let y = 0; y < maze.height; y++) {
+            for (let x = 0; x < maze.width; x++) {
+                if (!maze.cells[y][x].blocked && !maze.cells[y][x].visited) {
+                    unvisitedCells.push([x, y]);
+                }
+            }
+        }
+
+        // Process each disconnected region
+        let idx = 0;
+        while (idx < unvisitedCells.length) {
+            const [x, y] = unvisitedCells[idx];
+            // Skip if already visited by a previous region fill
+            if (maze.cells[y][x].visited) {
+                idx++;
+                continue;
+            }
+
+            // Run the algorithm on this disconnected region
+            switch (algorithm) {
+                case 'prims': this.primsFromCell(maze, [x, y]); break;
+                case 'kruskals': this.kruskalsRegion(maze, [x, y]); break;
+                default: this.recursiveBacktrackerFromCell(maze, [x, y]);
+            }
+            idx++;
+        }
+    }
+
+    recursiveBacktrackerFromCell(maze, start) {
+        const stack = [start];
+        maze.cells[start[1]][start[0]].visited = true;
+
+        while (stack.length > 0) {
+            const [x, y] = stack[stack.length - 1];
+            const neighbors = this.getUnvisitedNeighbors(maze, x, y);
+
+            if (neighbors.length > 0) {
+                const [nx, ny] = this.rng.choice(neighbors);
+                maze.removeWall(x, y, nx, ny);
+                maze.cells[ny][nx].visited = true;
+                stack.push([nx, ny]);
+            } else {
+                stack.pop();
+            }
+        }
+    }
+
+    primsFromCell(maze, start) {
+        const frontier = [];
+        maze.cells[start[1]][start[0]].visited = true;
+        this.addFrontier(maze, start[0], start[1], frontier);
+
+        while (frontier.length > 0) {
+            const idx = this.rng.nextInt(0, frontier.length - 1);
+            const [x1, y1, x2, y2] = frontier.splice(idx, 1)[0];
+
+            if (!maze.cells[y2][x2].visited) {
+                maze.removeWall(x1, y1, x2, y2);
+                maze.cells[y2][x2].visited = true;
+                this.addFrontier(maze, x2, y2, frontier);
+            }
+        }
+    }
+
+    kruskalsRegion(maze, start) {
+        // First, flood-fill to find all cells in this disconnected region
+        const regionCells = [];
+        const toVisit = [start];
+        const visited = new Set();
+        visited.add(`${start[0]},${start[1]}`);
+
+        while (toVisit.length > 0) {
+            const [x, y] = toVisit.pop();
+            regionCells.push([x, y]);
+            maze.cells[y][x].visited = true;
+
+            const dirs = [[0, -1], [0, 1], [1, 0], [-1, 0]];
+            for (const [dx, dy] of dirs) {
+                const nx = x + dx, ny = y + dy;
+                const key = `${nx},${ny}`;
+                const cell = maze.getCell(nx, ny);
+                if (cell && !cell.blocked && !visited.has(key)) {
+                    visited.add(key);
+                    toVisit.push([nx, ny]);
+                }
+            }
+        }
+
+        // Now run Kruskal's on just this region
+        const parent = new Map();
+        for (const [x, y] of regionCells) {
+            parent.set(`${x},${y}`, `${x},${y}`);
+        }
+
+        const find = (pos) => {
+            if (parent.get(pos) !== pos) {
+                parent.set(pos, find(parent.get(pos)));
+            }
+            return parent.get(pos);
+        };
+
+        const union = (a, b) => {
+            const ra = find(a), rb = find(b);
+            if (ra !== rb) {
+                parent.set(rb, ra);
+                return true;
+            }
+            return false;
+        };
+
+        const walls = [];
+        for (const [x, y] of regionCells) {
+            if (x + 1 < maze.width && !maze.cells[y][x + 1].blocked && visited.has(`${x + 1},${y}`))
+                walls.push([x, y, x + 1, y]);
+            if (y + 1 < maze.height && !maze.cells[y + 1][x].blocked && visited.has(`${x},${y + 1}`))
+                walls.push([x, y, x, y + 1]);
+        }
+
+        const shuffled = this.rng.shuffle(walls);
+        for (const [x1, y1, x2, y2] of shuffled) {
+            if (union(`${x1},${y1}`, `${x2},${y2}`)) {
+                maze.removeWall(x1, y1, x2, y2);
+            }
+        }
+    }
+
     // Generate complete maze with story
     generateWithStory(width, height, algorithm, shape, themeName, curved, difficulty) {
-        const maze = this.generate(width, height, algorithm, shape, themeName, curved);
+        let maze = this.generate(width, height, algorithm, shape, themeName, curved);
+
+        // If no solution found and using a complex shape, fall back to rectangle
+        // This handles cases like moon/towers at small sizes where the shape is too fragmented
+        if ((!maze.solution || maze.solution.length === 0) && shape !== 'rectangle') {
+            maze = this.generate(width, height, algorithm, 'rectangle', themeName, curved);
+            maze.originalShape = shape; // Track that we fell back
+        }
 
         // Generate story for this maze using the selected character/goal
         const storyGen = new StoryGenerator(this.rng);
@@ -3106,131 +4574,134 @@ class MazeGenerator {
 }
 
 // =============================================================================
-// SOLUTION-LENGTH BASED DIFFICULTY NORMALIZATION
+// MASK-PERCENTAGE BASED DIFFICULTY SCALING
 // =============================================================================
 
-// Target solution lengths for each difficulty level (calibrated for rectangles)
-const TARGET_SOLUTION_LENGTHS = {
-    3: 12,    // Very easy
-    4: 20,    // Easy
-    5: 35,    // Moderate
-    6: 55,    // Medium
-    7: 80,    // Medium-hard
-    8: 110,   // Hard
-    9: 150,   // Very hard
-    10: 200,  // Expert
-    11: 260,  // Master
-    12: 330   // Extreme
+// Pre-computed fill percentages for each mask shape
+// These represent what fraction of the bounding box is actually part of the maze
+// Computed by sampling each mask at a reference size (50x65)
+const MASK_FILL_PERCENTAGES = {
+    // Full shapes
+    rectangle: 1.0,
+
+    // Geometric shapes (fairly dense)
+    circle: 0.78,
+    oval: 0.78,
+    hexagon: 0.82,
+    diamond: 0.50,
+    triangle: 0.50,
+
+    // Organic shapes
+    heart: 0.65,
+    star: 0.45,
+    flower: 0.55,
+    clover: 0.50,
+    apple: 0.70,
+    egg: 0.75,
+
+    // Objects
+    cross: 0.45,
+    arrow: 0.40,
+    moon: 0.35,
+    cloud: 0.60,
+    tree: 0.55,
+    house: 0.70,
+    rocket: 0.45,
+    castle: 0.60,
+    crown: 0.55,
+    lightning: 0.30,
+    mushroom: 0.55,
+    anchor: 0.35,
+    musicNote: 0.30,
+
+    // Animals
+    cat: 0.50,
+    bunny: 0.50,
+    fish: 0.55,
+    butterfly: 0.45,
+
+    // Halloween/Fun
+    ghost: 0.60,
+    pumpkin: 0.65,
+    pacman: 0.70,
+    skull: 0.55,
+
+    // Building masks (sparse, disconnected)
+    village: 0.40,
+    towers: 0.35,
+    islands: 0.45,
+    compound: 0.50,
+    blocks: 0.55,
+    archipelago: 0.35,
+
+    // Dolphin theme masks
+    dolphinJump: 0.40,
+    tropicalSea: 0.50,
+    dolphinPod: 0.45,
+    oceanWaves: 0.55
 };
 
-// Quick maze generation to get solution length only (no story, no rooms, minimal overhead)
-function getTrialSolutionLength(seed, width, height, algorithm, shape) {
-    // Use MazeGenerator directly to ensure RNG consistency
-    const gen = new MazeGenerator(seed);
-    const maze = gen.generate(width, height, algorithm, shape, 'classic', false);
-    return maze.solution ? maze.solution.length : 0;
+// Base dimensions for each difficulty level (for full rectangle)
+const BASE_SIZES = {
+    3: { w: 5, h: 6 },
+    4: { w: 7, h: 9 },
+    5: { w: 10, h: 13 },
+    6: { w: 13, h: 17 },
+    7: { w: 17, h: 22 },
+    8: { w: 21, h: 27 },
+    9: { w: 27, h: 35 },
+    10: { w: 33, h: 43 },
+    11: { w: 39, h: 50 },
+    12: { w: 45, h: 58 },
+    13: { w: 51, h: 66 },
+    14: { w: 57, h: 74 },
+    15: { w: 63, h: 82 },
+    16: { w: 69, h: 90 },
+    17: { w: 75, h: 98 }
+};
+
+// Calculate mask fill percentage dynamically if not in lookup table
+function getMaskFillPercentage(shape) {
+    if (MASK_FILL_PERCENTAGES[shape] !== undefined) {
+        return MASK_FILL_PERCENTAGES[shape];
+    }
+
+    // Calculate dynamically by sampling the mask
+    const mask = ShapeMasks[shape];
+    if (!mask) return 1.0;
+
+    const sampleW = 50, sampleH = 65;
+    let filled = 0;
+    for (let y = 0; y < sampleH; y++) {
+        for (let x = 0; x < sampleW; x++) {
+            if (mask(x, y, sampleW, sampleH)) filled++;
+        }
+    }
+    return filled / (sampleW * sampleH);
 }
 
-// Binary search to find optimal dimensions for target solution length
-// Returns { w, h } that produces closest solution length to target
+// Direct dimension calculation based on mask fill percentage
+// No trial maze generation - just math
 function findOptimalDimensions(seed, difficulty, shape, algorithm) {
-    const targetLength = TARGET_SOLUTION_LENGTHS[difficulty];
+    const baseSize = BASE_SIZES[difficulty];
 
-    // Base dimensions for this difficulty (aspect ratio ~1.3)
-    const baseSizes = {
-        3: { w: 5, h: 6 },
-        4: { w: 7, h: 9 },
-        5: { w: 10, h: 13 },
-        6: { w: 13, h: 17 },
-        7: { w: 17, h: 22 },
-        8: { w: 21, h: 27 },
-        9: { w: 27, h: 35 },
-        10: { w: 33, h: 43 },
-        11: { w: 39, h: 50 },
-        12: { w: 45, h: 58 }
-    };
-
-    const baseSize = baseSizes[difficulty];
-    const aspectRatio = baseSize.h / baseSize.w;
-
-    // For rectangle, just use base size
+    // For rectangle, just use base size directly
     if (shape === 'rectangle') {
         return baseSize;
     }
 
-    // Some shapes are sparse (moon, thin masks) - need larger grids
-    // Others are dense (circle, heart) - may need smaller grids
-    const sparseShapes = ['moon', 'lightning', 'musicNote', 'anchor'];
-    const isSparse = sparseShapes.includes(shape);
+    // Get mask fill percentage
+    const fillPct = getMaskFillPercentage(shape);
 
-    // Expanded search range for sparse shapes
-    let low = Math.max(5, Math.floor(baseSize.w * (isSparse ? 0.5 : 0.6)));
-    let high = Math.min(120, Math.ceil(baseSize.w * (isSparse ? 4.0 : 2.5)));
-    let bestW = baseSize.w;
-    let bestH = baseSize.h;
-    let bestLen = 0;
-    let bestDiff = Infinity;
+    // To get equivalent cell count, scale dimensions by 1/sqrt(fillPct)
+    // This preserves the total number of maze cells approximately
+    const scale = 1 / Math.sqrt(fillPct);
 
-    // Binary search iterations
-    for (let iter = 0; iter < 10; iter++) {
-        const mid = Math.floor((low + high) / 2);
-        const w = mid;
-        const h = Math.ceil(mid * aspectRatio);
+    // Apply scale to base dimensions, maintaining aspect ratio
+    const w = Math.max(5, Math.round(baseSize.w * scale));
+    const h = Math.max(6, Math.round(baseSize.h * scale));
 
-        const len = getTrialSolutionLength(seed, w, h, algorithm, shape);
-
-        if (len === 0) {
-            // Shape doesn't fit at this size, try larger
-            low = mid + 1;
-            continue;
-        }
-
-        const diff = Math.abs(len - targetLength);
-
-        if (diff < bestDiff) {
-            bestDiff = diff;
-            bestW = w;
-            bestH = h;
-            bestLen = len;
-        }
-
-        if (len < targetLength) {
-            low = mid + 1;
-        } else {
-            high = mid - 1;
-        }
-
-        if (low > high) break;
-    }
-
-    // If binary search didn't find anything good, use base size
-    if (bestDiff === Infinity || bestLen === 0) {
-        return baseSize;
-    }
-
-    // Linear refinement: try nearby sizes to fine-tune
-    // Only if we're not already close enough (within 20%)
-    if (bestDiff > targetLength * 0.2) {
-        for (let delta = -3; delta <= 3; delta++) {
-            if (delta === 0) continue;
-            const w = bestW + delta;
-            const h = Math.ceil(w * aspectRatio);
-            if (w < 5) continue;
-
-            const len = getTrialSolutionLength(seed, w, h, algorithm, shape);
-            if (len === 0) continue;
-
-            const diff = Math.abs(len - targetLength);
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                bestW = w;
-                bestH = h;
-                bestLen = len;
-            }
-        }
-    }
-
-    return { w: bestW, h: bestH };
+    return { w, h };
 }
 
 // =============================================================================
@@ -3441,57 +4912,228 @@ function testMaze(seed, theme, shape, difficulty, curved = false) {
 // BOUNDING BOX TESTING SYSTEM
 // =============================================================================
 
+// Layout constants - must match toSVG() exactly
+const LAYOUT = {
+    PAGE_WIDTH: 850,
+    PAGE_HEIGHT: 1100,
+    TITLE_AREA_HEIGHT: 70,
+    QUEST_AREA_HEIGHT: 90,
+    SIDE_MARGIN: 55,
+    TOP_MARGIN: 15,
+    BOTTOM_MARGIN: 15
+};
+
+// Get all layout regions as bounding boxes
+function getLayoutRegions() {
+    const { PAGE_WIDTH, PAGE_HEIGHT, TITLE_AREA_HEIGHT, QUEST_AREA_HEIGHT, SIDE_MARGIN, TOP_MARGIN, BOTTOM_MARGIN } = LAYOUT;
+
+    const mazeAreaTop = TOP_MARGIN + TITLE_AREA_HEIGHT;
+    const mazeAreaBottom = PAGE_HEIGHT - QUEST_AREA_HEIGHT - BOTTOM_MARGIN;
+
+    return {
+        page: { left: 0, top: 0, right: PAGE_WIDTH, bottom: PAGE_HEIGHT },
+        titleArea: { left: SIDE_MARGIN, top: TOP_MARGIN, right: PAGE_WIDTH - SIDE_MARGIN, bottom: TOP_MARGIN + TITLE_AREA_HEIGHT },
+        mazeArea: { left: SIDE_MARGIN, top: mazeAreaTop, right: PAGE_WIDTH - SIDE_MARGIN, bottom: mazeAreaBottom },
+        questArea: { left: SIDE_MARGIN, top: mazeAreaBottom, right: PAGE_WIDTH - SIDE_MARGIN, bottom: PAGE_HEIGHT - BOTTOM_MARGIN },
+        leftMargin: { left: 0, top: mazeAreaTop, right: SIDE_MARGIN, bottom: mazeAreaBottom },
+        rightMargin: { left: PAGE_WIDTH - SIDE_MARGIN, top: mazeAreaTop, right: PAGE_WIDTH, bottom: mazeAreaBottom },
+        topMargin: { left: SIDE_MARGIN, top: TOP_MARGIN + TITLE_AREA_HEIGHT - 15, right: PAGE_WIDTH - SIDE_MARGIN, bottom: mazeAreaTop },
+        bottomMargin: { left: SIDE_MARGIN, top: mazeAreaBottom, right: PAGE_WIDTH - SIDE_MARGIN, bottom: mazeAreaBottom + 15 }
+    };
+}
+
+// Find the best edge for placing a label near a room
+// Returns: 'left', 'right', 'top', or 'bottom'
+function findBestLabelPosition(maze, roomX, roomY, roomSize) {
+    // Calculate room center in grid coordinates
+    const roomCenterX = roomX + roomSize / 2;
+    const roomCenterY = roomY + roomSize / 2;
+
+    // Count unblocked cells to each edge
+    function countToEdge(startX, startY, direction) {
+        let count = 0;
+        let x = startX, y = startY;
+
+        while (true) {
+            if (direction === 'left') x--;
+            else if (direction === 'right') x++;
+            else if (direction === 'top') y--;
+            else if (direction === 'bottom') y++;
+
+            // Check bounds
+            if (x < 0 || x >= maze.width || y < 0 || y >= maze.height) break;
+
+            // Check if cell is blocked (outside shape mask)
+            if (maze.cells[y] && maze.cells[y][x] && maze.cells[y][x].blocked) {
+                count++;
+            } else {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // Calculate distances from room edge to maze edge
+    const distToLeft = roomX;
+    const distToRight = maze.width - (roomX + roomSize);
+    const distToTop = roomY;
+    const distToBottom = maze.height - (roomY + roomSize);
+
+    // Find minimum distance (prefer horizontal for ties due to label readability)
+    const distances = [
+        { edge: 'left', dist: distToLeft, priority: 1 },
+        { edge: 'right', dist: distToRight, priority: 2 },
+        { edge: 'top', dist: distToTop, priority: 3 },
+        { edge: 'bottom', dist: distToBottom, priority: 4 }
+    ];
+
+    // Sort by distance first, then by priority for ties
+    distances.sort((a, b) => a.dist - b.dist || a.priority - b.priority);
+
+    return distances[0].edge;
+}
+
+// Render an arrow pointing in any of 4 directions
+function renderArrow(x, y, size, direction, color, strokeWidth) {
+    const half = size / 2;
+    let points;
+
+    switch (direction) {
+        case 'right':  // Arrow pointing right (→)
+            points = `${x},${y - half} ${x + size},${y} ${x},${y + half}`;
+            break;
+        case 'left':   // Arrow pointing left (←)
+            points = `${x + size},${y - half} ${x},${y} ${x + size},${y + half}`;
+            break;
+        case 'down':   // Arrow pointing down (↓)
+            points = `${x - half},${y} ${x},${y + size} ${x + half},${y}`;
+            break;
+        case 'up':     // Arrow pointing up (↑)
+            points = `${x - half},${y + size} ${x},${y} ${x + half},${y + size}`;
+            break;
+        default:
+            points = `${x},${y - half} ${x + size},${y} ${x},${y + half}`; // default right
+    }
+
+    return `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+// Calculate label and arrow position for a given edge
+function calculateLabelPosition(maze, roomPos, roomSize, edge, labelText, cellSize, mazeOffsetX, mazeOffsetY, labelSize, arrowSize) {
+    const roomCenterX = mazeOffsetX + (roomPos.x + roomSize / 2) * cellSize;
+    const roomCenterY = mazeOffsetY + (roomPos.y + roomSize / 2) * cellSize;
+    const roomLeft = mazeOffsetX + roomPos.x * cellSize;
+    const roomRight = mazeOffsetX + (roomPos.x + roomSize) * cellSize;
+    const roomTop = mazeOffsetY + roomPos.y * cellSize;
+    const roomBottom = mazeOffsetY + (roomPos.y + roomSize) * cellSize;
+
+    const labelWidth = VectorFont.measureText(labelText, labelSize);
+    const regions = getLayoutRegions();
+
+    let result = {
+        labelX: 0,
+        labelY: 0,
+        arrowX: 0,
+        arrowY: 0,
+        arrowDir: 'right',
+        textRotation: 0
+    };
+
+    switch (edge) {
+        case 'left':
+            // Arrow pointing right into maze, label to the left
+            result.arrowX = roomLeft - arrowSize - 3;
+            result.arrowY = roomCenterY;
+            result.arrowDir = 'right';
+            result.labelX = (LAYOUT.SIDE_MARGIN - labelWidth) / 2;
+            result.labelY = roomCenterY - arrowSize - 2;
+            break;
+
+        case 'right':
+            // Arrow pointing right out of maze, label to the right
+            result.arrowX = roomRight + 3;
+            result.arrowY = roomCenterY;
+            result.arrowDir = 'right';
+            result.labelX = roomRight + (LAYOUT.SIDE_MARGIN - labelWidth) / 2 + 3;
+            result.labelY = roomCenterY + arrowSize + labelSize + 2;
+            break;
+
+        case 'top':
+            // Arrow pointing down into maze, label above
+            result.arrowX = roomCenterX;
+            result.arrowY = roomTop - arrowSize - 3;
+            result.arrowDir = 'down';
+            result.labelX = roomCenterX - labelWidth / 2;
+            result.labelY = roomTop - arrowSize - labelSize - 8;
+            result.textRotation = 0;
+            break;
+
+        case 'bottom':
+            // Arrow pointing up out of maze, label below
+            result.arrowX = roomCenterX;
+            result.arrowY = roomBottom + 3;
+            result.arrowDir = 'up';
+            result.labelX = roomCenterX - labelWidth / 2;
+            result.labelY = roomBottom + arrowSize + labelSize + 8;
+            result.textRotation = 0;
+            break;
+    }
+
+    return result;
+}
+
 // Calculate layout metrics for a maze (bounding boxes of all elements)
+// Uses LAYOUT constants to match toSVG() exactly
 function getLayoutMetrics(maze) {
-    const cellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(maze.width, maze.height))));
-    const strokeWidth = Math.max(1.5, cellSize / 8);
+    const { PAGE_WIDTH, PAGE_HEIGHT, TITLE_AREA_HEIGHT, QUEST_AREA_HEIGHT, SIDE_MARGIN, TOP_MARGIN, BOTTOM_MARGIN } = LAYOUT;
+
+    // Calculate maze area (same logic as toSVG)
+    const mazeAreaWidth = PAGE_WIDTH - SIDE_MARGIN * 2;
+    const mazeAreaHeight = PAGE_HEIGHT - TITLE_AREA_HEIGHT - QUEST_AREA_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN;
+
+    // Cell size calculation (same as toSVG)
+    const cellSize = Math.min(
+        Math.floor(mazeAreaWidth / maze.width),
+        Math.floor(mazeAreaHeight / maze.height)
+    );
     const mazeWidth = maze.width * cellSize;
     const mazeHeight = maze.height * cellSize;
 
-    const titleHeight = maze.story && maze.story.title ? 20 : 0;
-    const questHeight = maze.story && maze.story.quest ? 52 : 0;
-    const sidePadding = 35;
-    const topPadding = 20 + titleHeight;
-    const bottomPadding = 24 + questHeight;
+    // Center maze (same as toSVG)
+    const mazeOffsetX = SIDE_MARGIN + (mazeAreaWidth - mazeWidth) / 2;
+    const mazeOffsetY = TOP_MARGIN + TITLE_AREA_HEIGHT + (mazeAreaHeight - mazeHeight) / 2;
 
-    const svgWidth = mazeWidth + sidePadding * 2;
-    const svgHeight = mazeHeight + topPadding + bottomPadding;
+    const svgWidth = PAGE_WIDTH;
+    const svgHeight = PAGE_HEIGHT;
 
-    // Border inner bounds (where content should stay inside)
-    // Most borders have ~10-15px margin from edge
-    const borderInset = 16;
-    const borderBounds = {
-        left: borderInset,
-        top: borderInset,
-        right: svgWidth - borderInset,
-        bottom: svgHeight - borderInset
-    };
+    // Get layout regions
+    const regions = getLayoutRegions();
 
     // Maze bounds
     const mazeBounds = {
-        left: sidePadding,
-        top: topPadding,
-        right: sidePadding + mazeWidth,
-        bottom: topPadding + mazeHeight
+        left: mazeOffsetX,
+        top: mazeOffsetY,
+        right: mazeOffsetX + mazeWidth,
+        bottom: mazeOffsetY + mazeHeight
     };
 
     // Title bounds
     let titleBounds = null;
     if (maze.story && maze.story.title) {
-        const maxTitleWidth = svgWidth - 32;
-        let titleSize = Math.min(14, Math.max(10, svgWidth / 25));
+        const maxTitleWidth = svgWidth - 120;
+        let titleSize = Math.min(28, Math.max(16, Math.floor(mazeWidth / 10)));
         let titleWidth = VectorFont.measureText(maze.story.title, titleSize);
-        while (titleWidth > maxTitleWidth && titleSize > 6) {
-            titleSize -= 0.5;
+        while (titleWidth > maxTitleWidth && titleSize > 12) {
+            titleSize -= 1;
             titleWidth = VectorFont.measureText(maze.story.title, titleSize);
         }
-        const titleY = 14 + titleSize * 0.3;
+        const titleY = TOP_MARGIN + TITLE_AREA_HEIGHT / 2 + titleSize / 3;
         const titleX = (svgWidth - titleWidth) / 2;
         titleBounds = {
             left: titleX,
-            top: titleY,
+            top: titleY - titleSize,
             right: titleX + titleWidth,
-            bottom: titleY + titleSize,
+            bottom: titleY,
             text: maze.story.title,
             size: titleSize
         };
@@ -3500,9 +5142,9 @@ function getLayoutMetrics(maze) {
     // Quest bounds
     let questBounds = null;
     if (maze.story && maze.story.quest) {
-        const questSize = Math.min(8, Math.max(5, svgWidth / 50));
-        const questY = svgHeight - questHeight + 8;
-        const maxWidth = svgWidth - 24;
+        const QUEST_SIZE = 16;
+        const questY = svgHeight - QUEST_AREA_HEIGHT + 20;
+        const maxWidth = svgWidth - 80;
 
         // Calculate word wrap
         const words = maze.story.quest.split(' ');
@@ -3510,7 +5152,7 @@ function getLayoutMetrics(maze) {
         let currentLine = '';
         for (const word of words) {
             const testLine = currentLine ? currentLine + ' ' + word : word;
-            const testWidth = VectorFont.measureText(testLine, questSize);
+            const testWidth = VectorFont.measureText(testLine, QUEST_SIZE);
             if (testWidth > maxWidth && currentLine) {
                 lines.push(currentLine);
                 currentLine = word;
@@ -3523,10 +5165,11 @@ function getLayoutMetrics(maze) {
         // Find widest line and total height
         let maxLineWidth = 0;
         for (const line of lines.slice(0, 3)) {
-            maxLineWidth = Math.max(maxLineWidth, VectorFont.measureText(line, questSize));
+            maxLineWidth = Math.max(maxLineWidth, VectorFont.measureText(line, QUEST_SIZE));
         }
         const numLines = Math.min(lines.length, 3);
-        const totalQuestHeight = numLines * questSize + (numLines - 1) * 3;
+        const lineSpacing = QUEST_SIZE + 6;
+        const totalQuestHeight = numLines * lineSpacing;
 
         questBounds = {
             left: (svgWidth - maxLineWidth) / 2,
@@ -3534,52 +5177,106 @@ function getLayoutMetrics(maze) {
             right: (svgWidth + maxLineWidth) / 2,
             bottom: questY + totalQuestHeight,
             lines: lines.slice(0, 3),
-            size: questSize
+            size: QUEST_SIZE
         };
     }
 
-    // START label bounds - scale 0.67, Y offset 0.7
+    // START/END label bounds with smart positioning
+    const FIXED_LABEL_SIZE = 12;
+    const FIXED_ARROW_SIZE = 20;
+
     let startBounds = null;
+    let startEdge = null;
     if (maze.startPos) {
         const roomSize = maze.startRoomSize || 2;
-        const cx = sidePadding + (maze.startPos.x + roomSize / 2) * cellSize;
-        const cy = topPadding + (maze.startPos.y + roomSize / 2) * cellSize;
-        const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
-        const startLabelSize = labelSize * 0.67;
-        const startWidth = VectorFont.measureText('START', startLabelSize);
-        const artBottom = cy + roomSize * cellSize * 0.28;
-        const startX = cx - startWidth / 2;
-        const startY = artBottom + 2 - startLabelSize * 0.7;
+        startEdge = findBestLabelPosition(maze, maze.startPos.x, maze.startPos.y, roomSize);
+
+        const roomCenterX = mazeOffsetX + (maze.startPos.x + roomSize / 2) * cellSize;
+        const roomCenterY = mazeOffsetY + (maze.startPos.y + roomSize / 2) * cellSize;
+        const roomLeft = mazeOffsetX + maze.startPos.x * cellSize;
+        const roomRight = mazeOffsetX + (maze.startPos.x + roomSize) * cellSize;
+        const roomTop = mazeOffsetY + maze.startPos.y * cellSize;
+        const roomBottom = mazeOffsetY + (maze.startPos.y + roomSize) * cellSize;
+
+        const startWidth = VectorFont.measureText('START', FIXED_LABEL_SIZE);
+        let startX, startY;
+
+        switch (startEdge) {
+            case 'left':
+                startX = (SIDE_MARGIN - startWidth) / 2;
+                startY = roomCenterY - FIXED_ARROW_SIZE - 2;
+                break;
+            case 'right':
+                startX = roomRight + (SIDE_MARGIN - startWidth) / 2 + 3;
+                startY = roomCenterY - FIXED_ARROW_SIZE - 2;
+                break;
+            case 'top':
+                startX = roomCenterX - startWidth / 2;
+                startY = roomTop - FIXED_ARROW_SIZE - FIXED_LABEL_SIZE - 8;
+                break;
+            case 'bottom':
+                startX = roomCenterX - startWidth / 2;
+                startY = roomBottom + FIXED_ARROW_SIZE + 8;
+                break;
+            default:
+                startX = (SIDE_MARGIN - startWidth) / 2;
+                startY = roomCenterY - FIXED_ARROW_SIZE - 2;
+        }
 
         startBounds = {
             left: startX,
             top: startY,
             right: startX + startWidth,
-            bottom: startY + startLabelSize,
-            size: startLabelSize
+            bottom: startY + FIXED_LABEL_SIZE,
+            size: FIXED_LABEL_SIZE,
+            edge: startEdge
         };
     }
 
-    // END label bounds - scale 0.61, X offset 2.8 chars, Y offset 0
     let endBounds = null;
+    let endEdge = null;
     if (maze.endPos) {
         const roomSize = maze.endRoomSize || 2;
-        const cx = sidePadding + (maze.endPos.x + roomSize / 2) * cellSize;
-        const cy = topPadding + (maze.endPos.y + roomSize / 2) * cellSize;
-        const labelSize = Math.min(6, Math.max(4, cellSize * 0.4));
-        const endLabelSize = labelSize * 0.61;
-        const endWidth = VectorFont.measureText('END', endLabelSize);
-        const letterWidth = endWidth / 3;
-        const artBottom = cy + roomSize * cellSize * 0.36;
-        const endX = cx - endWidth / 2 - letterWidth * 2.8;
-        const endY = artBottom + 2 - endLabelSize * 1.0;
+        endEdge = findBestLabelPosition(maze, maze.endPos.x, maze.endPos.y, roomSize);
+
+        const roomCenterX = mazeOffsetX + (maze.endPos.x + roomSize / 2) * cellSize;
+        const roomCenterY = mazeOffsetY + (maze.endPos.y + roomSize / 2) * cellSize;
+        const roomRight = mazeOffsetX + (maze.endPos.x + roomSize) * cellSize;
+        const roomTop = mazeOffsetY + maze.endPos.y * cellSize;
+        const roomBottom = mazeOffsetY + (maze.endPos.y + roomSize) * cellSize;
+
+        const endWidth = VectorFont.measureText('END', FIXED_LABEL_SIZE);
+        let endX, endY;
+
+        switch (endEdge) {
+            case 'left':
+                endX = (SIDE_MARGIN - endWidth) / 2;
+                endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
+                break;
+            case 'right':
+                endX = roomRight + (SIDE_MARGIN - endWidth) / 2 + 3;
+                endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
+                break;
+            case 'top':
+                endX = roomCenterX - endWidth / 2;
+                endY = roomTop - FIXED_ARROW_SIZE - FIXED_LABEL_SIZE - 8;
+                break;
+            case 'bottom':
+                endX = roomCenterX - endWidth / 2;
+                endY = roomBottom + FIXED_ARROW_SIZE + 8;
+                break;
+            default:
+                endX = roomRight + (SIDE_MARGIN - endWidth) / 2 + 3;
+                endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
+        }
 
         endBounds = {
             left: endX,
             top: endY,
             right: endX + endWidth,
-            bottom: endY + endLabelSize,
-            size: endLabelSize
+            bottom: endY + FIXED_LABEL_SIZE,
+            size: FIXED_LABEL_SIZE,
+            edge: endEdge
         };
     }
 
@@ -3587,15 +5284,19 @@ function getLayoutMetrics(maze) {
         svgWidth,
         svgHeight,
         cellSize,
-        sidePadding,
-        topPadding,
-        bottomPadding,
-        borderBounds,
+        mazeOffsetX,
+        mazeOffsetY,
+        sidePadding: SIDE_MARGIN,
+        topPadding: mazeOffsetY,
+        bottomPadding: PAGE_HEIGHT - (mazeOffsetY + mazeHeight),
+        regions,
         mazeBounds,
         titleBounds,
         questBounds,
         startBounds,
-        endBounds
+        endBounds,
+        startEdge,
+        endEdge
     };
 }
 
@@ -3661,49 +5362,51 @@ function testMazeBoundingBoxes(maze) {
         }
     }
 
-    // Check START label within border (now inside start room, under character art)
+    // Check START label is in the left margin (between SVG edge and maze)
+    // Labels are intentionally in the margin, not inside the border bounds
     if (metrics.startBounds) {
-        if (!rectInside(metrics.startBounds, metrics.borderBounds)) {
+        // START should be to the left of the maze
+        if (metrics.startBounds.right > metrics.mazeBounds.left) {
             issues.push({
                 element: 'start',
-                type: 'outside_border',
-                bounds: metrics.startBounds,
-                border: metrics.borderBounds,
-                detail: `START extends outside border`
-            });
-        }
-        // START label should be within or near the maze area (it's inside a room)
-        if (metrics.startBounds.bottom > metrics.mazeBounds.bottom + 5) {
-            issues.push({
-                element: 'start',
-                type: 'below_maze',
+                type: 'overlaps_maze',
                 bounds: metrics.startBounds,
                 maze: metrics.mazeBounds,
-                detail: `START label extends too far below maze: ${metrics.startBounds.bottom.toFixed(1)} > ${metrics.mazeBounds.bottom}`
+                detail: `START label overlaps maze area`
+            });
+        }
+        // START should not extend beyond SVG edges
+        if (metrics.startBounds.left < 0 || metrics.startBounds.top < 0) {
+            issues.push({
+                element: 'start',
+                type: 'outside_svg',
+                bounds: metrics.startBounds,
+                detail: `START extends outside SVG`
             });
         }
     }
 
-    // Check END label within border (now inside end room, under goal art)
-    // Check END label within border (now inside end room, under goal art)
+    // Check END label is in the right margin (between maze and SVG edge)
     if (metrics.endBounds) {
-        if (!rectInside(metrics.endBounds, metrics.borderBounds)) {
+        // END should be to the right of the maze
+        if (metrics.endBounds.left < metrics.mazeBounds.right) {
             issues.push({
                 element: 'end',
-                type: 'outside_border',
-                bounds: metrics.endBounds,
-                border: metrics.borderBounds,
-                detail: `END extends outside border`
-            });
-        }
-        // END label should be within or near the maze area (it's inside a room)
-        if (metrics.endBounds.bottom > metrics.mazeBounds.bottom + 5) {
-            issues.push({
-                element: 'end',
-                type: 'below_maze',
+                type: 'overlaps_maze',
                 bounds: metrics.endBounds,
                 maze: metrics.mazeBounds,
-                detail: `END label extends too far below maze: ${metrics.endBounds.bottom.toFixed(1)} > ${metrics.mazeBounds.bottom}`
+                detail: `END label overlaps maze area`
+            });
+        }
+        // END should not extend beyond SVG edges
+        const svgWidth = metrics.mazeBounds.right + metrics.sidePadding;
+        const svgHeight = metrics.mazeBounds.bottom + metrics.bottomPadding;
+        if (metrics.endBounds.right > svgWidth || metrics.endBounds.bottom > svgHeight) {
+            issues.push({
+                element: 'end',
+                type: 'outside_svg',
+                bounds: metrics.endBounds,
+                detail: `END extends outside SVG`
             });
         }
     }
@@ -3877,9 +5580,17 @@ if (typeof window !== 'undefined') {
     window.getLayoutMetrics = getLayoutMetrics;
     window.testMazeBoundingBoxes = testMazeBoundingBoxes;
     window.runBoundingBoxTests = runBoundingBoxTests;
-    // Difficulty normalization exports
-    window.TARGET_SOLUTION_LENGTHS = TARGET_SOLUTION_LENGTHS;
+    // Layout system exports
+    window.LAYOUT = LAYOUT;
+    window.getLayoutRegions = getLayoutRegions;
+    window.findBestLabelPosition = findBestLabelPosition;
+    window.renderArrow = renderArrow;
+    // Difficulty scaling exports
+    window.MASK_FILL_PERCENTAGES = MASK_FILL_PERCENTAGES;
+    window.BASE_SIZES = BASE_SIZES;
+    window.getMaskFillPercentage = getMaskFillPercentage;
     window.findOptimalDimensions = findOptimalDimensions;
-    window.getTrialSolutionLength = getTrialSolutionLength;
     window.SeededRandom = SeededRandom;
+    // Performance timing flag - set window.MAZE_PERF_TIMING = true to enable
+    window.MAZE_PERF_TIMING = false;
 }

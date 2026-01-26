@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MazeJS Test Harness</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #eee;
+        }
+        h1 { color: #4ade80; margin-bottom: 10px; }
+        h2 { color: #60a5fa; margin: 20px 0 10px; }
+        .controls { margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+        }
+        button:hover { background: #444; }
+        button:active { background: #555; }
+        .results {
+            background: #222;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .pass { color: #4ade80; }
+        .fail { color: #f87171; }
+        .warn { color: #fbbf24; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 12px;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+        }
+        th { background: #333; }
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .preview-item {
+            background: #fff;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        .preview-item svg {
+            width: 100%;
+            height: auto;
+        }
+        .preview-label {
+            font-size: 10px;
+            color: #333;
+            text-align: center;
+            padding: 5px;
+        }
+        #log {
+            background: #111;
+            padding: 10px;
+            font-size: 11px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            border-radius: 4px;
+        }
+        .perf-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .perf-card {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .perf-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4ade80;
+        }
+        .perf-card .label {
+            font-size: 11px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <h1>MazeJS Test Harness</h1>
+
+    <div class="controls">
+        <button onclick="runFullPipelineTest()">🔬 Full Pipeline Test</button>
+        <button onclick="runPerformanceTests()">⏱️ Perf Matrix</button>
+        <button onclick="runCorrectnessTests()">✓ Correctness</button>
+        <button onclick="runLayoutTests()">📐 Layout Tests</button>
+        <button onclick="runResolutionAnalysis()">🖼️ Resolution Analysis</button>
+        <button onclick="generatePreviews()">👁️ Previews</button>
+        <button onclick="clearLog()">🗑️ Clear</button>
+    </div>
+
+    <h2>Test Results</h2>
+    <div id="results" class="results">Click a test button to begin...</div>
+
+    <h2>Log</h2>
+    <div id="log"></div>
+
+    <h2>Visual Previews</h2>
+    <div id="previews" class="preview-grid"></div>
+
+    <script src="maze.js?v=20260126-4"></script>
+    <script>
+        window.MAZE_PERF_TIMING = true;
+
+        const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle', 'dolphin'];
+        const ALL_SHAPES = ['rectangle', 'circle', 'heart', 'star', 'hexagon', 'diamond', 'moon', 'village', 'towers'];
+        const ALL_ALGORITHMS = ['recursive_backtracker', 'prims', 'kruskals'];
+        const DIFFICULTIES = [3, 5, 7, 10, 13, 17];
+
+        function log(msg) {
+            const logEl = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logEl.textContent += `[${time}] ${msg}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        // =========================================
+        // FULL PIPELINE TEST - Most Important
+        // =========================================
+        async function runFullPipelineTest() {
+            log('=== FULL PIPELINE PERFORMANCE TEST ===');
+            log('Testing what users actually experience...\n');
+
+            const testCases = [
+                { difficulty: 3, shape: 'rectangle', name: 'Easy Rectangle (Level 1)' },
+                { difficulty: 7, shape: 'rectangle', name: 'Medium Rectangle (Level 5)' },
+                { difficulty: 12, shape: 'rectangle', name: 'Hard Rectangle (Level 10)' },
+                { difficulty: 17, shape: 'rectangle', name: 'Expert Rectangle (Level 15)' },
+                { difficulty: 10, shape: 'moon', name: 'Medium Moon (sparse)' },
+                { difficulty: 10, shape: 'village', name: 'Medium Village (disconnected)' },
+                { difficulty: 10, shape: 'towers', name: 'Medium Towers (disconnected)' },
+            ];
+
+            const results = [];
+
+            for (const tc of testCases) {
+                log(`Testing: ${tc.name}`);
+
+                const dims = window.findOptimalDimensions(42, tc.difficulty, tc.shape, 'recursive_backtracker');
+                const timings = { name: tc.name, dims: `${dims.w}x${dims.h}`, cells: dims.w * dims.h };
+
+                // 1. Maze Generation (including story)
+                const t0 = performance.now();
+                const gen = new window.MazeGenerator(42);
+                const maze = gen.generateWithStory(dims.w, dims.h, 'recursive_backtracker', tc.shape, 'classic', false, tc.difficulty - 2);
+                timings.generate = performance.now() - t0;
+
+                // 2. SVG String Creation
+                const t1 = performance.now();
+                const svgString = maze.toSVG(false, false);
+                timings.toSVG = performance.now() - t1;
+                timings.svgSize = (svgString.length / 1024).toFixed(1) + 'KB';
+
+                // 3. DOM Insertion (innerHTML)
+                const testDiv = document.createElement('div');
+                testDiv.style.cssText = 'position:absolute;left:-9999px;width:400px;';
+                document.body.appendChild(testDiv);
+
+                const t2 = performance.now();
+                testDiv.innerHTML = svgString;
+                timings.innerHTML = performance.now() - t2;
+
+                // 4. Force browser paint (measure actual rendering)
+                const t3 = performance.now();
+                testDiv.getBoundingClientRect(); // Force layout
+                await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                timings.paint = performance.now() - t3;
+
+                document.body.removeChild(testDiv);
+
+                // 5. Canvas Export (for PNG save)
+                const t4 = performance.now();
+                const canvasTime = await measureCanvasExport(svgString, 4); // scale=4 for print quality
+                timings.canvasExport = canvasTime;
+
+                // Total user-perceived time for initial display
+                timings.displayTotal = timings.generate + timings.toSVG + timings.innerHTML + timings.paint;
+                // Total for save-to-camera-roll
+                timings.exportTotal = timings.toSVG + timings.canvasExport;
+
+                results.push(timings);
+
+                log(`  Generate: ${timings.generate.toFixed(1)}ms | SVG: ${timings.toSVG.toFixed(1)}ms (${timings.svgSize})`);
+                log(`  innerHTML: ${timings.innerHTML.toFixed(1)}ms | Paint: ${timings.paint.toFixed(1)}ms`);
+                log(`  Canvas Export: ${timings.canvasExport.toFixed(1)}ms`);
+                log(`  → Display Total: ${timings.displayTotal.toFixed(1)}ms | Export Total: ${timings.exportTotal.toFixed(1)}ms\n`);
+            }
+
+            displayPipelineResults(results);
+        }
+
+        async function measureCanvasExport(svgString, scale) {
+            return new Promise(resolve => {
+                const t0 = performance.now();
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 850 * scale;
+                canvas.height = 1100 * scale;
+
+                const img = new Image();
+                const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+
+                img.onload = () => {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    const imgAspect = img.width / img.height;
+                    const canvasAspect = canvas.width / canvas.height;
+                    let drawW, drawH;
+                    if (imgAspect > canvasAspect) {
+                        drawW = canvas.width * 0.9;
+                        drawH = drawW / imgAspect;
+                    } else {
+                        drawH = canvas.height * 0.9;
+                        drawW = drawH * imgAspect;
+                    }
+                    const drawX = (canvas.width - drawW) / 2;
+                    const drawY = (canvas.height - drawH) / 2;
+
+                    ctx.drawImage(img, drawX, drawY, drawW, drawH);
+                    URL.revokeObjectURL(url);
+
+                    // Measure toBlob time too
+                    const t1 = performance.now();
+                    canvas.toBlob(blob => {
+                        const totalTime = performance.now() - t0;
+                        resolve(totalTime);
+                    }, 'image/png');
+                };
+                img.src = url;
+            });
+        }
+
+        function displayPipelineResults(results) {
+            // Summary cards
+            const avgDisplay = (results.reduce((a, r) => a + r.displayTotal, 0) / results.length).toFixed(0);
+            const maxDisplay = Math.max(...results.map(r => r.displayTotal)).toFixed(0);
+            const avgExport = (results.reduce((a, r) => a + r.exportTotal, 0) / results.length).toFixed(0);
+            const maxExport = Math.max(...results.map(r => r.exportTotal)).toFixed(0);
+
+            let html = '<div class="perf-breakdown">';
+            html += `<div class="perf-card"><div class="value">${avgDisplay}ms</div><div class="label">Avg Display Time</div></div>`;
+            html += `<div class="perf-card"><div class="value">${maxDisplay}ms</div><div class="label">Max Display Time</div></div>`;
+            html += `<div class="perf-card"><div class="value">${avgExport}ms</div><div class="label">Avg Export Time</div></div>`;
+            html += `<div class="perf-card"><div class="value">${maxExport}ms</div><div class="label">Max Export Time</div></div>`;
+            html += '</div>';
+
+            html += '<h3>Detailed Breakdown</h3>';
+            html += '<table><tr><th>Test Case</th><th>Dims</th><th>Generate</th><th>toSVG</th><th>innerHTML</th><th>Paint</th><th>Display Total</th><th>Canvas Export</th></tr>';
+
+            for (const r of results) {
+                const displayClass = r.displayTotal < 50 ? 'pass' : r.displayTotal < 150 ? 'warn' : 'fail';
+                html += `<tr>
+                    <td>${r.name}</td>
+                    <td>${r.dims} (${r.cells})</td>
+                    <td>${r.generate.toFixed(1)}ms</td>
+                    <td>${r.toSVG.toFixed(1)}ms</td>
+                    <td>${r.innerHTML.toFixed(1)}ms</td>
+                    <td>${r.paint.toFixed(1)}ms</td>
+                    <td class="${displayClass}">${r.displayTotal.toFixed(1)}ms</td>
+                    <td>${r.canvasExport.toFixed(1)}ms</td>
+                </tr>`;
+            }
+            html += '</table>';
+
+            html += '<h3>Performance Targets</h3>';
+            html += '<ul>';
+            html += '<li><span class="pass">GREEN</span>: Display &lt; 50ms (instant feel)</li>';
+            html += '<li><span class="warn">YELLOW</span>: Display 50-150ms (noticeable but acceptable)</li>';
+            html += '<li><span class="fail">RED</span>: Display &gt; 150ms (sluggish, needs optimization)</li>';
+            html += '</ul>';
+
+            document.getElementById('results').innerHTML = html;
+        }
+
+        // =========================================
+        // RESOLUTION ANALYSIS
+        // =========================================
+        async function runResolutionAnalysis() {
+            log('=== RESOLUTION ANALYSIS ===\n');
+
+            // Test different scales for PNG export
+            const scales = [1, 2, 3, 4, 5, 6];
+            const dims = window.findOptimalDimensions(42, 10, 'rectangle', 'recursive_backtracker');
+            const gen = new window.MazeGenerator(42);
+            const maze = gen.generateWithStory(dims.w, dims.h, 'recursive_backtracker', 'rectangle', 'classic', false, 8);
+            const svgString = maze.toSVG(false, false);
+
+            const results = [];
+            for (const scale of scales) {
+                const width = 850 * scale;
+                const height = 1100 * scale;
+                const dpi = Math.round(width / 8.5); // 8.5" letter width
+
+                const time = await measureCanvasExport(svgString, scale);
+
+                // Estimate file size (rough)
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, width, height);
+
+                const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+                const sizeKB = (blob.size / 1024).toFixed(0);
+
+                results.push({ scale, width, height, dpi, time: time.toFixed(0), sizeKB });
+                log(`Scale ${scale}x: ${width}x${height}px (${dpi} DPI) - ${time.toFixed(0)}ms, ~${sizeKB}KB blank`);
+            }
+
+            let html = '<h3>Resolution Analysis for PNG Export</h3>';
+            html += '<table><tr><th>Scale</th><th>Resolution</th><th>DPI (8.5" page)</th><th>Export Time</th><th>Use Case</th></tr>';
+
+            for (const r of results) {
+                let useCase = '';
+                if (r.dpi < 150) useCase = 'Web preview only';
+                else if (r.dpi < 250) useCase = 'Web + low-quality print';
+                else if (r.dpi < 350) useCase = '<span class="pass">Print quality (300 DPI)</span>';
+                else useCase = 'Overkill for print';
+
+                html += `<tr>
+                    <td>${r.scale}x</td>
+                    <td>${r.width}x${r.height}</td>
+                    <td>${r.dpi}</td>
+                    <td>${r.time}ms</td>
+                    <td>${useCase}</td>
+                </tr>`;
+            }
+            html += '</table>';
+
+            html += '<h3>Recommendations</h3>';
+            html += '<ul>';
+            html += '<li><strong>Web Display</strong>: Use SVG directly (scales perfectly on retina)</li>';
+            html += '<li><strong>Print (browser)</strong>: Use SVG with @media print CSS (vector, infinite DPI)</li>';
+            html += '<li><strong>Save to Camera Roll</strong>: Scale 4x (340 DPI) - good balance of quality vs speed</li>';
+            html += '<li><strong>iPhone Retina</strong>: SVG auto-scales, no PNG needed for display</li>';
+            html += '</ul>';
+
+            document.getElementById('results').innerHTML = html;
+        }
+
+        // =========================================
+        // PERFORMANCE MATRIX
+        // =========================================
+        async function runPerformanceTests() {
+            log('Starting performance matrix...');
+            const results = [];
+
+            for (const difficulty of DIFFICULTIES) {
+                for (const shape of ['rectangle', 'circle', 'moon', 'village']) {
+                    const dims = window.findOptimalDimensions(1, difficulty, shape, 'recursive_backtracker');
+
+                    // Warm up
+                    const gen0 = new window.MazeGenerator(999);
+                    gen0.generate(dims.w, dims.h, 'recursive_backtracker', shape, 'classic', false);
+
+                    // Timed run (average of 3)
+                    const times = [];
+                    for (let i = 0; i < 3; i++) {
+                        const gen = new window.MazeGenerator(1000 + i);
+                        const t0 = performance.now();
+                        gen.generate(dims.w, dims.h, 'recursive_backtracker', shape, 'classic', false);
+                        times.push(performance.now() - t0);
+                    }
+                    const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
+
+                    results.push({
+                        difficulty,
+                        shape,
+                        dims: `${dims.w}x${dims.h}`,
+                        cells: dims.w * dims.h,
+                        avgMs: avgTime.toFixed(1),
+                        status: avgTime < 100 ? 'pass' : avgTime < 500 ? 'warn' : 'fail'
+                    });
+
+                    log(`  Difficulty ${difficulty}, ${shape}: ${avgTime.toFixed(1)}ms (${dims.w}x${dims.h})`);
+                }
+            }
+
+            displayPerformanceResults(results);
+        }
+
+        function displayPerformanceResults(results) {
+            let html = '<h3>Generation Performance Matrix</h3>';
+            html += '<table><tr><th>Difficulty</th><th>Shape</th><th>Dimensions</th><th>Cells</th><th>Avg Time</th><th>Status</th></tr>';
+            for (const r of results) {
+                html += `<tr>
+                    <td>${r.difficulty}</td>
+                    <td>${r.shape}</td>
+                    <td>${r.dims}</td>
+                    <td>${r.cells}</td>
+                    <td>${r.avgMs}ms</td>
+                    <td class="${r.status}">${r.status.toUpperCase()}</td>
+                </tr>`;
+            }
+            html += '</table>';
+
+            const passed = results.filter(r => r.status === 'pass').length;
+            const warned = results.filter(r => r.status === 'warn').length;
+            const failed = results.filter(r => r.status === 'fail').length;
+            html += `<p>Summary: <span class="pass">${passed} fast (&lt;100ms)</span>, <span class="warn">${warned} slow (100-500ms)</span>, <span class="fail">${failed} very slow (&gt;500ms)</span></p>`;
+
+            document.getElementById('results').innerHTML = html;
+        }
+
+        // =========================================
+        // CORRECTNESS TESTS
+        // =========================================
+        async function runCorrectnessTests() {
+            log('Starting correctness tests...');
+            const results = [];
+
+            for (const difficulty of [3, 7, 12, 17]) {
+                for (const shape of ALL_SHAPES) {
+                    for (const algo of ALL_ALGORITHMS) {
+                        const test = testMazeCorrectness(difficulty, shape, algo);
+                        results.push(test);
+
+                        const status = test.passed ? 'PASS' : 'FAIL';
+                        log(`  ${status}: D${difficulty} ${shape} ${algo} - ${test.errors.join(', ') || 'OK'}`);
+                    }
+                }
+            }
+
+            displayCorrectnessResults(results);
+        }
+
+        function testMazeCorrectness(difficulty, shape, algorithm) {
+            const errors = [];
+            const seed = 12345;
+
+            try {
+                const dims = window.findOptimalDimensions(seed, difficulty, shape, algorithm);
+                const gen = new window.MazeGenerator(seed);
+                const maze = gen.generateWithStory(dims.w, dims.h, algorithm, shape, 'classic', false, difficulty - 2);
+
+                // Test 1: Solution exists
+                if (!maze.solution || maze.solution.length === 0) {
+                    errors.push('No solution');
+                }
+
+                // Test 2: Start position exists
+                if (!maze.startPos) {
+                    errors.push('No startPos');
+                }
+
+                // Test 3: End position exists
+                if (!maze.endPos) {
+                    errors.push('No endPos');
+                }
+
+                // Test 4: Solution starts in start room
+                if (maze.solution && maze.solution.length > 0 && maze.startPos) {
+                    const firstCell = maze.solution[0];
+                    const inStart = firstCell.x >= maze.startPos.x &&
+                                   firstCell.x < maze.startPos.x + (maze.startRoomSize || 2) &&
+                                   firstCell.y >= maze.startPos.y &&
+                                   firstCell.y < maze.startPos.y + (maze.startRoomSize || 2);
+                    if (!inStart) {
+                        errors.push('Solution not at start');
+                    }
+                }
+
+                // Test 5: Room sizes reasonable
+                if (maze.startRoomSize && maze.startRoomSize < 2) {
+                    errors.push('Start room too small');
+                }
+                if (maze.endRoomSize && maze.endRoomSize < 2) {
+                    errors.push('End room too small');
+                }
+
+                // Test 6: Story generated
+                if (!maze.story || !maze.story.title) {
+                    errors.push('No story title');
+                }
+
+                // Test 7: SVG generates without error
+                try {
+                    const svg = maze.toSVG(false, false);
+                    if (!svg || svg.length < 100) {
+                        errors.push('SVG too short');
+                    }
+                } catch (e) {
+                    errors.push('SVG error: ' + e.message);
+                }
+
+                // Test 8: Check START/END labels would be visible (look for marker comments)
+                const svg = maze.toSVG(false, false);
+                if (!svg.includes('<!-- START -->') && maze.startPos) {
+                    errors.push('Missing START label');
+                }
+                if (!svg.includes('<!-- END -->') && maze.endPos) {
+                    errors.push('Missing END label');
+                }
+
+                // Test 9: Room sizes scale with maze size for art readability
+                // Note: Some shapes (hexagon, diamond, towers, village) have irregular perimeters
+                // that may not fit ideal room sizes - accept size 2 minimum for these
+                // Also: difficulty 3 mazes are tiny (5x6) so 2-cell rooms are appropriate
+                const expectedCellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(dims.w, dims.h))));
+                const expectedMinRoom = Math.ceil(40 / expectedCellSize);
+                const actualRoomSize = maze.startRoomSize || 2;
+                const irregularShapes = ['hexagon', 'diamond', 'towers', 'village', 'moon'];
+                const isSmallMaze = difficulty <= 3;
+                const minAcceptable = (irregularShapes.includes(shape) || isSmallMaze) ? 2 : Math.min(6, Math.max(2, expectedMinRoom));
+                if (actualRoomSize < minAcceptable) {
+                    errors.push(`Room too small: ${actualRoomSize} cells, need ${minAcceptable} for ${expectedCellSize}px cells`);
+                }
+
+                // Test 10: Check arrows are in SVG
+                if (!svg.includes('polyline') && maze.startPos) {
+                    errors.push('Missing arrows');
+                }
+
+                // Test 11: Check START/END labels are in margins
+                if (window.testMazeBoundingBoxes) {
+                    const bbTest = window.testMazeBoundingBoxes(maze);
+                    if (!bbTest.passed) {
+                        for (const issue of bbTest.issues) {
+                            if (issue.element === 'start' || issue.element === 'end') {
+                                errors.push(`${issue.element.toUpperCase()}: ${issue.type}`);
+                            }
+                        }
+                    }
+                }
+
+                return {
+                    difficulty,
+                    shape,
+                    algorithm,
+                    dims: `${dims.w}x${dims.h}`,
+                    solutionLen: maze.solution ? maze.solution.length : 0,
+                    errors,
+                    passed: errors.length === 0
+                };
+
+            } catch (e) {
+                errors.push('Exception: ' + e.message);
+                return {
+                    difficulty,
+                    shape,
+                    algorithm,
+                    dims: 'N/A',
+                    solutionLen: 0,
+                    errors,
+                    passed: false
+                };
+            }
+        }
+
+        function displayCorrectnessResults(results) {
+            let html = '<h3>Correctness Results</h3>';
+
+            const passed = results.filter(r => r.passed).length;
+            const failed = results.filter(r => !r.passed).length;
+
+            html += `<p>Summary: <span class="pass">${passed} passed</span>, <span class="fail">${failed} failed</span></p>`;
+
+            const failures = results.filter(r => !r.passed);
+            if (failures.length > 0) {
+                html += '<h4>Failures:</h4>';
+                html += '<table><tr><th>Difficulty</th><th>Shape</th><th>Algorithm</th><th>Dims</th><th>Errors</th></tr>';
+                for (const r of failures) {
+                    html += `<tr>
+                        <td>${r.difficulty}</td>
+                        <td>${r.shape}</td>
+                        <td>${r.algorithm}</td>
+                        <td>${r.dims}</td>
+                        <td class="fail">${r.errors.join(', ')}</td>
+                    </tr>`;
+                }
+                html += '</table>';
+            }
+
+            document.getElementById('results').innerHTML = html;
+        }
+
+        // =========================================
+        // LAYOUT CORRECTNESS TESTS
+        // =========================================
+        function runLayoutTests() {
+            log('=== LAYOUT CORRECTNESS TESTS ===\n');
+            const results = [];
+
+            // Test different configurations
+            const testCases = [
+                { difficulty: 3, shape: 'rectangle', name: 'Easy Rectangle' },
+                { difficulty: 10, shape: 'rectangle', name: 'Medium Rectangle' },
+                { difficulty: 17, shape: 'rectangle', name: 'Hard Rectangle' },
+                { difficulty: 10, shape: 'moon', name: 'Moon Shape' },
+                { difficulty: 10, shape: 'heart', name: 'Heart Shape' },
+                { difficulty: 10, shape: 'star', name: 'Star Shape' },
+                { difficulty: 10, shape: 'towers', name: 'Towers Shape' },
+                { difficulty: 10, shape: 'village', name: 'Village Shape' },
+            ];
+
+            for (const tc of testCases) {
+                const result = testLayoutCorrectness(tc.difficulty, tc.shape, tc.name);
+                results.push(result);
+            }
+
+            displayLayoutResults(results);
+        }
+
+        function testLayoutCorrectness(difficulty, shape, name) {
+            const errors = [];
+            const seed = 12345;
+
+            try {
+                const dims = window.findOptimalDimensions(seed, difficulty, shape, 'recursive_backtracker');
+                const gen = new window.MazeGenerator(seed);
+                const maze = gen.generateWithStory(dims.w, dims.h, 'recursive_backtracker', shape, 'classic', false, difficulty - 2);
+
+                // Get layout metrics
+                const metrics = window.getLayoutMetrics ? window.getLayoutMetrics(maze) : null;
+                if (!metrics) {
+                    errors.push('getLayoutMetrics not available');
+                    return { name, errors, passed: false };
+                }
+
+                // Get layout regions
+                const regions = window.getLayoutRegions ? window.getLayoutRegions() : null;
+
+                // Test 1: Margin equality - left margin should equal right margin
+                const leftMarginWidth = metrics.mazeBounds.left;
+                const rightMarginWidth = metrics.svgWidth - metrics.mazeBounds.right;
+                if (Math.abs(leftMarginWidth - rightMarginWidth) > 1) {
+                    errors.push(`Unequal side margins: L=${leftMarginWidth.toFixed(1)}, R=${rightMarginWidth.toFixed(1)}`);
+                }
+
+                // Test 2: Title doesn't overlap maze
+                if (metrics.titleBounds && metrics.mazeBounds) {
+                    if (metrics.titleBounds.bottom > metrics.mazeBounds.top) {
+                        errors.push(`Title overlaps maze: title.bottom=${metrics.titleBounds.bottom.toFixed(1)} > maze.top=${metrics.mazeBounds.top.toFixed(1)}`);
+                    }
+                }
+
+                // Test 3: Quest doesn't overlap maze
+                if (metrics.questBounds && metrics.mazeBounds) {
+                    if (metrics.questBounds.top < metrics.mazeBounds.bottom) {
+                        errors.push(`Quest overlaps maze: quest.top=${metrics.questBounds.top.toFixed(1)} < maze.bottom=${metrics.mazeBounds.bottom.toFixed(1)}`);
+                    }
+                }
+
+                // Test 4: START label in appropriate margin
+                if (metrics.startBounds) {
+                    const startEdge = metrics.startEdge || 'left';
+                    if (startEdge === 'left' && metrics.startBounds.right > metrics.mazeBounds.left) {
+                        errors.push(`START label overlaps maze (left edge): ${metrics.startBounds.right.toFixed(1)} > ${metrics.mazeBounds.left.toFixed(1)}`);
+                    }
+                    if (startEdge === 'right' && metrics.startBounds.left < metrics.mazeBounds.right) {
+                        errors.push(`START label overlaps maze (right edge)`);
+                    }
+                    if (startEdge === 'top' && metrics.startBounds.bottom > metrics.mazeBounds.top) {
+                        errors.push(`START label overlaps maze (top edge)`);
+                    }
+                    if (startEdge === 'bottom' && metrics.startBounds.top < metrics.mazeBounds.bottom) {
+                        errors.push(`START label overlaps maze (bottom edge)`);
+                    }
+                }
+
+                // Test 5: END label in appropriate margin
+                if (metrics.endBounds) {
+                    const endEdge = metrics.endEdge || 'right';
+                    if (endEdge === 'left' && metrics.endBounds.right > metrics.mazeBounds.left) {
+                        errors.push(`END label overlaps maze (left edge)`);
+                    }
+                    if (endEdge === 'right' && metrics.endBounds.left < metrics.mazeBounds.right) {
+                        errors.push(`END label overlaps maze (right edge): ${metrics.endBounds.left.toFixed(1)} < ${metrics.mazeBounds.right.toFixed(1)}`);
+                    }
+                    if (endEdge === 'top' && metrics.endBounds.bottom > metrics.mazeBounds.top) {
+                        errors.push(`END label overlaps maze (top edge)`);
+                    }
+                    if (endEdge === 'bottom' && metrics.endBounds.top < metrics.mazeBounds.bottom) {
+                        errors.push(`END label overlaps maze (bottom edge)`);
+                    }
+                }
+
+                // Test 6: START/END labels don't overlap each other
+                if (metrics.startBounds && metrics.endBounds) {
+                    const overlap = !(metrics.startBounds.right < metrics.endBounds.left ||
+                                     metrics.startBounds.left > metrics.endBounds.right ||
+                                     metrics.startBounds.bottom < metrics.endBounds.top ||
+                                     metrics.startBounds.top > metrics.endBounds.bottom);
+                    if (overlap) {
+                        errors.push('START and END labels overlap');
+                    }
+                }
+
+                // Test 7: All elements within page bounds
+                if (metrics.titleBounds) {
+                    if (metrics.titleBounds.left < 0 || metrics.titleBounds.right > metrics.svgWidth ||
+                        metrics.titleBounds.top < 0 || metrics.titleBounds.bottom > metrics.svgHeight) {
+                        errors.push('Title outside page bounds');
+                    }
+                }
+                if (metrics.questBounds) {
+                    if (metrics.questBounds.left < 0 || metrics.questBounds.right > metrics.svgWidth ||
+                        metrics.questBounds.top < 0 || metrics.questBounds.bottom > metrics.svgHeight) {
+                        errors.push('Quest outside page bounds');
+                    }
+                }
+
+                // Test 8: Smart positioning used correct edge
+                if (maze.startPos && metrics.startEdge) {
+                    const distToLeft = maze.startPos.x;
+                    const distToRight = maze.width - (maze.startPos.x + (maze.startRoomSize || 2));
+                    const distToTop = maze.startPos.y;
+                    const distToBottom = maze.height - (maze.startPos.y + (maze.startRoomSize || 2));
+                    const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+
+                    // Verify edge choice makes sense (closest or tied for closest)
+                    let expectedEdges = [];
+                    if (distToLeft === minDist) expectedEdges.push('left');
+                    if (distToRight === minDist) expectedEdges.push('right');
+                    if (distToTop === minDist) expectedEdges.push('top');
+                    if (distToBottom === minDist) expectedEdges.push('bottom');
+
+                    if (!expectedEdges.includes(metrics.startEdge)) {
+                        log(`  Note: START edge '${metrics.startEdge}' may not be optimal (distances: L=${distToLeft}, R=${distToRight}, T=${distToTop}, B=${distToBottom})`);
+                    }
+                }
+
+                const status = errors.length === 0 ? 'PASS' : 'FAIL';
+                log(`  ${status}: ${name} - ${errors.length === 0 ? 'OK' : errors.join(', ')}`);
+
+                return {
+                    name,
+                    dims: `${dims.w}x${dims.h}`,
+                    errors,
+                    passed: errors.length === 0,
+                    metrics
+                };
+
+            } catch (e) {
+                errors.push('Exception: ' + e.message);
+                log(`  FAIL: ${name} - ${e.message}`);
+                return { name, errors, passed: false };
+            }
+        }
+
+        function displayLayoutResults(results) {
+            let html = '<h3>Layout Correctness Results</h3>';
+
+            const passed = results.filter(r => r.passed).length;
+            const failed = results.filter(r => !r.passed).length;
+
+            html += `<p>Summary: <span class="pass">${passed} passed</span>, <span class="fail">${failed} failed</span></p>`;
+
+            // Show layout regions
+            if (window.getLayoutRegions) {
+                const regions = window.getLayoutRegions();
+                html += '<h4>Layout Regions (px):</h4>';
+                html += '<table><tr><th>Region</th><th>Left</th><th>Top</th><th>Right</th><th>Bottom</th><th>Width</th><th>Height</th></tr>';
+                for (const [name, r] of Object.entries(regions)) {
+                    html += `<tr>
+                        <td>${name}</td>
+                        <td>${r.left}</td>
+                        <td>${r.top}</td>
+                        <td>${r.right}</td>
+                        <td>${r.bottom}</td>
+                        <td>${r.right - r.left}</td>
+                        <td>${r.bottom - r.top}</td>
+                    </tr>`;
+                }
+                html += '</table>';
+            }
+
+            // Show test results
+            html += '<h4>Test Results:</h4>';
+            html += '<table><tr><th>Test Case</th><th>Dims</th><th>Status</th><th>Details</th></tr>';
+            for (const r of results) {
+                const statusClass = r.passed ? 'pass' : 'fail';
+                html += `<tr>
+                    <td>${r.name}</td>
+                    <td>${r.dims || 'N/A'}</td>
+                    <td class="${statusClass}">${r.passed ? 'PASS' : 'FAIL'}</td>
+                    <td>${r.errors.length > 0 ? r.errors.join('<br>') : 'All checks passed'}</td>
+                </tr>`;
+            }
+            html += '</table>';
+
+            // Show margin measurements for first test
+            if (results.length > 0 && results[0].metrics) {
+                const m = results[0].metrics;
+                html += '<h4>Sample Layout Measurements:</h4>';
+                html += '<ul>';
+                html += `<li>Page: ${m.svgWidth} x ${m.svgHeight}px</li>`;
+                html += `<li>Left margin: ${m.mazeBounds.left.toFixed(1)}px</li>`;
+                html += `<li>Right margin: ${(m.svgWidth - m.mazeBounds.right).toFixed(1)}px</li>`;
+                html += `<li>Top to maze: ${m.mazeBounds.top.toFixed(1)}px</li>`;
+                html += `<li>Maze to bottom: ${(m.svgHeight - m.mazeBounds.bottom).toFixed(1)}px</li>`;
+                if (m.startEdge) html += `<li>START positioned at: ${m.startEdge} edge</li>`;
+                if (m.endEdge) html += `<li>END positioned at: ${m.endEdge} edge</li>`;
+                html += '</ul>';
+            }
+
+            document.getElementById('results').innerHTML = html;
+        }
+
+        // =========================================
+        // VISUAL PREVIEWS
+        // =========================================
+        function generatePreviews() {
+            log('Generating visual previews...');
+            const container = document.getElementById('previews');
+            container.innerHTML = '';
+
+            for (const difficulty of [3, 7, 12, 17]) {
+                const shape = 'rectangle';
+                const dims = window.findOptimalDimensions(1, difficulty, shape, 'recursive_backtracker');
+                const gen = new window.MazeGenerator(42);
+                const maze = gen.generateWithStory(dims.w, dims.h, 'recursive_backtracker', shape, 'classic', false, difficulty - 2);
+
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                item.innerHTML = maze.toSVG(false, false);
+
+                const label = document.createElement('div');
+                label.className = 'preview-label';
+                const cellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(dims.w, dims.h))));
+                label.textContent = `Level ${difficulty - 2} (${dims.w}x${dims.h}) - ${cellSize}px cells`;
+                item.appendChild(label);
+
+                container.appendChild(item);
+            }
+
+            // Debug view
+            const dims = window.findOptimalDimensions(1, 10, 'rectangle', 'recursive_backtracker');
+            const gen = new window.MazeGenerator(42);
+            const maze = gen.generateWithStory(dims.w, dims.h, 'recursive_backtracker', 'rectangle', 'classic', false, 8);
+
+            if (maze.toSVGDebug) {
+                const debug = maze.toSVGDebug();
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                item.innerHTML = debug.svg;
+
+                const label = document.createElement('div');
+                label.className = 'preview-label';
+                label.textContent = `DEBUG - Art: ${debug.artPlacements.length} placements`;
+                item.appendChild(label);
+
+                container.appendChild(item);
+
+                log('Debug art placements:');
+                for (const art of debug.artPlacements) {
+                    log(`  ${art.type}: ${art.name || 'N/A'} at (${art.cx.toFixed(0)}, ${art.cy.toFixed(0)}) size ${art.size.toFixed(0)}`);
+                }
+            }
+
+            log('Previews generated.');
+        }
+
+        log('Test harness loaded. Click a button to run tests.');
+    </script>
+</body>
+</html>

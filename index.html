@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a0f">
     <title>Print A Maze</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="apple-touch-icon" href="favicon.svg">
@@ -14,8 +15,18 @@
             height: 100%;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #000;
+            background: #0a0a0f;
             touch-action: pan-y;
+            transition: background-color 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* Prevent text selection on all interactive elements */
+        button, .difficulty-btn, .heart-btn, .favs-trigger, .fav-item, .action-btn, .share-pill, .level-dot, .level-indicator {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
         }
 
         /* Favorites section - pull down to reveal */
@@ -35,6 +46,28 @@
         }
         #favoritesSection.open { transform: translateY(0); }
         #favoritesSection h2 { color: #fff; font-size: 16px; margin-bottom: 15px; }
+        .favs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .favs-header h2 { margin-bottom: 0; }
+        .favs-close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .favs-close-btn:active { background: rgba(255,255,255,0.2); }
         .fav-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -50,24 +83,42 @@
         .fav-item svg { width: 100%; height: 100%; }
         .no-favs { color: #666; font-size: 14px; text-align: center; padding: 30px; }
 
-        /* Main maze container with snap scroll and momentum */
+        /* Main maze container with snap scroll - fast and fluid */
         #mazeContainer {
             height: 100%;
             overflow-y: scroll;
-            scroll-snap-type: y proximity; /* proximity allows momentum scrolling */
+            scroll-snap-type: y mandatory;
             -webkit-overflow-scrolling: touch;
-            scroll-behavior: smooth;
+            overscroll-behavior-y: contain;
         }
 
         .maze-frame {
             height: 100vh;
             height: 100dvh;
             scroll-snap-align: start;
+            scroll-snap-stop: always;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            overflow: hidden;
+            /* Top margin 50% taller than before - add extra padding top */
+            padding-top: calc(env(safe-area-inset-top) + 60px);
+        }
+
+        /* Fade container for difficulty transition animations */
+        .maze-fade-container {
+            position: relative;
+            width: 100%;
+            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
-            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            overflow: hidden;
+            /* Prevent height bounce by using fixed background that extends */
+            background: inherit;
         }
 
         .maze-svg-container {
@@ -77,6 +128,24 @@
             align-items: center;
             justify-content: center;
             padding: 10px;
+            /* Fill any gaps with matching background */
+            background: inherit;
+        }
+
+        .maze-svg-container.fade-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            pointer-events: none;
+        }
+
+        .maze-svg-container.fade-overlay.fade-in {
+            opacity: 1;
+            pointer-events: auto;
         }
 
         .maze-svg-container svg {
@@ -86,92 +155,121 @@
             height: auto;
         }
 
+        /* Bottom controls container - holds +/- buttons with dots between */
+        .bottom-controls {
+            position: relative;
+            width: 100%;
+            padding: 8px 0 max(12px, env(safe-area-inset-bottom));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Difficulty number above controls */
+        .difficulty-number {
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 0.5px;
+        }
+
+        /* Difficulty row - buttons with dots between, all same Y center */
+        .difficulty-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        /* Level indicator - between the buttons */
+        .level-indicator {
+            display: flex;
+            gap: 5px;
+            opacity: 0.5;
+        }
+        .level-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            transition: background 0.2s, transform 0.2s;
+        }
+        .level-dot.active {
+            background: rgba(255,255,255,0.9);
+            transform: scale(1.4);
+        }
+
+        /* Difficulty +/- buttons */
+        .difficulty-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(255,255,255,0.25);
+            background: rgba(0,0,0,0.3);
+            color: rgba(255,255,255,0.6);
+            font-size: 20px;
+            font-weight: 300;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: opacity 0.2s, transform 0.1s, background 0.1s;
+        }
+        .difficulty-btn:active {
+            transform: scale(0.92);
+            background: rgba(255,255,255,0.15);
+        }
+        .difficulty-btn.hidden {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
         /* Heart favorite button - upper right */
         .heart-btn {
             position: absolute;
-            top: max(15px, env(safe-area-inset-top));
-            right: max(15px, env(safe-area-inset-right));
+            top: max(12px, env(safe-area-inset-top));
+            right: max(12px, env(safe-area-inset-right));
             width: 44px;
             height: 44px;
             background: none;
             border: none;
-            font-size: 28px;
+            font-size: 26px;
             cursor: pointer;
-            opacity: 0.3;
+            opacity: 0.25;
             z-index: 10;
             -webkit-tap-highlight-color: transparent;
         }
         .heart-btn.favorited { opacity: 1; color: #e74c3c; }
 
-        /* Favorites button - upper left */
-        .favs-btn {
+        /* Favorites button - upper left with count */
+        .favs-trigger {
             position: absolute;
-            top: max(15px, env(safe-area-inset-top));
-            left: max(15px, env(safe-area-inset-left));
-            width: 44px;
-            height: 44px;
+            top: max(12px, env(safe-area-inset-top));
+            left: max(12px, env(safe-area-inset-left));
+            display: flex;
+            align-items: center;
+            gap: 6px;
             background: none;
             border: none;
-            font-size: 24px;
             cursor: pointer;
             opacity: 0.4;
             z-index: 10;
             -webkit-tap-highlight-color: transparent;
+            padding: 8px;
+        }
+        .favs-trigger:active { opacity: 0.7; }
+        .favs-trigger .arrow {
+            font-size: 20px;
             color: #fff;
         }
-        .favs-btn:active { opacity: 0.8; }
-
-        /* Level indicator - subtle */
-        .level-indicator {
-            position: absolute;
-            bottom: max(15px, env(safe-area-inset-bottom));
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 6px;
-            z-index: 10;
-        }
-        .level-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.3);
-        }
-        .level-dot.active { background: rgba(255,255,255,0.8); }
-
-        /* Difficulty +/- buttons */
-        .difficulty-btn {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.4);
-            background: rgba(0,0,0,0.3);
-            color: rgba(255,255,255,0.7);
-            font-size: 24px;
-            font-weight: 300;
-            cursor: pointer;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            -webkit-tap-highlight-color: transparent;
-            transition: opacity 0.2s, transform 0.1s;
-        }
-        .difficulty-btn:active {
-            transform: translateY(-50%) scale(0.95);
-            background: rgba(255,255,255,0.2);
-        }
-        .difficulty-btn.minus {
-            left: max(10px, env(safe-area-inset-left));
-        }
-        .difficulty-btn.plus {
-            right: max(10px, env(safe-area-inset-right));
-        }
-        .difficulty-btn.hidden {
-            display: none;
+        .favs-trigger .count {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.8);
+            text-transform: uppercase;
         }
 
         /* Action menu overlay */
@@ -183,8 +281,8 @@
             align-items: center;
             justify-content: center;
             z-index: 100;
-            -webkit-backdrop-filter: blur(5px);
-            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
         }
         #actionMenu.open { display: flex; }
 
@@ -192,7 +290,7 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            width: 200px;
+            width: 220px;
         }
 
         .action-btn {
@@ -211,6 +309,38 @@
             background: transparent;
             color: #fff;
             border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Share pill button - split design */
+        .share-pill {
+            display: flex;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+            width: 100%;
+        }
+        .share-pill button {
+            padding: 14px 12px;
+            border: none;
+            background: #fff;
+            color: #333;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            white-space: nowrap;
+        }
+        .share-pill button:first-child {
+            flex: 0 0 35%;
+            border-right: 1px solid #e0e0e0;
+        }
+        .share-pill button:last-child {
+            flex: 1;
+        }
+        .share-pill button:active { background: #eee; }
+        .share-pill .copied {
+            background: #4CAF50;
+            color: #fff;
         }
 
         /* Solution overlay */
@@ -270,50 +400,83 @@
         }
         #printOverlay.open { display: flex; }
         #printOverlay .print-content {
-            width: 8in;
-            height: 10.5in;
-            max-width: 95vw;
-            max-height: 85vh;
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 0.25in;
         }
         #printOverlay .print-content svg {
             max-width: 100%;
             max-height: 100%;
+            width: auto;
+            height: auto;
         }
         #printOverlay .print-back-btn {
             position: absolute;
             top: max(20px, env(safe-area-inset-top));
             left: max(20px, env(safe-area-inset-left));
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border: 2px solid #333;
+            height: 44px;
+            padding: 0 16px;
+            border-radius: 22px;
+            border: 1.5px solid #333;
             background: #fff;
             color: #333;
-            font-size: 24px;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 8px;
             z-index: 310;
         }
         #printOverlay .print-back-btn:active {
             background: #eee;
         }
+        #printOverlay .print-back-btn .arrow {
+            font-size: 18px;
+        }
 
-        /* Print styles */
+        /* Print styles - maximize page usage */
         @media print {
-            body * { visibility: hidden; }
-            #printOverlay, #printOverlay * { visibility: visible; }
+            @page {
+                size: letter;
+                margin: 0;
+            }
+            html, body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+                background: #fff;
+            }
+            body * {
+                visibility: hidden;
+            }
+            #printOverlay, #printOverlay * {
+                visibility: visible;
+            }
             #printOverlay {
                 position: absolute;
                 left: 0;
                 top: 0;
+                width: 100%;
+                height: 100%;
             }
-            #printOverlay .print-back-btn { display: none; }
-            @page { size: letter; margin: 0.25in; }
+            #printOverlay .print-back-btn {
+                display: none !important;
+            }
+            #printOverlay .print-content {
+                width: 8.5in;
+                height: 11in;
+                padding: 0.25in;
+            }
+            #printOverlay .print-content svg {
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 8in !important;
+                max-height: 10.5in !important;
+            }
         }
 
     </style>
@@ -321,7 +484,10 @@
 <body>
     <!-- Favorites - pull down to reveal -->
     <div id="favoritesSection">
-        <h2>Saved Mazes</h2>
+        <div class="favs-header">
+            <h2>Saved Mazes</h2>
+            <button class="favs-close-btn" onclick="closeFavorites()">✕</button>
+        </div>
         <div id="favGrid" class="fav-grid"></div>
         <div id="noFavs" class="no-favs">No saved mazes yet. Tap the heart to save one!</div>
     </div>
@@ -333,6 +499,10 @@
     <div id="actionMenu" onclick="closeActionMenu()">
         <div class="action-buttons" onclick="event.stopPropagation()">
             <button class="action-btn" id="menuHeartBtn" onclick="toggleFavoriteFromMenu()">♥ Save to Favorites</button>
+            <div class="share-pill">
+                <button onclick="shareMaze()">↗ Share</button>
+                <button id="copyLinkBtn" onclick="copyMazeLink()">🔗 Copy Link</button>
+            </div>
             <button class="action-btn" onclick="printColor()">🖨️ Print Color</button>
             <button class="action-btn" onclick="printBW()">📄 Print B&W</button>
             <button class="action-btn" onclick="saveToCameraRoll()">📷 Save to Photos</button>
@@ -355,19 +525,24 @@
 
     <!-- Print overlay (same page, no new tab) -->
     <div id="printOverlay">
-        <button class="print-back-btn" onclick="closePrintMode()">←</button>
+        <button class="print-back-btn" onclick="closePrintMode()">
+            <span class="arrow">←</span>
+            <span>back to printamaze.com</span>
+        </button>
         <div class="print-content" id="printContent"></div>
     </div>
 
-    <script src="maze.js"></script>
+    <script src="maze.js?v=20260126-4"></script>
     <script>
-        const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle'];
+        const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle', 'dolphin'];
         const ALL_SHAPES = [
             'rectangle', 'circle', 'heart', 'star', 'hexagon', 'diamond',
             'triangle', 'oval', 'cross', 'arrow', 'moon', 'cloud', 'tree',
             'house', 'cat', 'bunny', 'rocket', 'fish', 'butterfly', 'castle',
             'crown', 'lightning', 'mushroom', 'ghost', 'pumpkin', 'egg',
-            'apple', 'flower', 'clover', 'pacman', 'skull', 'anchor', 'musicNote'
+            'apple', 'flower', 'clover', 'pacman', 'skull', 'anchor', 'musicNote',
+            'village', 'towers', 'islands', 'compound', 'blocks', 'archipelago',
+            'dolphinJump', 'tropicalSea', 'dolphinPod', 'oceanWaves'
         ];
         const ALL_ALGORITHMS = ['recursive_backtracker', 'prims', 'kruskals'];
         const DIFFICULTY_SIZES = {
@@ -380,25 +555,190 @@
             9: { w: 27, h: 35 },
             10: { w: 33, h: 43 },
             11: { w: 39, h: 50 },
-            12: { w: 45, h: 58 }
+            12: { w: 45, h: 58 },
+            13: { w: 51, h: 66 },
+            14: { w: 57, h: 74 },
+            15: { w: 63, h: 82 },
+            16: { w: 69, h: 90 },
+            17: { w: 75, h: 98 }
         };
 
-        let currentDifficulty = 4;
+        // Theme background tints - subtle color shifts
+        const THEME_TINTS = {
+            classic: '#0a0a0f',
+            ocean: '#0a0c12',
+            space: '#08080f',
+            garden: '#0a0c0a',
+            candy: '#0f0a0c',
+            jungle: '#0a0c0a',
+            dolphin: '#0a0c10'
+        };
+
+        let currentDifficulty = parseInt(localStorage.getItem('mazejs-difficulty')) || 4;
         let mazeParams = []; // Array of {seed, theme, shape, algorithm} per position
-        let currentIndex = 0;
+        let currentIndex = parseInt(localStorage.getItem('mazejs-currentIndex')) || 0;
         let activeMazeId = null;
+        let sharedMazeParams = null; // For URL-shared mazes
+
+        // =============================================================================
+        // URL ENCODING FOR SHARING - Compact maze links
+        // =============================================================================
+
+        const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+        function toBase62(num) {
+            if (num === 0) return '0';
+            let result = '';
+            while (num > 0) {
+                result = BASE62[num % 62] + result;
+                num = Math.floor(num / 62);
+            }
+            return result;
+        }
+
+        function fromBase62(str) {
+            let result = 0;
+            for (let i = 0; i < str.length; i++) {
+                result = result * 62 + BASE62.indexOf(str[i]);
+            }
+            return result;
+        }
+
+        function encodeMazeParams(seed, difficulty, themeIdx, shapeIdx, algoIdx) {
+            const packed = ((seed * 32 + (difficulty - 3)) * 8 + themeIdx) * 64 + shapeIdx;
+            const withAlgo = packed * 4 + algoIdx;
+            return toBase62(withAlgo);
+        }
+
+        function decodeMazeParams(encoded) {
+            const num = fromBase62(encoded);
+            const algoIdx = num % 4;
+            const rest1 = Math.floor(num / 4);
+            const shapeIdx = rest1 % 64;
+            const rest2 = Math.floor(rest1 / 64);
+            const themeIdx = rest2 % 8;
+            const rest3 = Math.floor(rest2 / 8);
+            const difficulty = (rest3 % 32) + 3;
+            const seed = Math.floor(rest3 / 32);
+            return { seed, difficulty, themeIdx, shapeIdx, algoIdx };
+        }
+
+        function generateShareUrl(seed) {
+            const cached = window.mazeCache[seed];
+            if (!cached) return null;
+
+            const { params, difficulty, maze } = cached;
+            const themeIdx = ALL_THEMES.indexOf(params.theme);
+            const shapeIdx = ALL_SHAPES.indexOf(params.shape);
+            const algoIdx = ALL_ALGORITHMS.indexOf(params.algorithm);
+
+            const title = maze.story?.title || 'Maze';
+            const firstWord = title.split(' ')[0].replace(/[^a-zA-Z]/g, '') || 'Maze';
+
+            const encoded = encodeMazeParams(seed, difficulty, themeIdx, shapeIdx, algoIdx);
+            return `${window.location.origin}/${firstWord}-${difficulty}-${encoded}`;
+        }
+
+        function parseShareUrl() {
+            const path = window.location.pathname;
+            const match = path.match(/^\/([A-Za-z]+)-(\d+)-([0-9A-Za-z]+)$/);
+            if (!match) return null;
+
+            const [, titleWord, diffStr, encoded] = match;
+            const { seed, difficulty, themeIdx, shapeIdx, algoIdx } = decodeMazeParams(encoded);
+
+            if (themeIdx >= ALL_THEMES.length || shapeIdx >= ALL_SHAPES.length || algoIdx >= ALL_ALGORITHMS.length) {
+                return null;
+            }
+
+            return {
+                seed,
+                difficulty,
+                theme: ALL_THEMES[themeIdx],
+                shape: ALL_SHAPES[shapeIdx],
+                algorithm: ALL_ALGORITHMS[algoIdx]
+            };
+        }
+
+        async function shareMaze() {
+            const url = generateShareUrl(activeMazeId);
+            if (!url) return;
+
+            const cached = window.mazeCache[activeMazeId];
+            const title = cached?.maze?.story?.title || 'Print A Maze';
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: title,
+                        text: `Try this maze puzzle: ${title}`,
+                        url: url
+                    });
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        copyMazeLink();
+                    }
+                }
+            } else {
+                copyMazeLink();
+            }
+            closeActionMenu();
+        }
+
+        function copyMazeLink() {
+            const url = generateShareUrl(activeMazeId);
+            if (!url) return;
+
+            navigator.clipboard.writeText(url).then(() => {
+                const btn = document.getElementById('copyLinkBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 1500);
+            }).catch(() => {
+                prompt('Copy this link:', url);
+            });
+        }
+
+        // Update background tint based on current theme
+        function updateBackgroundTint(theme) {
+            const tint = THEME_TINTS[theme] || THEME_TINTS.classic;
+            document.body.style.backgroundColor = tint;
+            // Update meta theme-color for Safari
+            const metaTheme = document.querySelector('meta[name="theme-color"]');
+            if (metaTheme) metaTheme.content = tint;
+        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             try {
+                // Check for shared maze URL first
+                sharedMazeParams = parseShareUrl();
+                if (sharedMazeParams) {
+                    currentDifficulty = sharedMazeParams.difficulty;
+                    currentIndex = 0;
+                }
+
                 // Show debug button if debug mode
                 if (localStorage.getItem('debug')) {
                     document.getElementById('debugBtn').style.display = 'block';
                 }
 
-                // Generate initial mazes
-                generateMazeParams(20);
+                // Ensure we have enough mazes for the saved position
+                const neededMazes = Math.max(20, currentIndex + 10);
+                generateMazeParams(neededMazes);
                 renderMazes();
+
+                // Restore scroll position to saved maze
+                if (currentIndex > 0) {
+                    setTimeout(() => {
+                        const container = document.getElementById('mazeContainer');
+                        container.scrollTop = currentIndex * window.innerHeight;
+                    }, 100);
+                }
 
                 // Infinite scroll
                 const container = document.getElementById('mazeContainer');
@@ -420,6 +760,14 @@
                         }
                     }
                 }, { passive: true });
+
+                // Set initial background tint
+                if (mazeParams[0]) {
+                    updateBackgroundTint(mazeParams[0].theme);
+                }
+
+                // Start precomputing adjacent mazes after initial load
+                schedulePrecomputation();
             } catch (e) {
                 console.error('Initialization error:', e);
                 document.body.innerHTML = '<div style="color:red;padding:20px;font-family:monospace;">Error: ' + e.message + '<br><br>' + e.stack + '</div>';
@@ -428,6 +776,27 @@
 
         function generateMazeParams(count) {
             const startIdx = mazeParams.length;
+
+            if (startIdx === 0 && sharedMazeParams) {
+                mazeParams.push({
+                    seed: sharedMazeParams.seed,
+                    theme: sharedMazeParams.theme,
+                    shape: sharedMazeParams.shape,
+                    algorithm: sharedMazeParams.algorithm
+                });
+                for (let i = 1; i < count; i++) {
+                    const seed = i + 1;
+                    const rng = new window.SeededRandom(seed);
+                    mazeParams.push({
+                        seed,
+                        theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
+                        shape: ALL_SHAPES[Math.floor(rng.next() * ALL_SHAPES.length)],
+                        algorithm: ALL_ALGORITHMS[Math.floor(rng.next() * ALL_ALGORITHMS.length)]
+                    });
+                }
+                return;
+            }
+
             for (let i = 0; i < count; i++) {
                 const seed = startIdx + i + 1;
                 const rng = new window.SeededRandom(seed);
@@ -451,14 +820,12 @@
         }
 
         function createMazeFrame(params, idx) {
-            // Use solution-length-based difficulty normalization
             const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
             const levelNum = currentDifficulty - 2;
 
             const gen = new window.MazeGenerator(params.seed);
             const maze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
 
-            // Store maze for later use
             window.mazeCache = window.mazeCache || {};
             window.mazeCache[params.seed] = { maze, params, difficulty: currentDifficulty };
 
@@ -466,6 +833,7 @@
             frame.className = 'maze-frame';
             frame.dataset.seed = params.seed;
             frame.dataset.idx = idx;
+            frame.dataset.theme = params.theme;
 
             // Heart button
             const heart = document.createElement('button');
@@ -477,34 +845,24 @@
             };
             frame.appendChild(heart);
 
-            // Favorites button (upper left) - shows favorites drawer
-            const favsBtn = document.createElement('button');
-            favsBtn.className = 'favs-btn';
-            favsBtn.innerHTML = '↑';
-            favsBtn.onclick = (e) => {
-                e.stopPropagation();
-                document.getElementById('mazeContainer').scrollTo({ top: 0, behavior: 'smooth' });
-                setTimeout(showFavorites, 300);
-            };
-            frame.appendChild(favsBtn);
-
-            // Minus button (decrease difficulty) - hidden at minimum
-            if (currentDifficulty > 3) {
-                const minusBtn = document.createElement('button');
-                minusBtn.className = 'difficulty-btn minus';
-                minusBtn.innerHTML = '−';
-                minusBtn.onclick = decreaseDifficulty;
-                frame.appendChild(minusBtn);
+            // Favorites trigger (upper left) - only show if there are favorites
+            const favCount = getFavorites().length;
+            if (favCount > 0) {
+                const favsTrigger = document.createElement('button');
+                favsTrigger.className = 'favs-trigger';
+                favsTrigger.innerHTML = `<span class="arrow">↑</span><span class="count">${favCount} FAVS</span>`;
+                favsTrigger.onclick = (e) => {
+                    e.stopPropagation();
+                    document.getElementById('mazeContainer').scrollTo({ top: 0, behavior: 'smooth' });
+                    setTimeout(showFavorites, 300);
+                };
+                frame.appendChild(favsTrigger);
             }
 
-            // Plus button (increase difficulty) - hidden at maximum
-            if (currentDifficulty < 12) {
-                const plusBtn = document.createElement('button');
-                plusBtn.className = 'difficulty-btn plus';
-                plusBtn.innerHTML = '+';
-                plusBtn.onclick = increaseDifficulty;
-                frame.appendChild(plusBtn);
-            }
+            // Fade container for maze
+            const fadeContainer = document.createElement('div');
+            fadeContainer.className = 'maze-fade-container';
+            fadeContainer.dataset.seed = params.seed;
 
             // Maze SVG
             const svgContainer = document.createElement('div');
@@ -512,20 +870,57 @@
             svgContainer.innerHTML = maze.toSVG(false, false);
             svgContainer.onclick = (e) => {
                 if (e.target.closest('.heart-btn')) return;
+                if (e.target.closest('.favs-trigger')) return;
+                if (e.target.closest('.difficulty-btn')) return;
+                if (!e.target.closest('svg')) return;
                 activeMazeId = params.seed;
                 openActionMenu();
             };
-            frame.appendChild(svgContainer);
+            fadeContainer.appendChild(svgContainer);
+            frame.appendChild(fadeContainer);
 
-            // Level dots
+            // Bottom controls
+            const bottomControls = document.createElement('div');
+            bottomControls.className = 'bottom-controls';
+
+            // Difficulty number
+            const diffNum = document.createElement('div');
+            diffNum.className = 'difficulty-number';
+            diffNum.textContent = `Level ${currentDifficulty - 2}`;
+            bottomControls.appendChild(diffNum);
+
+            // Difficulty row: - button, dots, + button
+            const difficultyRow = document.createElement('div');
+            difficultyRow.className = 'difficulty-row';
+
+            // Minus button - fire on touchstart/mousedown for immediate response
+            const minusBtn = document.createElement('button');
+            minusBtn.className = 'difficulty-btn minus' + (currentDifficulty <= 3 ? ' hidden' : '');
+            minusBtn.innerHTML = '−';
+            minusBtn.onmousedown = decreaseDifficulty;
+            minusBtn.ontouchstart = (e) => { e.preventDefault(); decreaseDifficulty(e); };
+            difficultyRow.appendChild(minusBtn);
+
+            // Level dots (between buttons)
             const levelIndicator = document.createElement('div');
             levelIndicator.className = 'level-indicator';
-            for (let i = 3; i <= 12; i++) {
+            for (let i = 3; i <= 17; i++) {
                 const dot = document.createElement('div');
                 dot.className = 'level-dot' + (i === currentDifficulty ? ' active' : '');
                 levelIndicator.appendChild(dot);
             }
-            frame.appendChild(levelIndicator);
+            difficultyRow.appendChild(levelIndicator);
+
+            // Plus button - fire on touchstart/mousedown for immediate response
+            const plusBtn = document.createElement('button');
+            plusBtn.className = 'difficulty-btn plus' + (currentDifficulty >= 17 ? ' hidden' : '');
+            plusBtn.innerHTML = '+';
+            plusBtn.onmousedown = increaseDifficulty;
+            plusBtn.ontouchstart = (e) => { e.preventDefault(); increaseDifficulty(e); };
+            difficultyRow.appendChild(plusBtn);
+
+            bottomControls.appendChild(difficultyRow);
+            frame.appendChild(bottomControls);
 
             return frame;
         }
@@ -534,7 +929,20 @@
             const container = document.getElementById('mazeContainer');
             const scrollPos = container.scrollTop;
             const frameHeight = window.innerHeight;
-            currentIndex = Math.round(scrollPos / frameHeight);
+            const newIndex = Math.round(scrollPos / frameHeight);
+
+            if (newIndex !== currentIndex) {
+                currentIndex = newIndex;
+                localStorage.setItem('mazejs-currentIndex', currentIndex.toString());
+
+                // Update background tint based on current maze theme
+                if (mazeParams[currentIndex]) {
+                    updateBackgroundTint(mazeParams[currentIndex].theme);
+                }
+
+                // Precompute adjacent mazes after page change
+                schedulePrecomputation();
+            }
 
             // Load more mazes when near the end
             if (currentIndex >= mazeParams.length - 5) {
@@ -546,8 +954,13 @@
             }
         }
 
+        // Debounce flag to prevent rapid button spam
+        let difficultyChanging = false;
+
         function decreaseDifficulty(e) {
             e.stopPropagation();
+            if (e.cancelable) e.preventDefault();
+            if (difficultyChanging) return;
             if (currentDifficulty > 3) {
                 changeDifficulty(currentDifficulty - 1);
             }
@@ -555,21 +968,214 @@
 
         function increaseDifficulty(e) {
             e.stopPropagation();
-            if (currentDifficulty < 12) {
+            if (e.cancelable) e.preventDefault();
+            if (difficultyChanging) return;
+            if (currentDifficulty < 17) {
                 changeDifficulty(currentDifficulty + 1);
             }
         }
 
         function changeDifficulty(newDifficulty) {
+            // Debounce: prevent rapid changes
+            difficultyChanging = true;
+            setTimeout(() => { difficultyChanging = false; }, 250);
             currentDifficulty = newDifficulty;
+            localStorage.setItem('mazejs-difficulty', currentDifficulty.toString());
+
             const container = document.getElementById('mazeContainer');
-            const scrollPos = container.scrollTop;
+            const frames = container.querySelectorAll('.maze-frame');
 
-            // Re-render all mazes at new difficulty
-            renderMazes();
+            frames.forEach((frame) => {
+                const fadeContainer = frame.querySelector('.maze-fade-container');
+                if (!fadeContainer) return;
 
-            // Restore scroll position
-            container.scrollTop = scrollPos;
+                const seed = parseInt(fadeContainer.dataset.seed);
+                const params = mazeParams.find(p => p.seed === seed);
+                if (!params) return;
+
+                // Try to use precomputed maze first for instant response
+                let newMaze;
+                const precomputed = getPrecomputedMaze(seed, currentDifficulty);
+                if (precomputed) {
+                    newMaze = precomputed.maze;
+                } else {
+                    // Generate new maze at new difficulty
+                    const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
+                    const levelNum = currentDifficulty - 2;
+                    const gen = new window.MazeGenerator(params.seed);
+                    newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
+                }
+
+                // Update cache
+                window.mazeCache[params.seed] = { maze: newMaze, params, difficulty: currentDifficulty };
+
+                // Create new SVG container as overlay (starts invisible)
+                const newSvgContainer = document.createElement('div');
+                newSvgContainer.className = 'maze-svg-container fade-overlay';
+                newSvgContainer.innerHTML = newMaze.toSVG(false, false);
+                newSvgContainer.onclick = (e) => {
+                    if (e.target.closest('.heart-btn')) return;
+                    if (e.target.closest('.favs-trigger')) return;
+                    if (e.target.closest('.difficulty-btn')) return;
+                    if (!e.target.closest('svg')) return;
+                    activeMazeId = params.seed;
+                    openActionMenu();
+                };
+
+                // Add to DOM for prerender
+                fadeContainer.appendChild(newSvgContainer);
+
+                // Wait for render, then fade in
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        // Start fade in
+                        newSvgContainer.classList.add('fade-in');
+
+                        // After fade complete, clean up (200ms to match transition)
+                        setTimeout(() => {
+                            // Remove old container(s)
+                            const oldContainers = fadeContainer.querySelectorAll('.maze-svg-container:not(.fade-overlay)');
+                            oldContainers.forEach(c => c.remove());
+
+                            // Remove overlay classes from new container
+                            newSvgContainer.classList.remove('fade-overlay', 'fade-in');
+
+                            // Precompute adjacent difficulty mazes after idle
+                            schedulePrecomputation();
+                        }, 200);
+                    });
+                });
+
+                // Update difficulty buttons visibility
+                const minusBtn = frame.querySelector('.difficulty-btn.minus');
+                const plusBtn = frame.querySelector('.difficulty-btn.plus');
+                if (minusBtn) minusBtn.classList.toggle('hidden', currentDifficulty <= 3);
+                if (plusBtn) plusBtn.classList.toggle('hidden', currentDifficulty >= 17);
+
+                // Update level dots
+                const dots = frame.querySelectorAll('.level-dot');
+                dots.forEach((dot, i) => {
+                    const level = i + 3;
+                    dot.classList.toggle('active', level === currentDifficulty);
+                });
+
+                // Update difficulty number
+                const diffNum = frame.querySelector('.difficulty-number');
+                if (diffNum) diffNum.textContent = `Level ${currentDifficulty - 2}`;
+            });
+        }
+
+        // Precomputation system for adjacent mazes
+        let precomputeTimer = null;
+        const precomputeCache = new Map(); // key: "seed-difficulty" -> maze object
+
+        function getPrecomputeKey(seed, difficulty) {
+            return `${seed}-${difficulty}`;
+        }
+
+        function schedulePrecomputation() {
+            // Cancel any pending precomputation
+            if (precomputeTimer) clearTimeout(precomputeTimer);
+
+            // Schedule precomputation after 300ms idle
+            precomputeTimer = setTimeout(() => {
+                precomputeAdjacentMazes();
+            }, 300);
+        }
+
+        function precomputeAdjacentMazes() {
+            // Get current visible maze params
+            const params = mazeParams[currentIndex];
+            if (!params) return;
+
+            const seed = params.seed;
+            const toPrecompute = [];
+
+            // Add n-1 and n+1 difficulty levels
+            if (currentDifficulty > 3) {
+                toPrecompute.push({ seed, difficulty: currentDifficulty - 1, params });
+            }
+            if (currentDifficulty < 17) {
+                toPrecompute.push({ seed, difficulty: currentDifficulty + 1, params });
+            }
+
+            // Add previous and next page mazes at current difficulty
+            if (currentIndex > 0 && mazeParams[currentIndex - 1]) {
+                const prevParams = mazeParams[currentIndex - 1];
+                toPrecompute.push({ seed: prevParams.seed, difficulty: currentDifficulty, params: prevParams });
+            }
+            if (mazeParams[currentIndex + 1]) {
+                const nextParams = mazeParams[currentIndex + 1];
+                toPrecompute.push({ seed: nextParams.seed, difficulty: currentDifficulty, params: nextParams });
+            }
+
+            // Precompute in idle time using requestIdleCallback or setTimeout fallback
+            const computeNext = () => {
+                if (toPrecompute.length === 0) return;
+
+                const item = toPrecompute.shift();
+                const key = getPrecomputeKey(item.seed, item.difficulty);
+
+                // Skip if already cached
+                if (precomputeCache.has(key)) {
+                    if (toPrecompute.length > 0) {
+                        scheduleIdleWork(computeNext);
+                    }
+                    return;
+                }
+
+                // Skip if already in main cache at this difficulty
+                const mainCached = window.mazeCache[item.seed];
+                if (mainCached && mainCached.difficulty === item.difficulty) {
+                    if (toPrecompute.length > 0) {
+                        scheduleIdleWork(computeNext);
+                    }
+                    return;
+                }
+
+                // Generate maze
+                try {
+                    const dims = window.findOptimalDimensions(item.seed, item.difficulty, item.params.shape, item.params.algorithm);
+                    const levelNum = item.difficulty - 2;
+                    const gen = new window.MazeGenerator(item.seed);
+                    const maze = gen.generateWithStory(dims.w, dims.h, item.params.algorithm, item.params.shape, item.params.theme, false, levelNum);
+
+                    // Cache the result
+                    precomputeCache.set(key, { maze, params: item.params, difficulty: item.difficulty });
+
+                    // Limit cache size to 20 entries
+                    if (precomputeCache.size > 20) {
+                        const firstKey = precomputeCache.keys().next().value;
+                        precomputeCache.delete(firstKey);
+                    }
+                } catch (e) {
+                    // Ignore precompute errors
+                }
+
+                // Continue with next item
+                if (toPrecompute.length > 0) {
+                    scheduleIdleWork(computeNext);
+                }
+            };
+
+            // Start precomputation
+            if (toPrecompute.length > 0) {
+                scheduleIdleWork(computeNext);
+            }
+        }
+
+        function scheduleIdleWork(fn) {
+            if (window.requestIdleCallback) {
+                requestIdleCallback(fn, { timeout: 1000 });
+            } else {
+                setTimeout(fn, 50);
+            }
+        }
+
+        // Use precomputed maze if available
+        function getPrecomputedMaze(seed, difficulty) {
+            const key = getPrecomputeKey(seed, difficulty);
+            return precomputeCache.get(key);
         }
 
         // Favorites
@@ -598,7 +1204,7 @@
                 favs.splice(idx, 1);
                 btn.classList.remove('favorited');
             } else {
-                favs.unshift({ // Add to beginning (most recent first)
+                favs.unshift({
                     seed,
                     theme: cached.params.theme,
                     shape: cached.params.shape,
@@ -609,6 +1215,32 @@
                 btn.classList.add('favorited');
             }
             saveFavorites(favs);
+
+            // Update favs triggers in all visible frames
+            updateFavsTriggers();
+        }
+
+        function updateFavsTriggers() {
+            const favCount = getFavorites().length;
+            const frames = document.querySelectorAll('.maze-frame');
+            frames.forEach(frame => {
+                let trigger = frame.querySelector('.favs-trigger');
+                if (favCount > 0) {
+                    if (!trigger) {
+                        trigger = document.createElement('button');
+                        trigger.className = 'favs-trigger';
+                        trigger.onclick = (e) => {
+                            e.stopPropagation();
+                            document.getElementById('mazeContainer').scrollTo({ top: 0, behavior: 'smooth' });
+                            setTimeout(showFavorites, 300);
+                        };
+                        frame.appendChild(trigger);
+                    }
+                    trigger.innerHTML = `<span class="arrow">↑</span><span class="count">${favCount} FAVS</span>`;
+                } else if (trigger) {
+                    trigger.remove();
+                }
+            });
         }
 
         function showFavorites() {
@@ -624,7 +1256,6 @@
             } else {
                 noFavs.style.display = 'none';
                 favs.forEach(fav => {
-                    // Use solution-length-based difficulty normalization
                     const dims = window.findOptimalDimensions(fav.seed, fav.difficulty || 4, fav.shape, fav.algorithm);
                     const gen = new window.MazeGenerator(fav.seed);
                     const maze = gen.generateWithStory(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme, false, (fav.difficulty || 4) - 2);
@@ -642,7 +1273,6 @@
 
             section.classList.add('open');
 
-            // Close on tap outside
             setTimeout(() => {
                 document.addEventListener('click', closeFavoritesOnOutsideClick);
             }, 100);
@@ -660,25 +1290,20 @@
         }
 
         function scrollToSeed(seed) {
-            // Find the favorite to get its difficulty
             const fav = getFavorites().find(f => f.seed === seed);
 
-            // Apply the saved difficulty
             if (fav && fav.difficulty && fav.difficulty !== currentDifficulty) {
                 currentDifficulty = fav.difficulty;
             }
 
-            // Find or create the maze with this seed
             let idx = mazeParams.findIndex(p => p.seed === seed);
             if (idx === -1) {
-                // Add it
                 if (fav) {
                     mazeParams.unshift({ seed, theme: fav.theme, shape: fav.shape, algorithm: fav.algorithm });
                     idx = 0;
                 }
             }
 
-            // Re-render with potentially new difficulty
             renderMazes();
 
             if (idx >= 0) {
@@ -700,11 +1325,9 @@
             const cached = window.mazeCache[activeMazeId];
             if (!cached) return;
 
-            // Find the heart button on the current maze frame
             const frame = document.querySelector(`.maze-frame[data-seed="${activeMazeId}"]`);
             const heartBtn = frame ? frame.querySelector('.heart-btn') : null;
 
-            // Toggle favorite
             let favs = getFavorites();
             const idx = favs.findIndex(f => f.seed === activeMazeId);
             const menuBtn = document.getElementById('menuHeartBtn');
@@ -726,8 +1349,8 @@
                 if (menuBtn) menuBtn.textContent = '♥ Saved!';
             }
             saveFavorites(favs);
+            updateFavsTriggers();
 
-            // Close menu after a brief moment
             setTimeout(closeActionMenu, 300);
         }
 
@@ -739,23 +1362,20 @@
             }
         }
 
-        // Print mode - use overlay instead of new tab for iOS compatibility
+        // Print mode
         function openPrintMode(bwMode) {
             const cached = window.mazeCache[activeMazeId];
             if (!cached) return;
 
-            // Auto-favorite when printing
             autoFavorite(activeMazeId);
 
             const printContent = document.getElementById('printContent');
             printContent.innerHTML = cached.maze.toSVG(false, bwMode);
             document.getElementById('printOverlay').classList.add('open');
 
-            // Trigger print dialog after a short delay
             setTimeout(() => window.print(), 100);
         }
 
-        // Auto-favorite a maze (if not already favorited)
         function autoFavorite(seed) {
             if (isFavorited(seed)) return;
             const cached = window.mazeCache[seed];
@@ -772,10 +1392,10 @@
             });
             saveFavorites(favs);
 
-            // Update heart button if visible
             const frame = document.querySelector(`.maze-frame[data-seed="${seed}"]`);
             const heartBtn = frame ? frame.querySelector('.heart-btn') : null;
             if (heartBtn) heartBtn.classList.add('favorited');
+            updateFavsTriggers();
         }
 
         function closePrintMode() {
@@ -797,7 +1417,6 @@
             const character = story.character || 'maze';
             const goal = story.goal || 'finish';
             const level = cached.difficulty - 2;
-            // Clean up for filename: lowercase, replace spaces with dashes
             const clean = str => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
             return `${clean(character)}-to-${clean(goal)}-level-${level}.png`;
         }
@@ -807,18 +1426,15 @@
             const cached = window.mazeCache[activeMazeId];
             if (!cached) return;
 
-            // Auto-favorite when saving
             autoFavorite(activeMazeId);
 
-            // Render SVG to high-res PNG
             const svgString = cached.maze.toSVG(false, false);
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
 
-            // High resolution for print quality
             const scale = 4;
-            canvas.width = 850 * scale;  // 8.5 inches at 100dpi * scale
-            canvas.height = 1100 * scale; // 11 inches at 100dpi * scale
+            canvas.width = 850 * scale;
+            canvas.height = 1100 * scale;
 
             const img = new Image();
             const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
@@ -828,7 +1444,6 @@
                 ctx.fillStyle = '#fff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Center the maze
                 const imgAspect = img.width / img.height;
                 const canvasAspect = canvas.width / canvas.height;
                 let drawW, drawH, drawX, drawY;
@@ -849,7 +1464,6 @@
                 const filename = getMazeFilename(cached);
 
                 canvas.toBlob(async blob => {
-                    // Try Web Share API first (iOS native share sheet)
                     if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'image/png' })] })) {
                         try {
                             await navigator.share({
@@ -857,11 +1471,9 @@
                             });
                             return;
                         } catch (e) {
-                            // User cancelled or share failed, fall back to download
                             if (e.name === 'AbortError') return;
                         }
                     }
-                    // Fallback: direct download
                     const a = document.createElement('a');
                     a.href = URL.createObjectURL(blob);
                     a.download = filename;
@@ -894,7 +1506,6 @@
             document.getElementById('debugContent').textContent = debug;
             document.getElementById('debugPanel').style.display = 'block';
 
-            // Close on tap
             setTimeout(() => {
                 document.addEventListener('click', () => {
                     document.getElementById('debugPanel').style.display = 'none';
