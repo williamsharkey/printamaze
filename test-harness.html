@@ -785,6 +785,58 @@
                     }
                 }
 
+                // Test 13: Marker bounding checks - START doesn't intersect maze
+                if (window.getMazeBoundingBox && window.validateMarkerPlacement && window.calculateStartMarkerBounds && maze.startPos) {
+                    const cellSize = metrics.cellSize || 10;
+                    const mazeOffsetX = metrics.mazeOffsetX || 55;
+                    const mazeOffsetY = metrics.mazeOffsetY || 85;
+                    const markerFontSize = Math.min(28, Math.max(16, Math.floor((maze.width * cellSize) / 12)));
+                    const startBounds = window.calculateStartMarkerBounds(markerFontSize);
+                    const startPlacement = window.findMarkerPlacement(maze, maze.startPos, maze.startRoomSize || 2, startBounds, true, cellSize, mazeOffsetX, mazeOffsetY);
+                    const mazeBounds = window.getMazeBoundingBox(maze, cellSize, mazeOffsetX, mazeOffsetY);
+
+                    // Only validate margin placements (extensions are inside maze area by design)
+                    if (startPlacement && startPlacement.type === 'margin') {
+                        const isValid = window.validateMarkerPlacement(startPlacement.x, startPlacement.y, startBounds.width, startBounds.height, mazeBounds, 3);
+                        if (!isValid) {
+                            errors.push(`START marker intersects maze: marker(${Math.round(startPlacement.x)},${Math.round(startPlacement.y)},${Math.round(startBounds.width)}x${Math.round(startBounds.height)}) vs maze(${mazeBounds.left},${mazeBounds.top},${mazeBounds.right - mazeBounds.left}x${mazeBounds.bottom - mazeBounds.top})`);
+                        }
+                    }
+                }
+
+                // Test 14: Marker bounding checks - END doesn't intersect maze
+                if (window.getMazeBoundingBox && window.validateMarkerPlacement && window.calculateEndMarkerBounds && maze.endPos) {
+                    const cellSize = metrics.cellSize || 10;
+                    const mazeOffsetX = metrics.mazeOffsetX || 55;
+                    const mazeOffsetY = metrics.mazeOffsetY || 85;
+                    const markerFontSize = Math.min(28, Math.max(16, Math.floor((maze.width * cellSize) / 12)));
+                    const endBounds = window.calculateEndMarkerBounds(markerFontSize);
+                    const endPlacement = window.findMarkerPlacement(maze, maze.endPos, maze.endRoomSize || 2, endBounds, false, cellSize, mazeOffsetX, mazeOffsetY);
+                    const mazeBounds = window.getMazeBoundingBox(maze, cellSize, mazeOffsetX, mazeOffsetY);
+
+                    // Only validate margin placements
+                    if (endPlacement && endPlacement.type === 'margin') {
+                        const isValid = window.validateMarkerPlacement(endPlacement.x, endPlacement.y, endBounds.width, endBounds.height, mazeBounds, 3);
+                        if (!isValid) {
+                            errors.push(`END marker intersects maze: marker(${Math.round(endPlacement.x)},${Math.round(endPlacement.y)},${Math.round(endBounds.width)}x${Math.round(endBounds.height)}) vs maze(${mazeBounds.left},${mazeBounds.top})`);
+                        }
+                    }
+                }
+
+                // Test 15: START text fits within arrow bounds
+                if (window.calculateStartMarkerBounds) {
+                    const testFontSize = 20;
+                    const bounds = window.calculateStartMarkerBounds(testFontSize);
+                    // Text width should be less than rectWidth (the rectangular portion)
+                    if (bounds.textWidth > bounds.rectWidth - bounds.padding) {
+                        errors.push(`START text too wide for arrow: textWidth=${bounds.textWidth}, rectWidth=${bounds.rectWidth}`);
+                    }
+                    // Text height should fit in the arrow height
+                    if (bounds.textHeight > bounds.height - bounds.padding) {
+                        errors.push(`START text too tall for arrow: textHeight=${bounds.textHeight}, height=${bounds.height}`);
+                    }
+                }
+
                 const status = errors.length === 0 ? 'PASS' : 'FAIL';
                 log(`  ${status}: ${name} - ${errors.length === 0 ? 'OK' : errors.join(', ')}`);
 
