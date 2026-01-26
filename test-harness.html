@@ -512,13 +512,13 @@
                     errors.push('SVG error: ' + e.message);
                 }
 
-                // Test 8: Check START/END labels would be visible (look for marker comments)
+                // Test 8: Check START/END markers are rendered (look for marker groups)
                 const svg = maze.toSVG(false, false);
-                if (!svg.includes('<!-- START -->') && maze.startPos) {
-                    errors.push('Missing START label');
+                if (!svg.includes('class="start-marker"') && maze.startPos) {
+                    errors.push('Missing START marker');
                 }
-                if (!svg.includes('<!-- END -->') && maze.endPos) {
-                    errors.push('Missing END label');
+                if (!svg.includes('class="end-marker"') && maze.endPos) {
+                    errors.push('Missing END marker');
                 }
 
                 // Test 9: Room sizes scale with maze size for art readability
@@ -535,9 +535,9 @@
                     errors.push(`Room too small: ${actualRoomSize} cells, need ${minAcceptable} for ${expectedCellSize}px cells`);
                 }
 
-                // Test 10: Check arrows are in SVG
-                if (!svg.includes('polyline') && maze.startPos) {
-                    errors.push('Missing arrows');
+                // Test 10: Check START arrow shape is in SVG (uses path element)
+                if (!svg.includes('<path d="M') && maze.startPos) {
+                    errors.push('Missing START arrow shape');
                 }
 
                 // Test 11: Check START/END labels are in margins
@@ -746,6 +746,42 @@
 
                     if (!expectedEdges.includes(metrics.startEdge)) {
                         log(`  Note: START edge '${metrics.startEdge}' may not be optimal (distances: L=${distToLeft}, R=${distToRight}, T=${distToTop}, B=${distToBottom})`);
+                    }
+                }
+
+                // Test 9: Marker font size is large enough (should match title ~16-28px)
+                if (window.calculateStartMarkerBounds) {
+                    const testFontSize = 20;  // Typical marker font size
+                    const startBounds = window.calculateStartMarkerBounds(testFontSize);
+                    if (startBounds.fontSize < 16) {
+                        errors.push(`START marker font too small: ${startBounds.fontSize}px`);
+                    }
+                }
+
+                // Test 10: SVG contains new marker system elements
+                const svg = maze.toSVG(false, false);
+                if (!svg.includes('class="start-marker"')) {
+                    errors.push('Missing START marker group in SVG');
+                }
+                if (!svg.includes('class="end-marker"')) {
+                    errors.push('Missing END marker group in SVG');
+                }
+
+                // Test 11: START marker has arrow shape path (not just polyline)
+                if (maze.startPos && !svg.includes('<path d="M')) {
+                    errors.push('START marker missing arrow shape path');
+                }
+
+                // Test 12: Marker placement function works
+                if (window.findMarkerPlacement && maze.startPos) {
+                    const testBounds = { width: 100, height: 40 };
+                    const cellSize = metrics.cellSize || 10;
+                    const placement = window.findMarkerPlacement(maze, maze.startPos, maze.startRoomSize || 2, testBounds, true, cellSize, metrics.mazeOffsetX || 55, metrics.mazeOffsetY || 85);
+                    if (!placement || !placement.direction) {
+                        errors.push('Marker placement failed');
+                    }
+                    if (placement && placement.type === 'extension' && (!placement.extensionCells || placement.extensionCells.length === 0)) {
+                        errors.push('Extension placement has no cells');
                     }
                 }
 

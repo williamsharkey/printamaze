@@ -3217,126 +3217,48 @@ class Maze {
             svg += `<path d="${pathD}" fill="none" stroke="${theme.wallColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`;
         }
 
-        // START/END labels and arrows - FIXED SIZE, smart positioning based on room location
-        // Labels are always readable regardless of maze size
-        const FIXED_LABEL_SIZE = 12;  // Larger size for new margins
-        const FIXED_ARROW_SIZE = 20;  // Larger arrow size
-        const FIXED_ARROW_STROKE = 3;
+        // START/END markers - NEW SYSTEM with arrow-shaped START and text-only END
+        // Font size matches title for visibility (16-28px range)
+        const markerFontSize = Math.min(28, Math.max(16, Math.floor(mazeWidth / 12)));
+        const markerStrokeWidth = strokeWidth * 1.5;
 
-        // Render START label and arrow - smart positioning based on room location
+        // Render START marker (arrow shape with text inside)
         if (this.startPos) {
             const roomSize = this.startRoomSize || 2;
-            const startEdge = findBestLabelPosition(this, this.startPos.x, this.startPos.y, roomSize);
+            const startBounds = calculateStartMarkerBounds(markerFontSize);
+            const startPlacement = findMarkerPlacement(this, this.startPos, roomSize, startBounds, true, cellSize, mazeOffsetX, mazeOffsetY);
 
-            const roomCenterX = mazeOffsetX + (this.startPos.x + roomSize / 2) * cellSize;
-            const roomCenterY = mazeOffsetY + (this.startPos.y + roomSize / 2) * cellSize;
-            const roomLeft = mazeOffsetX + this.startPos.x * cellSize;
-            const roomRight = mazeOffsetX + (this.startPos.x + roomSize) * cellSize;
-            const roomTop = mazeOffsetY + this.startPos.y * cellSize;
-            const roomBottom = mazeOffsetY + (this.startPos.y + roomSize) * cellSize;
-
-            const startWidth = VectorFont.measureText('START', FIXED_LABEL_SIZE);
-            let startX, startY, arrowX, arrowY, arrowDir;
-
-            switch (startEdge) {
-                case 'left':
-                    arrowX = roomLeft - FIXED_ARROW_SIZE - 3;
-                    arrowY = roomCenterY;
-                    arrowDir = 'right';
-                    startX = (SIDE_MARGIN - startWidth) / 2;
-                    startY = roomCenterY - FIXED_ARROW_SIZE - 2;
-                    break;
-                case 'right':
-                    arrowX = roomRight + 3;
-                    arrowY = roomCenterY;
-                    arrowDir = 'right';
-                    startX = roomRight + (SIDE_MARGIN - startWidth) / 2 + 3;
-                    startY = roomCenterY - FIXED_ARROW_SIZE - 2;
-                    break;
-                case 'top':
-                    arrowX = roomCenterX;
-                    arrowY = roomTop - FIXED_ARROW_SIZE - 3;
-                    arrowDir = 'down';
-                    startX = roomCenterX - startWidth / 2;
-                    startY = roomTop - FIXED_ARROW_SIZE - FIXED_LABEL_SIZE - 8;
-                    break;
-                case 'bottom':
-                    arrowX = roomCenterX;
-                    arrowY = roomBottom + 3;
-                    arrowDir = 'up';
-                    startX = roomCenterX - startWidth / 2;
-                    startY = roomBottom + FIXED_ARROW_SIZE + 8;
-                    break;
-                default:
-                    arrowX = roomLeft - FIXED_ARROW_SIZE - 3;
-                    arrowY = roomCenterY;
-                    arrowDir = 'right';
-                    startX = (SIDE_MARGIN - startWidth) / 2;
-                    startY = roomCenterY - FIXED_ARROW_SIZE - 2;
+            // Mark extension cells if using masked region (they won't have walls drawn)
+            if (startPlacement.type === 'extension' && startPlacement.extensionCells) {
+                startPlacement.extensionCells.forEach(c => {
+                    if (this.cells[c.y] && this.cells[c.y][c.x]) {
+                        this.cells[c.y][c.x].isExtension = true;
+                    }
+                });
             }
 
-            svg += `<g class="start-marker"><!-- START -->`;
-            svg += renderArrow(arrowX, arrowY, FIXED_ARROW_SIZE, arrowDir, textColor, FIXED_ARROW_STROKE);
-            svg += VectorFont.renderText('START', startX, startY, FIXED_LABEL_SIZE, textColor, 0.8);
-            svg += `</g>`;
+            svg += renderStartMarker(startPlacement.x, startPlacement.y, startBounds, startPlacement.direction, textColor, markerStrokeWidth);
         }
 
-        // Render END label and arrow - smart positioning based on room location
+        // Render END marker (text only, no arrow)
         if (this.endPos) {
             const roomSize = this.endRoomSize || 2;
-            const endEdge = findBestLabelPosition(this, this.endPos.x, this.endPos.y, roomSize);
+            const endBounds = calculateEndMarkerBounds(markerFontSize);
+            const endPlacement = findMarkerPlacement(this, this.endPos, roomSize, endBounds, false, cellSize, mazeOffsetX, mazeOffsetY);
 
-            const roomCenterX = mazeOffsetX + (this.endPos.x + roomSize / 2) * cellSize;
-            const roomCenterY = mazeOffsetY + (this.endPos.y + roomSize / 2) * cellSize;
-            const roomLeft = mazeOffsetX + this.endPos.x * cellSize;
-            const roomRight = mazeOffsetX + (this.endPos.x + roomSize) * cellSize;
-            const roomTop = mazeOffsetY + this.endPos.y * cellSize;
-            const roomBottom = mazeOffsetY + (this.endPos.y + roomSize) * cellSize;
-
-            const endWidth = VectorFont.measureText('END', FIXED_LABEL_SIZE);
-            let endX, endY, arrowX, arrowY, arrowDir;
-
-            switch (endEdge) {
-                case 'left':
-                    arrowX = roomLeft - FIXED_ARROW_SIZE - 3;
-                    arrowY = roomCenterY;
-                    arrowDir = 'left';
-                    endX = (SIDE_MARGIN - endWidth) / 2;
-                    endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
-                    break;
-                case 'right':
-                    arrowX = roomRight + 3;
-                    arrowY = roomCenterY;
-                    arrowDir = 'right';
-                    endX = roomRight + (SIDE_MARGIN - endWidth) / 2 + 3;
-                    endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
-                    break;
-                case 'top':
-                    arrowX = roomCenterX;
-                    arrowY = roomTop - FIXED_ARROW_SIZE - 3;
-                    arrowDir = 'up';
-                    endX = roomCenterX - endWidth / 2;
-                    endY = roomTop - FIXED_ARROW_SIZE - FIXED_LABEL_SIZE - 8;
-                    break;
-                case 'bottom':
-                    arrowX = roomCenterX;
-                    arrowY = roomBottom + 3;
-                    arrowDir = 'down';
-                    endX = roomCenterX - endWidth / 2;
-                    endY = roomBottom + FIXED_ARROW_SIZE + 8;
-                    break;
-                default:
-                    arrowX = roomRight + 3;
-                    arrowY = roomCenterY;
-                    arrowDir = 'right';
-                    endX = roomRight + (SIDE_MARGIN - endWidth) / 2 + 3;
-                    endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
+            // Mark extension cells if using masked region
+            if (endPlacement.type === 'extension' && endPlacement.extensionCells) {
+                endPlacement.extensionCells.forEach(c => {
+                    if (this.cells[c.y] && this.cells[c.y][c.x]) {
+                        this.cells[c.y][c.x].isExtension = true;
+                    }
+                });
             }
 
-            svg += `<g class="end-marker"><!-- END -->`;
-            svg += renderArrow(arrowX, arrowY, FIXED_ARROW_SIZE, arrowDir, textColor, FIXED_ARROW_STROKE);
-            svg += VectorFont.renderText('END', endX, endY, FIXED_LABEL_SIZE, textColor, 0.8);
-            svg += `</g>`;
+            // For END, center the text at the placement position
+            const endCenterX = endPlacement.x + endBounds.width / 2;
+            const endCenterY = endPlacement.y + endBounds.height / 2 + markerFontSize * 0.35;
+            svg += renderEndMarker(endCenterX, endCenterY, markerFontSize, textColor, markerStrokeWidth);
         }
 
         // Quest at bottom (vector font, word-wrapped) - FIXED SIZE for consistency
@@ -5018,7 +4940,279 @@ function renderArrow(x, y, size, direction, color, strokeWidth) {
     return `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-// Calculate label and arrow position for a given edge
+// =============================================================================
+// NEW MARKER SYSTEM - Arrow-shaped START, Text-only END
+// =============================================================================
+
+// Calculate START marker bounds (arrow shape with text inside)
+function calculateStartMarkerBounds(fontSize) {
+    const textWidth = VectorFont.measureText('START', fontSize);
+    const textHeight = fontSize;
+    const padding = fontSize * 0.4;  // Padding around text
+    const arrowTipSize = fontSize * 0.7;  // Size of arrow tip
+
+    return {
+        width: textWidth + padding * 2 + arrowTipSize,
+        height: textHeight + padding * 2,
+        fontSize,
+        arrowTipSize,
+        textWidth,
+        textHeight,
+        padding
+    };
+}
+
+// Calculate END marker bounds (text only, no border)
+function calculateEndMarkerBounds(fontSize) {
+    const textWidth = VectorFont.measureText('END', fontSize);
+    const textHeight = fontSize;
+
+    return {
+        width: textWidth,
+        height: textHeight,
+        fontSize,
+        textWidth,
+        textHeight
+    };
+}
+
+// Calculate arrow shape path for START marker
+function calculateArrowShapePath(x, y, width, height, tipSize, direction) {
+    const r = 4;  // Corner radius for rounded corners
+    switch (direction) {
+        case 'right':
+            // Arrow pointing right: rectangle with pointed right side
+            return `M${x + r},${y} L${x + width - tipSize},${y} L${x + width},${y + height/2} L${x + width - tipSize},${y + height} L${x + r},${y + height} Q${x},${y + height} ${x},${y + height - r} L${x},${y + r} Q${x},${y} ${x + r},${y} Z`;
+        case 'left':
+            // Arrow pointing left: pointed left side
+            return `M${x},${y + height/2} L${x + tipSize},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height - r} Q${x + width},${y + height} ${x + width - r},${y + height} L${x + tipSize},${y + height} Z`;
+        case 'down':
+            // Arrow pointing down: pointed bottom
+            return `M${x + r},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height - tipSize} L${x + width/2},${y + height} L${x},${y + height - tipSize} L${x},${y + r} Q${x},${y} ${x + r},${y} Z`;
+        case 'up':
+            // Arrow pointing up: pointed top
+            return `M${x + width/2},${y} L${x + width},${y + tipSize} L${x + width},${y + height - r} Q${x + width},${y + height} ${x + width - r},${y + height} L${x + r},${y + height} Q${x},${y + height} ${x},${y + height - r} L${x},${y + tipSize} Z`;
+        default:
+            return calculateArrowShapePath(x, y, width, height, tipSize, 'right');
+    }
+}
+
+// Render START marker with arrow shape outline and text inside
+function renderStartMarker(x, y, bounds, direction, color, strokeWidth) {
+    const { width, height, fontSize, arrowTipSize, padding } = bounds;
+    let svg = `<g class="start-marker">`;
+
+    // Draw arrow shape outline
+    const path = calculateArrowShapePath(x, y, width, height, arrowTipSize, direction);
+    svg += `<path d="${path}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>`;
+
+    // Calculate text position (centered in the non-tip portion)
+    let textX, textY;
+    switch (direction) {
+        case 'right':
+            textX = x + (width - arrowTipSize) / 2;
+            textY = y + height / 2 + fontSize * 0.35;
+            break;
+        case 'left':
+            textX = x + arrowTipSize + (width - arrowTipSize) / 2;
+            textY = y + height / 2 + fontSize * 0.35;
+            break;
+        case 'down':
+            textX = x + width / 2;
+            textY = y + (height - arrowTipSize) / 2 + fontSize * 0.35;
+            break;
+        case 'up':
+            textX = x + width / 2;
+            textY = y + arrowTipSize + (height - arrowTipSize) / 2 + fontSize * 0.35;
+            break;
+        default:
+            textX = x + (width - arrowTipSize) / 2;
+            textY = y + height / 2 + fontSize * 0.35;
+    }
+
+    svg += VectorFont.renderCentered('START', textX, textY, fontSize, color, strokeWidth * 0.6);
+    svg += `</g>`;
+    return svg;
+}
+
+// Render END marker (text only, no border)
+function renderEndMarker(x, y, fontSize, color, strokeWidth) {
+    return `<g class="end-marker">${VectorFont.renderCentered('END', x, y, fontSize, color, strokeWidth * 0.6)}</g>`;
+}
+
+// Find marker placement - prefer margin, fall back to extension into masked region
+function findMarkerPlacement(maze, roomPos, roomSize, markerBounds, isStart, cellSize, mazeOffsetX, mazeOffsetY) {
+    const { PAGE_WIDTH, PAGE_HEIGHT, SIDE_MARGIN, TOP_MARGIN, TITLE_AREA_HEIGHT, QUEST_AREA_HEIGHT, BOTTOM_MARGIN } = LAYOUT;
+
+    // Get the best edge based on room position
+    const edge = findBestLabelPosition(maze, roomPos.x, roomPos.y, roomSize);
+
+    // Calculate room pixel positions
+    const roomLeft = mazeOffsetX + roomPos.x * cellSize;
+    const roomRight = mazeOffsetX + (roomPos.x + roomSize) * cellSize;
+    const roomTop = mazeOffsetY + roomPos.y * cellSize;
+    const roomBottom = mazeOffsetY + (roomPos.y + roomSize) * cellSize;
+    const roomCenterX = (roomLeft + roomRight) / 2;
+    const roomCenterY = (roomTop + roomBottom) / 2;
+
+    // Try margin placement first
+    const marginResult = tryPlaceInMargin(edge, roomLeft, roomRight, roomTop, roomBottom, roomCenterX, roomCenterY, markerBounds, isStart, mazeOffsetX, mazeOffsetY, cellSize, maze);
+
+    if (marginResult.fits) {
+        return { type: 'margin', edge, ...marginResult };
+    }
+
+    // Try extension into masked region
+    const extensionResult = tryPlaceInMaskedRegion(maze, edge, roomPos, roomSize, markerBounds, isStart, cellSize, mazeOffsetX, mazeOffsetY);
+
+    if (extensionResult.fits) {
+        return { type: 'extension', edge, ...extensionResult };
+    }
+
+    // Try other edges
+    for (const altEdge of ['left', 'right', 'top', 'bottom']) {
+        if (altEdge === edge) continue;
+        const altMargin = tryPlaceInMargin(altEdge, roomLeft, roomRight, roomTop, roomBottom, roomCenterX, roomCenterY, markerBounds, isStart, mazeOffsetX, mazeOffsetY, cellSize, maze);
+        if (altMargin.fits) {
+            return { type: 'margin', edge: altEdge, ...altMargin };
+        }
+    }
+
+    // Fallback: force fit in original edge margin (may clip)
+    return { type: 'margin', edge, ...marginResult, forced: true };
+}
+
+// Try to place marker in page margin
+function tryPlaceInMargin(edge, roomLeft, roomRight, roomTop, roomBottom, roomCenterX, roomCenterY, bounds, isStart, mazeOffsetX, mazeOffsetY, cellSize, maze) {
+    const { PAGE_WIDTH, PAGE_HEIGHT, SIDE_MARGIN, TOP_MARGIN, TITLE_AREA_HEIGHT, QUEST_AREA_HEIGHT, BOTTOM_MARGIN } = LAYOUT;
+    const { width, height } = bounds;
+
+    let x, y, direction, fits = false;
+    const gap = 5;  // Gap between marker and maze
+
+    switch (edge) {
+        case 'left':
+            direction = 'right';
+            x = Math.max(5, SIDE_MARGIN - width - gap);
+            y = roomCenterY - height / 2;
+            // Check if fits in left margin
+            fits = (x >= 0) && (x + width <= mazeOffsetX - gap);
+            break;
+
+        case 'right':
+            direction = 'right';
+            x = mazeOffsetX + maze.width * cellSize + gap;
+            y = roomCenterY - height / 2;
+            // Check if fits in right margin
+            fits = (x + width <= PAGE_WIDTH - 5);
+            break;
+
+        case 'top':
+            direction = 'down';
+            x = roomCenterX - width / 2;
+            y = Math.max(TOP_MARGIN + TITLE_AREA_HEIGHT - height - gap, TOP_MARGIN);
+            // Check if fits in top area
+            fits = (y >= TOP_MARGIN) && (y + height <= mazeOffsetY - gap);
+            break;
+
+        case 'bottom':
+            direction = 'up';
+            x = roomCenterX - width / 2;
+            y = mazeOffsetY + maze.height * cellSize + gap;
+            // Check if fits in bottom area
+            fits = (y + height <= PAGE_HEIGHT - BOTTOM_MARGIN - QUEST_AREA_HEIGHT);
+            break;
+    }
+
+    // Clamp to page bounds
+    x = Math.max(5, Math.min(x, PAGE_WIDTH - width - 5));
+    y = Math.max(TOP_MARGIN, Math.min(y, PAGE_HEIGHT - BOTTOM_MARGIN - height));
+
+    return { x, y, direction, fits };
+}
+
+// Try to place marker in masked (blocked) region adjacent to room
+function tryPlaceInMaskedRegion(maze, edge, roomPos, roomSize, bounds, isStart, cellSize, mazeOffsetX, mazeOffsetY) {
+    const { width, height } = bounds;
+
+    // Find blocked cells adjacent to the room on the given edge
+    const extensionCells = [];
+    let searchDir, startX, startY;
+
+    switch (edge) {
+        case 'left':
+            searchDir = { dx: -1, dy: 0 };
+            startX = roomPos.x - 1;
+            startY = roomPos.y + Math.floor(roomSize / 2);
+            break;
+        case 'right':
+            searchDir = { dx: 1, dy: 0 };
+            startX = roomPos.x + roomSize;
+            startY = roomPos.y + Math.floor(roomSize / 2);
+            break;
+        case 'top':
+            searchDir = { dx: 0, dy: -1 };
+            startX = roomPos.x + Math.floor(roomSize / 2);
+            startY = roomPos.y - 1;
+            break;
+        case 'bottom':
+            searchDir = { dx: 0, dy: 1 };
+            startX = roomPos.x + Math.floor(roomSize / 2);
+            startY = roomPos.y + roomSize;
+            break;
+    }
+
+    // Trace blocked cells in the search direction
+    let cx = startX, cy = startY;
+    const cellsNeeded = Math.ceil(Math.max(width, height) / cellSize) + 1;
+
+    for (let i = 0; i < cellsNeeded && cx >= 0 && cx < maze.width && cy >= 0 && cy < maze.height; i++) {
+        const cell = maze.cells[cy]?.[cx];
+        if (cell && cell.blocked) {
+            extensionCells.push({ x: cx, y: cy });
+            cx += searchDir.dx;
+            cy += searchDir.dy;
+        } else {
+            break;  // Hit a non-blocked cell
+        }
+    }
+
+    if (extensionCells.length === 0) {
+        return { fits: false };
+    }
+
+    // Calculate pixel position for marker in extension area
+    const firstCell = extensionCells[0];
+    const lastCell = extensionCells[extensionCells.length - 1];
+
+    let x, y, direction;
+    switch (edge) {
+        case 'left':
+            direction = 'right';
+            x = mazeOffsetX + (lastCell.x) * cellSize;
+            y = mazeOffsetY + (roomPos.y + roomSize / 2) * cellSize - height / 2;
+            break;
+        case 'right':
+            direction = 'right';
+            x = mazeOffsetX + firstCell.x * cellSize + cellSize - width;
+            y = mazeOffsetY + (roomPos.y + roomSize / 2) * cellSize - height / 2;
+            break;
+        case 'top':
+            direction = 'down';
+            x = mazeOffsetX + (roomPos.x + roomSize / 2) * cellSize - width / 2;
+            y = mazeOffsetY + lastCell.y * cellSize;
+            break;
+        case 'bottom':
+            direction = 'up';
+            x = mazeOffsetX + (roomPos.x + roomSize / 2) * cellSize - width / 2;
+            y = mazeOffsetY + firstCell.y * cellSize + cellSize - height;
+            break;
+    }
+
+    return { fits: true, x, y, direction, extensionCells };
+}
+
+// Legacy function for compatibility - Calculate label and arrow position for a given edge
 function calculateLabelPosition(maze, roomPos, roomSize, edge, labelText, cellSize, mazeOffsetX, mazeOffsetY, labelSize, arrowSize) {
     const roomCenterX = mazeOffsetX + (roomPos.x + roomSize / 2) * cellSize;
     const roomCenterY = mazeOffsetY + (roomPos.y + roomSize / 2) * cellSize;
@@ -5181,102 +5375,46 @@ function getLayoutMetrics(maze) {
         };
     }
 
-    // START/END label bounds with smart positioning
-    const FIXED_LABEL_SIZE = 12;
-    const FIXED_ARROW_SIZE = 20;
+    // START/END marker bounds using new marker system
+    const markerFontSize = Math.min(28, Math.max(16, Math.floor(mazeWidth / 12)));
 
     let startBounds = null;
     let startEdge = null;
+    let startPlacement = null;
     if (maze.startPos) {
         const roomSize = maze.startRoomSize || 2;
-        startEdge = findBestLabelPosition(maze, maze.startPos.x, maze.startPos.y, roomSize);
-
-        const roomCenterX = mazeOffsetX + (maze.startPos.x + roomSize / 2) * cellSize;
-        const roomCenterY = mazeOffsetY + (maze.startPos.y + roomSize / 2) * cellSize;
-        const roomLeft = mazeOffsetX + maze.startPos.x * cellSize;
-        const roomRight = mazeOffsetX + (maze.startPos.x + roomSize) * cellSize;
-        const roomTop = mazeOffsetY + maze.startPos.y * cellSize;
-        const roomBottom = mazeOffsetY + (maze.startPos.y + roomSize) * cellSize;
-
-        const startWidth = VectorFont.measureText('START', FIXED_LABEL_SIZE);
-        let startX, startY;
-
-        switch (startEdge) {
-            case 'left':
-                startX = (SIDE_MARGIN - startWidth) / 2;
-                startY = roomCenterY - FIXED_ARROW_SIZE - 2;
-                break;
-            case 'right':
-                startX = roomRight + (SIDE_MARGIN - startWidth) / 2 + 3;
-                startY = roomCenterY - FIXED_ARROW_SIZE - 2;
-                break;
-            case 'top':
-                startX = roomCenterX - startWidth / 2;
-                startY = roomTop - FIXED_ARROW_SIZE - FIXED_LABEL_SIZE - 8;
-                break;
-            case 'bottom':
-                startX = roomCenterX - startWidth / 2;
-                startY = roomBottom + FIXED_ARROW_SIZE + 8;
-                break;
-            default:
-                startX = (SIDE_MARGIN - startWidth) / 2;
-                startY = roomCenterY - FIXED_ARROW_SIZE - 2;
-        }
+        const bounds = calculateStartMarkerBounds(markerFontSize);
+        startPlacement = findMarkerPlacement(maze, maze.startPos, roomSize, bounds, true, cellSize, mazeOffsetX, mazeOffsetY);
+        startEdge = startPlacement.edge;
 
         startBounds = {
-            left: startX,
-            top: startY,
-            right: startX + startWidth,
-            bottom: startY + FIXED_LABEL_SIZE,
-            size: FIXED_LABEL_SIZE,
-            edge: startEdge
+            left: startPlacement.x,
+            top: startPlacement.y,
+            right: startPlacement.x + bounds.width,
+            bottom: startPlacement.y + bounds.height,
+            size: markerFontSize,
+            edge: startEdge,
+            type: startPlacement.type
         };
     }
 
     let endBounds = null;
     let endEdge = null;
+    let endPlacement = null;
     if (maze.endPos) {
         const roomSize = maze.endRoomSize || 2;
-        endEdge = findBestLabelPosition(maze, maze.endPos.x, maze.endPos.y, roomSize);
-
-        const roomCenterX = mazeOffsetX + (maze.endPos.x + roomSize / 2) * cellSize;
-        const roomCenterY = mazeOffsetY + (maze.endPos.y + roomSize / 2) * cellSize;
-        const roomRight = mazeOffsetX + (maze.endPos.x + roomSize) * cellSize;
-        const roomTop = mazeOffsetY + maze.endPos.y * cellSize;
-        const roomBottom = mazeOffsetY + (maze.endPos.y + roomSize) * cellSize;
-
-        const endWidth = VectorFont.measureText('END', FIXED_LABEL_SIZE);
-        let endX, endY;
-
-        switch (endEdge) {
-            case 'left':
-                endX = (SIDE_MARGIN - endWidth) / 2;
-                endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
-                break;
-            case 'right':
-                endX = roomRight + (SIDE_MARGIN - endWidth) / 2 + 3;
-                endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
-                break;
-            case 'top':
-                endX = roomCenterX - endWidth / 2;
-                endY = roomTop - FIXED_ARROW_SIZE - FIXED_LABEL_SIZE - 8;
-                break;
-            case 'bottom':
-                endX = roomCenterX - endWidth / 2;
-                endY = roomBottom + FIXED_ARROW_SIZE + 8;
-                break;
-            default:
-                endX = roomRight + (SIDE_MARGIN - endWidth) / 2 + 3;
-                endY = roomCenterY + FIXED_ARROW_SIZE + FIXED_LABEL_SIZE + 2;
-        }
+        const bounds = calculateEndMarkerBounds(markerFontSize);
+        endPlacement = findMarkerPlacement(maze, maze.endPos, roomSize, bounds, false, cellSize, mazeOffsetX, mazeOffsetY);
+        endEdge = endPlacement.edge;
 
         endBounds = {
-            left: endX,
-            top: endY,
-            right: endX + endWidth,
-            bottom: endY + FIXED_LABEL_SIZE,
-            size: FIXED_LABEL_SIZE,
-            edge: endEdge
+            left: endPlacement.x,
+            top: endPlacement.y,
+            right: endPlacement.x + bounds.width,
+            bottom: endPlacement.y + bounds.height,
+            size: markerFontSize,
+            edge: endEdge,
+            type: endPlacement.type
         };
     }
 
@@ -5585,6 +5723,12 @@ if (typeof window !== 'undefined') {
     window.getLayoutRegions = getLayoutRegions;
     window.findBestLabelPosition = findBestLabelPosition;
     window.renderArrow = renderArrow;
+    // New marker system exports
+    window.calculateStartMarkerBounds = calculateStartMarkerBounds;
+    window.calculateEndMarkerBounds = calculateEndMarkerBounds;
+    window.renderStartMarker = renderStartMarker;
+    window.renderEndMarker = renderEndMarker;
+    window.findMarkerPlacement = findMarkerPlacement;
     // Difficulty scaling exports
     window.MASK_FILL_PERCENTAGES = MASK_FILL_PERCENTAGES;
     window.BASE_SIZES = BASE_SIZES;
