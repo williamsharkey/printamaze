@@ -3029,28 +3029,56 @@ class Maze {
         }
 
         // Character art in start room - 30% smaller overall, thinner lines
+        // Also draw "START" label centered at bottom of room
         const characterArt = this.selectedCharacter || this.theme.character;
-        if (this.startPos && characterArt && CharacterArt[characterArt]) {
+        if (this.startPos) {
             const roomSize = this.startRoomSize || 2;
-            const cx = sidePadding + (this.startPos.x + roomSize / 2) * cellSize;
-            const cy = topPadding + (this.startPos.y + roomSize / 2) * cellSize;
+            const roomLeft = sidePadding + this.startPos.x * cellSize;
+            const roomTop = topPadding + this.startPos.y * cellSize;
+            const roomWidth = roomSize * cellSize;
+            const roomHeight = roomSize * cellSize;
+            const cx = roomLeft + roomWidth / 2;
+            const cy = roomTop + roomHeight / 2;
             const artColor = printMode ? '#000' : this.theme.wallColor;
-            // 30% smaller: 0.8 * 0.7 = 0.56, thinner strokes via transform
-            const artSize = roomSize * cellSize * 0.56;
-            svg += `<g color="${artColor}" style="stroke-width:0.8">${CharacterArt[characterArt](cx, cy, artSize)}</g>`;
+
+            // Draw character art if available
+            if (characterArt && CharacterArt[characterArt]) {
+                // 30% smaller: 0.8 * 0.7 = 0.56, thinner strokes via transform
+                const artSize = roomSize * cellSize * 0.56;
+                svg += `<g color="${artColor}" style="stroke-width:0.8">${CharacterArt[characterArt](cx, cy, artSize)}</g>`;
+            }
+
+            // Draw "START" label centered at bottom of room bounding box
+            const labelSize = Math.max(8, Math.min(14, cellSize * 0.8));
+            const labelY = roomTop + roomHeight + labelSize + 2;  // Below room
+            svg += VectorFont.renderCentered('START', cx, labelY, labelSize, textColor, strokeWidth * 0.8);
         }
 
         // Goal art in end room - 10% smaller, half line height left
+        // Also draw "END" label centered at bottom of room
         const goalArt = this.selectedGoal || this.theme.goal;
-        if (this.endPos && goalArt && GoalArt[goalArt]) {
+        if (this.endPos) {
             const roomSize = this.endRoomSize || 2;
-            // Shift half a line height (cellSize * 0.5) to the left
-            const cx = sidePadding + (this.endPos.x + roomSize / 2) * cellSize - cellSize * 0.5;
-            const cy = topPadding + (this.endPos.y + roomSize / 2) * cellSize;
+            const roomLeft = sidePadding + this.endPos.x * cellSize;
+            const roomTop = topPadding + this.endPos.y * cellSize;
+            const roomWidth = roomSize * cellSize;
+            const roomHeight = roomSize * cellSize;
+            const cx = roomLeft + roomWidth / 2;
+            const cy = roomTop + roomHeight / 2;
             const artColor = printMode ? '#000' : this.theme.wallColor;
-            // 10% smaller: 0.8 * 0.9 = 0.72, thinner strokes
-            const artSize = roomSize * cellSize * 0.72;
-            svg += `<g color="${artColor}" style="stroke-width:0.8">${GoalArt[goalArt](cx, cy, artSize)}</g>`;
+
+            // Draw goal art if available (shifted half line height left)
+            if (goalArt && GoalArt[goalArt]) {
+                const artCx = cx - cellSize * 0.5;
+                // 10% smaller: 0.8 * 0.9 = 0.72, thinner strokes
+                const artSize = roomSize * cellSize * 0.72;
+                svg += `<g color="${artColor}" style="stroke-width:0.8">${GoalArt[goalArt](artCx, cy, artSize)}</g>`;
+            }
+
+            // Draw "END" label centered at bottom of room bounding box
+            const labelSize = Math.max(8, Math.min(14, cellSize * 0.8));
+            const labelY = roomTop + roomHeight + labelSize + 2;  // Below room
+            svg += VectorFont.renderCentered('END', cx, labelY, labelSize, textColor, strokeWidth * 0.8);
         }
 
         // Room decorations (gray in print mode)
@@ -3158,46 +3186,6 @@ class Maze {
                    y >= this.endPos.y && y < this.endPos.y + rs;
         };
 
-        // PRE-CALCULATE marker placements and open exterior walls BEFORE rendering walls
-        // This ensures the entry/exit walls are open for the arrow to point into
-        const markerFontSize = Math.min(28, Math.max(16, Math.floor(mazeWidth / 12)));
-        let startPlacement = null;
-        let endPlacement = null;
-        let startBounds = null;
-        let endBounds = null;
-
-        if (this.startPos) {
-            const roomSize = this.startRoomSize || 2;
-            startBounds = calculateStartMarkerBounds(markerFontSize);
-            startPlacement = findMarkerPlacement(this, this.startPos, roomSize, startBounds, true, cellSize, mazeOffsetX, mazeOffsetY);
-            // Open the exterior wall so arrow can point into the room
-            openExteriorWallForMarker(this, this.startPos, roomSize, startPlacement.direction);
-            // Mark extension cells if using masked region
-            if (startPlacement.type === 'extension' && startPlacement.extensionCells) {
-                startPlacement.extensionCells.forEach(c => {
-                    if (this.cells[c.y] && this.cells[c.y][c.x]) {
-                        this.cells[c.y][c.x].isExtension = true;
-                    }
-                });
-            }
-        }
-
-        if (this.endPos) {
-            const roomSize = this.endRoomSize || 2;
-            endBounds = calculateEndMarkerBounds(markerFontSize);
-            endPlacement = findMarkerPlacement(this, this.endPos, roomSize, endBounds, false, cellSize, mazeOffsetX, mazeOffsetY);
-            // Open the exterior wall so the exit is clear
-            openExteriorWallForMarker(this, this.endPos, roomSize, endPlacement.direction);
-            // Mark extension cells if using masked region
-            if (endPlacement.type === 'extension' && endPlacement.extensionCells) {
-                endPlacement.extensionCells.forEach(c => {
-                    if (this.cells[c.y] && this.cells[c.y][c.x]) {
-                        this.cells[c.y][c.x].isExtension = true;
-                    }
-                });
-            }
-        }
-
         // Walls - OPTIMIZED: batch into single path element for performance
         if (this.curvedWalls) {
             svg += this.renderCurvedWalls(cellSize, sidePadding, topPadding, strokeWidth, theme.wallColor);
@@ -3255,22 +3243,6 @@ class Maze {
                 }
             }
             svg += `<path d="${pathD}" fill="none" stroke="${theme.wallColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`;
-        }
-
-        // START/END markers - render using pre-calculated placements
-        const markerStrokeWidth = strokeWidth * 1.5;
-
-        // Render START marker (arrow shape with text inside)
-        if (startPlacement && startBounds) {
-            svg += renderStartMarker(startPlacement.x, startPlacement.y, startBounds, startPlacement.direction, textColor, markerStrokeWidth);
-        }
-
-        // Render END marker (text only, no arrow)
-        if (endPlacement && endBounds) {
-            // For END, center the text at the placement position
-            const endCenterX = endPlacement.x + endBounds.width / 2;
-            const endCenterY = endPlacement.y + endBounds.height / 2 + markerFontSize * 0.35;
-            svg += renderEndMarker(endCenterX, endCenterY, markerFontSize, textColor, markerStrokeWidth);
         }
 
         // Quest at bottom (vector font, word-wrapped) - FIXED SIZE for consistency
@@ -4952,476 +4924,13 @@ function renderArrow(x, y, size, direction, color, strokeWidth) {
     return `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-// =============================================================================
-// NEW MARKER SYSTEM - Arrow-shaped START, Text-only END
-// =============================================================================
-
-// Get maze bounding box in pixels
-function getMazeBoundingBox(maze, cellSize, mazeOffsetX, mazeOffsetY) {
-    return {
-        left: mazeOffsetX,
-        right: mazeOffsetX + maze.width * cellSize,
-        top: mazeOffsetY,
-        bottom: mazeOffsetY + maze.height * cellSize
-    };
-}
-
-// Check if a rectangle overlaps with another rectangle
+// Check if two rectangles overlap (used by layout testing)
 function rectsOverlap(r1, r2) {
     if (!r1 || !r2) return false;
     return !(r1.right <= r2.left || r1.left >= r2.right ||
              r1.bottom <= r2.top || r1.top >= r2.bottom);
 }
 
-// Validate marker placement doesn't overlap maze
-function validateMarkerPlacement(markerX, markerY, markerWidth, markerHeight, mazeBounds, gap = 3) {
-    const markerBounds = {
-        left: markerX - gap,
-        right: markerX + markerWidth + gap,
-        top: markerY - gap,
-        bottom: markerY + markerHeight + gap
-    };
-    return !rectsOverlap(markerBounds, mazeBounds);
-}
-
-// Calculate START marker bounds (arrow shape with text inside)
-// Ensures text fits within the rectangular portion of the arrow
-function calculateStartMarkerBounds(fontSize) {
-    const textWidth = VectorFont.measureText('START', fontSize);
-    const textHeight = fontSize;
-    // Increase padding to ensure text fits comfortably
-    const padding = fontSize * 0.5;
-    const arrowTipSize = fontSize * 0.6;  // Slightly smaller tip
-
-    // The rectangular portion (where text goes) must be wide enough for text + padding
-    const rectWidth = textWidth + padding * 2;
-
-    return {
-        width: rectWidth + arrowTipSize,  // Total width = rect + tip
-        height: textHeight + padding * 2,
-        fontSize,
-        arrowTipSize,
-        textWidth,
-        textHeight,
-        padding,
-        rectWidth  // Store rect width for text centering
-    };
-}
-
-// Calculate END marker bounds (text only, no border)
-// Add padding around text for placement calculations
-function calculateEndMarkerBounds(fontSize) {
-    const textWidth = VectorFont.measureText('END', fontSize);
-    const textHeight = fontSize;
-    const padding = fontSize * 0.3;  // Some padding for clearance
-
-    return {
-        width: textWidth + padding * 2,
-        height: textHeight + padding * 2,
-        fontSize,
-        textWidth,
-        textHeight,
-        padding
-    };
-}
-
-// Calculate arrow shape path for START marker
-function calculateArrowShapePath(x, y, width, height, tipSize, direction) {
-    const r = 4;  // Corner radius for rounded corners
-    switch (direction) {
-        case 'right':
-            // Arrow pointing right: rectangle with pointed right side
-            return `M${x + r},${y} L${x + width - tipSize},${y} L${x + width},${y + height/2} L${x + width - tipSize},${y + height} L${x + r},${y + height} Q${x},${y + height} ${x},${y + height - r} L${x},${y + r} Q${x},${y} ${x + r},${y} Z`;
-        case 'left':
-            // Arrow pointing left: pointed left side
-            return `M${x},${y + height/2} L${x + tipSize},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height - r} Q${x + width},${y + height} ${x + width - r},${y + height} L${x + tipSize},${y + height} Z`;
-        case 'down':
-            // Arrow pointing down: pointed bottom
-            return `M${x + r},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height - tipSize} L${x + width/2},${y + height} L${x},${y + height - tipSize} L${x},${y + r} Q${x},${y} ${x + r},${y} Z`;
-        case 'up':
-            // Arrow pointing up: pointed top
-            return `M${x + width/2},${y} L${x + width},${y + tipSize} L${x + width},${y + height - r} Q${x + width},${y + height} ${x + width - r},${y + height} L${x + r},${y + height} Q${x},${y + height} ${x},${y + height - r} L${x},${y + tipSize} Z`;
-        default:
-            return calculateArrowShapePath(x, y, width, height, tipSize, 'right');
-    }
-}
-
-// Render START marker with arrow shape outline and text inside
-// Text is carefully centered within the rectangular portion of the arrow
-function renderStartMarker(x, y, bounds, direction, color, strokeWidth) {
-    const { width, height, fontSize, arrowTipSize, rectWidth } = bounds;
-    let svg = `<g class="start-marker">`;
-
-    // Draw arrow shape outline
-    const path = calculateArrowShapePath(x, y, width, height, arrowTipSize, direction);
-    svg += `<path d="${path}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>`;
-
-    // Calculate text position - center in the rectangular portion (not the tip)
-    // The rectangular portion dimensions depend on direction
-    let textX, textY;
-    const verticalCenter = y + height / 2 + fontSize * 0.35;  // VectorFont baseline adjustment
-
-    switch (direction) {
-        case 'right':
-            // Arrow tip is on the right, rect portion is on the left
-            // Text centered in rect: x to x + rectWidth
-            textX = x + rectWidth / 2;
-            textY = verticalCenter;
-            break;
-        case 'left':
-            // Arrow tip is on the left, rect portion is on the right
-            // Text centered in rect: x + arrowTipSize to x + width
-            textX = x + arrowTipSize + rectWidth / 2;
-            textY = verticalCenter;
-            break;
-        case 'down':
-            // Arrow tip is on the bottom, rect portion is on top
-            textX = x + width / 2;
-            textY = y + (height - arrowTipSize) / 2 + fontSize * 0.35;
-            break;
-        case 'up':
-            // Arrow tip is on the top, rect portion is on bottom
-            textX = x + width / 2;
-            textY = y + arrowTipSize + (height - arrowTipSize) / 2 + fontSize * 0.35;
-            break;
-        default:
-            textX = x + rectWidth / 2;
-            textY = verticalCenter;
-    }
-
-    svg += VectorFont.renderCentered('START', textX, textY, fontSize, color, strokeWidth * 0.6);
-    svg += `</g>`;
-    return svg;
-}
-
-// Render END marker (text only, no border)
-function renderEndMarker(x, y, fontSize, color, strokeWidth) {
-    return `<g class="end-marker">${VectorFont.renderCentered('END', x, y, fontSize, color, strokeWidth * 0.6)}</g>`;
-}
-
-// Find marker placement - prefer margin, fall back to extension into masked region
-function findMarkerPlacement(maze, roomPos, roomSize, markerBounds, isStart, cellSize, mazeOffsetX, mazeOffsetY) {
-    const { PAGE_WIDTH, PAGE_HEIGHT, SIDE_MARGIN, TOP_MARGIN, TITLE_AREA_HEIGHT, QUEST_AREA_HEIGHT, BOTTOM_MARGIN } = LAYOUT;
-
-    // Get the best edge based on room position
-    const edge = findBestLabelPosition(maze, roomPos.x, roomPos.y, roomSize);
-
-    // Calculate room pixel positions
-    const roomLeft = mazeOffsetX + roomPos.x * cellSize;
-    const roomRight = mazeOffsetX + (roomPos.x + roomSize) * cellSize;
-    const roomTop = mazeOffsetY + roomPos.y * cellSize;
-    const roomBottom = mazeOffsetY + (roomPos.y + roomSize) * cellSize;
-    const roomCenterX = (roomLeft + roomRight) / 2;
-    const roomCenterY = (roomTop + roomBottom) / 2;
-
-    // Try margin placement first
-    const marginResult = tryPlaceInMargin(edge, roomLeft, roomRight, roomTop, roomBottom, roomCenterX, roomCenterY, markerBounds, isStart, mazeOffsetX, mazeOffsetY, cellSize, maze);
-
-    if (marginResult.fits) {
-        return { type: 'margin', edge, ...marginResult };
-    }
-
-    // Try extension into masked region
-    const extensionResult = tryPlaceInMaskedRegion(maze, edge, roomPos, roomSize, markerBounds, isStart, cellSize, mazeOffsetX, mazeOffsetY);
-
-    if (extensionResult.fits) {
-        return { type: 'extension', edge, ...extensionResult };
-    }
-
-    // Try other edges
-    for (const altEdge of ['left', 'right', 'top', 'bottom']) {
-        if (altEdge === edge) continue;
-        const altMargin = tryPlaceInMargin(altEdge, roomLeft, roomRight, roomTop, roomBottom, roomCenterX, roomCenterY, markerBounds, isStart, mazeOffsetX, mazeOffsetY, cellSize, maze);
-        if (altMargin.fits) {
-            return { type: 'margin', edge: altEdge, ...altMargin };
-        }
-    }
-
-    // Fallback: force fit in original edge margin (may clip)
-    return { type: 'margin', edge, ...marginResult, forced: true };
-}
-
-// Try to place marker in page margin
-// Returns position that does NOT overlap the maze
-function tryPlaceInMargin(edge, roomLeft, roomRight, roomTop, roomBottom, roomCenterX, roomCenterY, bounds, isStart, mazeOffsetX, mazeOffsetY, cellSize, maze) {
-    const { PAGE_WIDTH, PAGE_HEIGHT, SIDE_MARGIN, TOP_MARGIN, TITLE_AREA_HEIGHT, QUEST_AREA_HEIGHT, BOTTOM_MARGIN } = LAYOUT;
-    const { width, height } = bounds;
-
-    // Get maze bounding box for overlap checking
-    const mazeBounds = getMazeBoundingBox(maze, cellSize, mazeOffsetX, mazeOffsetY);
-
-    let x, y, direction, fits = false;
-    const gap = 3;  // Small gap - walls are opened so arrow can point directly to entrance
-
-    switch (edge) {
-        case 'left':
-            // Arrow points RIGHT (into the maze from left margin)
-            direction = 'right';
-            // Position marker entirely in the left margin, ending before maze starts
-            x = mazeOffsetX - width - gap;
-            y = roomCenterY - height / 2;
-            // Ensure x doesn't go off page
-            if (x < 5) x = 5;
-            // Check if marker fits without overlapping maze
-            fits = (x + width + gap <= mazeBounds.left);
-            break;
-
-        case 'right':
-            // Arrow points LEFT (into the maze from right margin)
-            direction = 'left';
-            // Position marker entirely in the right margin, starting after maze ends
-            x = mazeBounds.right + gap;
-            y = roomCenterY - height / 2;
-            // Check if marker fits without going off page
-            fits = (x >= mazeBounds.right + gap) && (x + width <= PAGE_WIDTH - 5);
-            break;
-
-        case 'top':
-            // Arrow points DOWN (into the maze from top margin)
-            direction = 'down';
-            x = roomCenterX - width / 2;
-            // Position marker above the maze
-            y = mazeBounds.top - height - gap;
-            // Ensure y doesn't go above title area
-            if (y < TOP_MARGIN + TITLE_AREA_HEIGHT) {
-                y = TOP_MARGIN + TITLE_AREA_HEIGHT;
-            }
-            // Check if fits without overlapping maze
-            fits = (y + height + gap <= mazeBounds.top);
-            break;
-
-        case 'bottom':
-            // Arrow points UP (into the maze from bottom margin)
-            direction = 'up';
-            x = roomCenterX - width / 2;
-            // Position marker below the maze
-            y = mazeBounds.bottom + gap;
-            // Check if fits without going into quest area
-            fits = (y >= mazeBounds.bottom + gap) && (y + height <= PAGE_HEIGHT - BOTTOM_MARGIN - QUEST_AREA_HEIGHT);
-            break;
-    }
-
-    // Clamp x to page bounds (but don't let it overlap maze)
-    x = Math.max(5, Math.min(x, PAGE_WIDTH - width - 5));
-
-    // Clamp y to valid range
-    y = Math.max(TOP_MARGIN, Math.min(y, PAGE_HEIGHT - BOTTOM_MARGIN - height));
-
-    // Final validation: ensure no overlap with maze
-    const isValid = validateMarkerPlacement(x, y, width, height, mazeBounds, gap);
-
-    return { x, y, direction, fits: fits && isValid };
-}
-
-// Try to place marker in masked (blocked) region adjacent to room
-function tryPlaceInMaskedRegion(maze, edge, roomPos, roomSize, bounds, isStart, cellSize, mazeOffsetX, mazeOffsetY) {
-    const { width, height } = bounds;
-
-    // Find blocked cells adjacent to the room on the given edge
-    const extensionCells = [];
-    let searchDir, startX, startY;
-
-    switch (edge) {
-        case 'left':
-            searchDir = { dx: -1, dy: 0 };
-            startX = roomPos.x - 1;
-            startY = roomPos.y + Math.floor(roomSize / 2);
-            break;
-        case 'right':
-            searchDir = { dx: 1, dy: 0 };
-            startX = roomPos.x + roomSize;
-            startY = roomPos.y + Math.floor(roomSize / 2);
-            break;
-        case 'top':
-            searchDir = { dx: 0, dy: -1 };
-            startX = roomPos.x + Math.floor(roomSize / 2);
-            startY = roomPos.y - 1;
-            break;
-        case 'bottom':
-            searchDir = { dx: 0, dy: 1 };
-            startX = roomPos.x + Math.floor(roomSize / 2);
-            startY = roomPos.y + roomSize;
-            break;
-    }
-
-    // Trace blocked cells in the search direction
-    let cx = startX, cy = startY;
-    const cellsNeeded = Math.ceil(Math.max(width, height) / cellSize) + 1;
-
-    for (let i = 0; i < cellsNeeded && cx >= 0 && cx < maze.width && cy >= 0 && cy < maze.height; i++) {
-        const cell = maze.cells[cy]?.[cx];
-        if (cell && cell.blocked) {
-            extensionCells.push({ x: cx, y: cy });
-            cx += searchDir.dx;
-            cy += searchDir.dy;
-        } else {
-            break;  // Hit a non-blocked cell
-        }
-    }
-
-    if (extensionCells.length === 0) {
-        return { fits: false };
-    }
-
-    // Calculate pixel position for marker in extension area
-    // Position marker as close to the maze entrance as possible
-    const firstCell = extensionCells[0];
-
-    // Calculate room edge position (where the arrow will point to)
-    const roomLeftPx = mazeOffsetX + roomPos.x * cellSize;
-    const roomRightPx = mazeOffsetX + (roomPos.x + roomSize) * cellSize;
-    const roomTopPx = mazeOffsetY + roomPos.y * cellSize;
-    const roomBottomPx = mazeOffsetY + (roomPos.y + roomSize) * cellSize;
-    const roomCenterYPx = mazeOffsetY + (roomPos.y + roomSize / 2) * cellSize;
-    const roomCenterXPx = mazeOffsetX + (roomPos.x + roomSize / 2) * cellSize;
-
-    let x, y, direction;
-    const gap = 3;  // Small gap between arrow tip and room edge
-
-    switch (edge) {
-        case 'left':
-            // Arrow points RIGHT (toward maze entrance)
-            // Position: arrow tip at room's left edge
-            direction = 'right';
-            x = roomLeftPx - width - gap;  // Arrow ends just before room
-            y = roomCenterYPx - height / 2;
-            break;
-        case 'right':
-            // Arrow points LEFT (toward maze entrance)
-            // Position: arrow tip at room's right edge
-            direction = 'left';
-            x = roomRightPx + gap;  // Arrow starts just after room
-            y = roomCenterYPx - height / 2;
-            break;
-        case 'top':
-            // Arrow points DOWN (toward maze entrance)
-            // Position: arrow tip at room's top edge
-            direction = 'down';
-            x = roomCenterXPx - width / 2;
-            y = roomTopPx - height - gap;  // Arrow ends just before room
-            break;
-        case 'bottom':
-            // Arrow points UP (toward maze entrance)
-            // Position: arrow tip at room's bottom edge
-            direction = 'up';
-            x = roomCenterXPx - width / 2;
-            y = roomBottomPx + gap;  // Arrow starts just after room
-            break;
-    }
-
-    return { fits: true, x, y, direction, extensionCells };
-}
-
-// Open the exterior wall of a room for marker entry
-// This creates an opening where the arrow can point into the room
-function openExteriorWallForMarker(maze, roomPos, roomSize, direction) {
-    // Determine which wall to open based on arrow direction
-    // Arrow points INTO the room, so direction indicates entry side
-    const midOffset = Math.floor(roomSize / 2);
-
-    switch (direction) {
-        case 'right':
-            // Arrow points right, so open the WEST wall of the room (left side)
-            for (let i = 0; i < roomSize; i++) {
-                const cell = maze.cells[roomPos.y + i]?.[roomPos.x];
-                if (cell && !cell.blocked) {
-                    cell.walls.west = false;
-                }
-            }
-            break;
-        case 'left':
-            // Arrow points left, so open the EAST wall of the room (right side)
-            for (let i = 0; i < roomSize; i++) {
-                const cell = maze.cells[roomPos.y + i]?.[roomPos.x + roomSize - 1];
-                if (cell && !cell.blocked) {
-                    cell.walls.east = false;
-                }
-            }
-            break;
-        case 'down':
-            // Arrow points down, so open the NORTH wall of the room (top)
-            for (let i = 0; i < roomSize; i++) {
-                const cell = maze.cells[roomPos.y]?.[roomPos.x + i];
-                if (cell && !cell.blocked) {
-                    cell.walls.north = false;
-                }
-            }
-            break;
-        case 'up':
-            // Arrow points up, so open the SOUTH wall of the room (bottom)
-            for (let i = 0; i < roomSize; i++) {
-                const cell = maze.cells[roomPos.y + roomSize - 1]?.[roomPos.x + i];
-                if (cell && !cell.blocked) {
-                    cell.walls.south = false;
-                }
-            }
-            break;
-    }
-}
-
-// Legacy function for compatibility - Calculate label and arrow position for a given edge
-function calculateLabelPosition(maze, roomPos, roomSize, edge, labelText, cellSize, mazeOffsetX, mazeOffsetY, labelSize, arrowSize) {
-    const roomCenterX = mazeOffsetX + (roomPos.x + roomSize / 2) * cellSize;
-    const roomCenterY = mazeOffsetY + (roomPos.y + roomSize / 2) * cellSize;
-    const roomLeft = mazeOffsetX + roomPos.x * cellSize;
-    const roomRight = mazeOffsetX + (roomPos.x + roomSize) * cellSize;
-    const roomTop = mazeOffsetY + roomPos.y * cellSize;
-    const roomBottom = mazeOffsetY + (roomPos.y + roomSize) * cellSize;
-
-    const labelWidth = VectorFont.measureText(labelText, labelSize);
-    const regions = getLayoutRegions();
-
-    let result = {
-        labelX: 0,
-        labelY: 0,
-        arrowX: 0,
-        arrowY: 0,
-        arrowDir: 'right',
-        textRotation: 0
-    };
-
-    switch (edge) {
-        case 'left':
-            // Arrow pointing right into maze, label to the left
-            result.arrowX = roomLeft - arrowSize - 3;
-            result.arrowY = roomCenterY;
-            result.arrowDir = 'right';
-            result.labelX = (LAYOUT.SIDE_MARGIN - labelWidth) / 2;
-            result.labelY = roomCenterY - arrowSize - 2;
-            break;
-
-        case 'right':
-            // Arrow pointing right out of maze, label to the right
-            result.arrowX = roomRight + 3;
-            result.arrowY = roomCenterY;
-            result.arrowDir = 'right';
-            result.labelX = roomRight + (LAYOUT.SIDE_MARGIN - labelWidth) / 2 + 3;
-            result.labelY = roomCenterY + arrowSize + labelSize + 2;
-            break;
-
-        case 'top':
-            // Arrow pointing down into maze, label above
-            result.arrowX = roomCenterX;
-            result.arrowY = roomTop - arrowSize - 3;
-            result.arrowDir = 'down';
-            result.labelX = roomCenterX - labelWidth / 2;
-            result.labelY = roomTop - arrowSize - labelSize - 8;
-            result.textRotation = 0;
-            break;
-
-        case 'bottom':
-            // Arrow pointing up out of maze, label below
-            result.arrowX = roomCenterX;
-            result.arrowY = roomBottom + 3;
-            result.arrowDir = 'up';
-            result.labelX = roomCenterX - labelWidth / 2;
-            result.labelY = roomBottom + arrowSize + labelSize + 8;
-            result.textRotation = 0;
-            break;
-    }
-
-    return result;
-}
 
 // Calculate layout metrics for a maze (bounding boxes of all elements)
 // Uses LAYOUT constants to match toSVG() exactly
@@ -5522,46 +5031,44 @@ function getLayoutMetrics(maze) {
         };
     }
 
-    // START/END marker bounds using new marker system
-    const markerFontSize = Math.min(28, Math.max(16, Math.floor(mazeWidth / 12)));
+    // START/END label bounds - simple text below room
+    const labelSize = Math.max(8, Math.min(14, cellSize * 0.8));
 
     let startBounds = null;
-    let startEdge = null;
-    let startPlacement = null;
     if (maze.startPos) {
         const roomSize = maze.startRoomSize || 2;
-        const bounds = calculateStartMarkerBounds(markerFontSize);
-        startPlacement = findMarkerPlacement(maze, maze.startPos, roomSize, bounds, true, cellSize, mazeOffsetX, mazeOffsetY);
-        startEdge = startPlacement.edge;
+        const roomLeft = mazeOffsetX + maze.startPos.x * cellSize;
+        const roomTop = mazeOffsetY + maze.startPos.y * cellSize;
+        const roomWidth = roomSize * cellSize;
+        const roomHeight = roomSize * cellSize;
+        const labelY = roomTop + roomHeight + labelSize + 2;
+        const labelWidth = VectorFont.measureText('START', labelSize);
 
         startBounds = {
-            left: startPlacement.x,
-            top: startPlacement.y,
-            right: startPlacement.x + bounds.width,
-            bottom: startPlacement.y + bounds.height,
-            size: markerFontSize,
-            edge: startEdge,
-            type: startPlacement.type
+            left: roomLeft + roomWidth / 2 - labelWidth / 2,
+            top: labelY - labelSize,
+            right: roomLeft + roomWidth / 2 + labelWidth / 2,
+            bottom: labelY,
+            size: labelSize
         };
     }
 
     let endBounds = null;
-    let endEdge = null;
-    let endPlacement = null;
     if (maze.endPos) {
         const roomSize = maze.endRoomSize || 2;
-        const bounds = calculateEndMarkerBounds(markerFontSize);
-        endPlacement = findMarkerPlacement(maze, maze.endPos, roomSize, bounds, false, cellSize, mazeOffsetX, mazeOffsetY);
-        endEdge = endPlacement.edge;
+        const roomLeft = mazeOffsetX + maze.endPos.x * cellSize;
+        const roomTop = mazeOffsetY + maze.endPos.y * cellSize;
+        const roomWidth = roomSize * cellSize;
+        const roomHeight = roomSize * cellSize;
+        const labelY = roomTop + roomHeight + labelSize + 2;
+        const labelWidth = VectorFont.measureText('END', labelSize);
 
         endBounds = {
-            left: endPlacement.x,
-            top: endPlacement.y,
-            right: endPlacement.x + bounds.width,
-            bottom: endPlacement.y + bounds.height,
-            size: markerFontSize,
-            edge: endEdge,
-            type: endPlacement.type
+            left: roomLeft + roomWidth / 2 - labelWidth / 2,
+            top: labelY - labelSize,
+            right: roomLeft + roomWidth / 2 + labelWidth / 2,
+            bottom: labelY,
+            size: labelSize
         };
     }
 
@@ -5579,9 +5086,7 @@ function getLayoutMetrics(maze) {
         titleBounds,
         questBounds,
         startBounds,
-        endBounds,
-        startEdge,
-        endEdge
+        endBounds
     };
 }
 
@@ -5864,16 +5369,7 @@ if (typeof window !== 'undefined') {
     window.getLayoutRegions = getLayoutRegions;
     window.findBestLabelPosition = findBestLabelPosition;
     window.renderArrow = renderArrow;
-    // New marker system exports
-    window.calculateStartMarkerBounds = calculateStartMarkerBounds;
-    window.calculateEndMarkerBounds = calculateEndMarkerBounds;
-    window.renderStartMarker = renderStartMarker;
-    window.renderEndMarker = renderEndMarker;
-    window.findMarkerPlacement = findMarkerPlacement;
-    window.getMazeBoundingBox = getMazeBoundingBox;
     window.rectsOverlap = rectsOverlap;
-    window.validateMarkerPlacement = validateMarkerPlacement;
-    window.openExteriorWallForMarker = openExteriorWallForMarker;
     // Difficulty scaling exports
     window.MASK_FILL_PERCENTAGES = MASK_FILL_PERCENTAGES;
     window.BASE_SIZES = BASE_SIZES;

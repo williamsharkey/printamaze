@@ -512,13 +512,13 @@
                     errors.push('SVG error: ' + e.message);
                 }
 
-                // Test 8: Check START/END markers are rendered (look for marker groups)
+                // Test 8: Check START/END labels are rendered (simple text below rooms)
                 const svg = maze.toSVG(false, false);
-                if (!svg.includes('class="start-marker"') && maze.startPos) {
-                    errors.push('Missing START marker');
+                if (maze.startPos && !svg.includes('>START<')) {
+                    errors.push('Missing START label');
                 }
-                if (!svg.includes('class="end-marker"') && maze.endPos) {
-                    errors.push('Missing END marker');
+                if (maze.endPos && !svg.includes('>END<')) {
+                    errors.push('Missing END label');
                 }
 
                 // Test 9: Room sizes scale with maze size for art readability
@@ -746,94 +746,6 @@
 
                     if (!expectedEdges.includes(metrics.startEdge)) {
                         log(`  Note: START edge '${metrics.startEdge}' may not be optimal (distances: L=${distToLeft}, R=${distToRight}, T=${distToTop}, B=${distToBottom})`);
-                    }
-                }
-
-                // Test 9: Marker font size is large enough (should match title ~16-28px)
-                if (window.calculateStartMarkerBounds) {
-                    const testFontSize = 20;  // Typical marker font size
-                    const startBounds = window.calculateStartMarkerBounds(testFontSize);
-                    if (startBounds.fontSize < 16) {
-                        errors.push(`START marker font too small: ${startBounds.fontSize}px`);
-                    }
-                }
-
-                // Test 10: SVG contains new marker system elements
-                const svg = maze.toSVG(false, false);
-                if (!svg.includes('class="start-marker"')) {
-                    errors.push('Missing START marker group in SVG');
-                }
-                if (!svg.includes('class="end-marker"')) {
-                    errors.push('Missing END marker group in SVG');
-                }
-
-                // Test 11: START marker has arrow shape path (not just polyline)
-                if (maze.startPos && !svg.includes('<path d="M')) {
-                    errors.push('START marker missing arrow shape path');
-                }
-
-                // Test 12: Marker placement function works
-                if (window.findMarkerPlacement && maze.startPos) {
-                    const testBounds = { width: 100, height: 40 };
-                    const cellSize = metrics.cellSize || 10;
-                    const placement = window.findMarkerPlacement(maze, maze.startPos, maze.startRoomSize || 2, testBounds, true, cellSize, metrics.mazeOffsetX || 55, metrics.mazeOffsetY || 85);
-                    if (!placement || !placement.direction) {
-                        errors.push('Marker placement failed');
-                    }
-                    if (placement && placement.type === 'extension' && (!placement.extensionCells || placement.extensionCells.length === 0)) {
-                        errors.push('Extension placement has no cells');
-                    }
-                }
-
-                // Test 13: Marker bounding checks - START doesn't intersect maze
-                if (window.getMazeBoundingBox && window.validateMarkerPlacement && window.calculateStartMarkerBounds && maze.startPos) {
-                    const cellSize = metrics.cellSize || 10;
-                    const mazeOffsetX = metrics.mazeOffsetX || 55;
-                    const mazeOffsetY = metrics.mazeOffsetY || 85;
-                    const markerFontSize = Math.min(28, Math.max(16, Math.floor((maze.width * cellSize) / 12)));
-                    const startBounds = window.calculateStartMarkerBounds(markerFontSize);
-                    const startPlacement = window.findMarkerPlacement(maze, maze.startPos, maze.startRoomSize || 2, startBounds, true, cellSize, mazeOffsetX, mazeOffsetY);
-                    const mazeBounds = window.getMazeBoundingBox(maze, cellSize, mazeOffsetX, mazeOffsetY);
-
-                    // Only validate margin placements (extensions are inside maze area by design)
-                    if (startPlacement && startPlacement.type === 'margin') {
-                        const isValid = window.validateMarkerPlacement(startPlacement.x, startPlacement.y, startBounds.width, startBounds.height, mazeBounds, 3);
-                        if (!isValid) {
-                            errors.push(`START marker intersects maze: marker(${Math.round(startPlacement.x)},${Math.round(startPlacement.y)},${Math.round(startBounds.width)}x${Math.round(startBounds.height)}) vs maze(${mazeBounds.left},${mazeBounds.top},${mazeBounds.right - mazeBounds.left}x${mazeBounds.bottom - mazeBounds.top})`);
-                        }
-                    }
-                }
-
-                // Test 14: Marker bounding checks - END doesn't intersect maze
-                if (window.getMazeBoundingBox && window.validateMarkerPlacement && window.calculateEndMarkerBounds && maze.endPos) {
-                    const cellSize = metrics.cellSize || 10;
-                    const mazeOffsetX = metrics.mazeOffsetX || 55;
-                    const mazeOffsetY = metrics.mazeOffsetY || 85;
-                    const markerFontSize = Math.min(28, Math.max(16, Math.floor((maze.width * cellSize) / 12)));
-                    const endBounds = window.calculateEndMarkerBounds(markerFontSize);
-                    const endPlacement = window.findMarkerPlacement(maze, maze.endPos, maze.endRoomSize || 2, endBounds, false, cellSize, mazeOffsetX, mazeOffsetY);
-                    const mazeBounds = window.getMazeBoundingBox(maze, cellSize, mazeOffsetX, mazeOffsetY);
-
-                    // Only validate margin placements
-                    if (endPlacement && endPlacement.type === 'margin') {
-                        const isValid = window.validateMarkerPlacement(endPlacement.x, endPlacement.y, endBounds.width, endBounds.height, mazeBounds, 3);
-                        if (!isValid) {
-                            errors.push(`END marker intersects maze: marker(${Math.round(endPlacement.x)},${Math.round(endPlacement.y)},${Math.round(endBounds.width)}x${Math.round(endBounds.height)}) vs maze(${mazeBounds.left},${mazeBounds.top})`);
-                        }
-                    }
-                }
-
-                // Test 15: START text fits within arrow bounds
-                if (window.calculateStartMarkerBounds) {
-                    const testFontSize = 20;
-                    const bounds = window.calculateStartMarkerBounds(testFontSize);
-                    // Text width should be less than rectWidth (the rectangular portion)
-                    if (bounds.textWidth > bounds.rectWidth - bounds.padding) {
-                        errors.push(`START text too wide for arrow: textWidth=${bounds.textWidth}, rectWidth=${bounds.rectWidth}`);
-                    }
-                    // Text height should fit in the arrow height
-                    if (bounds.textHeight > bounds.height - bounds.padding) {
-                        errors.push(`START text too tall for arrow: textHeight=${bounds.textHeight}, height=${bounds.height}`);
                     }
                 }
 
