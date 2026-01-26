@@ -512,7 +512,7 @@
                     errors.push('SVG error: ' + e.message);
                 }
 
-                // Test 8: Check START/END labels are rendered (simple text below rooms)
+                // Test 8: Check START/END labels are rendered (text inside rooms)
                 const svg = maze.toSVG(false, false);
                 if (maze.startPos && !svg.includes('>START<')) {
                     errors.push('Missing START label');
@@ -535,12 +535,47 @@
                     errors.push(`Room too small: ${actualRoomSize} cells, need ${minAcceptable} for ${expectedCellSize}px cells`);
                 }
 
-                // Test 10: Check START arrow shape is in SVG (uses path element)
-                if (!svg.includes('<path d="M') && maze.startPos) {
-                    errors.push('Missing START arrow shape');
+                // Test 10: START label bottom Y position should be near room bottom
+                if (metrics.startBounds && metrics.startRoomBounds) {
+                    const labelBottom = metrics.startBounds.bottom;
+                    const roomBottom = metrics.startRoomBounds.bottom;
+                    const tolerance = 5;  // Allow 5px tolerance
+                    if (Math.abs(labelBottom - roomBottom) > tolerance) {
+                        errors.push(`START label bottom (${labelBottom.toFixed(1)}) not at room bottom (${roomBottom.toFixed(1)})`);
+                    }
                 }
 
-                // Test 11: Check START/END labels are in margins
+                // Test 11: START label should be horizontally centered in room
+                if (metrics.startBounds && metrics.startRoomBounds) {
+                    const labelCenterX = (metrics.startBounds.left + metrics.startBounds.right) / 2;
+                    const roomCenterX = (metrics.startRoomBounds.left + metrics.startRoomBounds.right) / 2;
+                    const tolerance = 3;  // Allow 3px tolerance
+                    if (Math.abs(labelCenterX - roomCenterX) > tolerance) {
+                        errors.push(`START label not centered: labelX=${labelCenterX.toFixed(1)}, roomX=${roomCenterX.toFixed(1)}`);
+                    }
+                }
+
+                // Test 12: END label bottom Y position should be near room bottom
+                if (metrics.endBounds && metrics.endRoomBounds) {
+                    const labelBottom = metrics.endBounds.bottom;
+                    const roomBottom = metrics.endRoomBounds.bottom;
+                    const tolerance = 5;  // Allow 5px tolerance
+                    if (Math.abs(labelBottom - roomBottom) > tolerance) {
+                        errors.push(`END label bottom (${labelBottom.toFixed(1)}) not at room bottom (${roomBottom.toFixed(1)})`);
+                    }
+                }
+
+                // Test 13: END label should be horizontally centered in room
+                if (metrics.endBounds && metrics.endRoomBounds) {
+                    const labelCenterX = (metrics.endBounds.left + metrics.endBounds.right) / 2;
+                    const roomCenterX = (metrics.endRoomBounds.left + metrics.endRoomBounds.right) / 2;
+                    const tolerance = 3;  // Allow 3px tolerance
+                    if (Math.abs(labelCenterX - roomCenterX) > tolerance) {
+                        errors.push(`END label not centered: labelX=${labelCenterX.toFixed(1)}, roomX=${roomCenterX.toFixed(1)}`);
+                    }
+                }
+
+                // Test 14: Check labels are positioned within room bounds
                 if (window.testMazeBoundingBoxes) {
                     const bbTest = window.testMazeBoundingBoxes(maze);
                     if (!bbTest.passed) {

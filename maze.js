@@ -3029,56 +3029,36 @@ class Maze {
         }
 
         // Character art in start room - 30% smaller overall, thinner lines
-        // Also draw "START" label centered at bottom of room
         const characterArt = this.selectedCharacter || this.theme.character;
-        if (this.startPos) {
+        if (this.startPos && characterArt && CharacterArt[characterArt]) {
             const roomSize = this.startRoomSize || 2;
             const roomLeft = sidePadding + this.startPos.x * cellSize;
             const roomTop = topPadding + this.startPos.y * cellSize;
             const roomWidth = roomSize * cellSize;
             const roomHeight = roomSize * cellSize;
-            const cx = roomLeft + roomWidth / 2;
-            const cy = roomTop + roomHeight / 2;
+            const roomCenterX = roomLeft + roomWidth / 2;
+            const roomCenterY = roomTop + roomHeight / 2;
             const artColor = printMode ? '#000' : this.theme.wallColor;
-
-            // Draw character art if available
-            if (characterArt && CharacterArt[characterArt]) {
-                // 30% smaller: 0.8 * 0.7 = 0.56, thinner strokes via transform
-                const artSize = roomSize * cellSize * 0.56;
-                svg += `<g color="${artColor}" style="stroke-width:0.8">${CharacterArt[characterArt](cx, cy, artSize)}</g>`;
-            }
-
-            // Draw "START" label centered at bottom of room bounding box
-            const labelSize = Math.max(8, Math.min(14, cellSize * 0.8));
-            const labelY = roomTop + roomHeight + labelSize + 2;  // Below room
-            svg += VectorFont.renderCentered('START', cx, labelY, labelSize, textColor, strokeWidth * 0.8);
+            // 30% smaller: 0.8 * 0.7 = 0.56, thinner strokes via transform
+            const artSize = roomSize * cellSize * 0.56;
+            svg += `<g color="${artColor}" style="stroke-width:0.8">${CharacterArt[characterArt](roomCenterX, roomCenterY, artSize)}</g>`;
         }
 
         // Goal art in end room - 10% smaller, half line height left
-        // Also draw "END" label centered at bottom of room
         const goalArt = this.selectedGoal || this.theme.goal;
-        if (this.endPos) {
+        if (this.endPos && goalArt && GoalArt[goalArt]) {
             const roomSize = this.endRoomSize || 2;
             const roomLeft = sidePadding + this.endPos.x * cellSize;
             const roomTop = topPadding + this.endPos.y * cellSize;
             const roomWidth = roomSize * cellSize;
             const roomHeight = roomSize * cellSize;
-            const cx = roomLeft + roomWidth / 2;
-            const cy = roomTop + roomHeight / 2;
+            const roomCenterX = roomLeft + roomWidth / 2;
+            const roomCenterY = roomTop + roomHeight / 2;
             const artColor = printMode ? '#000' : this.theme.wallColor;
-
-            // Draw goal art if available (shifted half line height left)
-            if (goalArt && GoalArt[goalArt]) {
-                const artCx = cx - cellSize * 0.5;
-                // 10% smaller: 0.8 * 0.9 = 0.72, thinner strokes
-                const artSize = roomSize * cellSize * 0.72;
-                svg += `<g color="${artColor}" style="stroke-width:0.8">${GoalArt[goalArt](artCx, cy, artSize)}</g>`;
-            }
-
-            // Draw "END" label centered at bottom of room bounding box
-            const labelSize = Math.max(8, Math.min(14, cellSize * 0.8));
-            const labelY = roomTop + roomHeight + labelSize + 2;  // Below room
-            svg += VectorFont.renderCentered('END', cx, labelY, labelSize, textColor, strokeWidth * 0.8);
+            const artCx = roomCenterX - cellSize * 0.5;
+            // 10% smaller: 0.8 * 0.9 = 0.72, thinner strokes
+            const artSize = roomSize * cellSize * 0.72;
+            svg += `<g color="${artColor}" style="stroke-width:0.8">${GoalArt[goalArt](artCx, roomCenterY, artSize)}</g>`;
         }
 
         // Room decorations (gray in print mode)
@@ -3243,6 +3223,42 @@ class Maze {
                 }
             }
             svg += `<path d="${pathD}" fill="none" stroke="${theme.wallColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`;
+        }
+
+        // START label - drawn AFTER walls so it's on top
+        // Centered horizontally in room, bottom of text at room bottom
+        if (this.startPos) {
+            const roomSize = this.startRoomSize || 2;
+            const roomLeft = sidePadding + this.startPos.x * cellSize;
+            const roomTop = topPadding + this.startPos.y * cellSize;
+            const roomWidth = roomSize * cellSize;
+            const roomHeight = roomSize * cellSize;
+            const roomCenterX = roomLeft + roomWidth / 2;
+            const roomBottom = roomTop + roomHeight;
+
+            // Scale font to fit within room width (START is 5 chars, ~4 units per char)
+            const maxLabelWidth = roomWidth * 0.9;
+            const labelSize = Math.min(roomHeight * 0.25, maxLabelWidth / 4);
+            const labelY = roomBottom - 2;  // Bottom of text at room bottom minus small margin
+            svg += VectorFont.renderCentered('START', roomCenterX, labelY, labelSize, textColor, strokeWidth * 0.8);
+        }
+
+        // END label - drawn AFTER walls so it's on top
+        // Centered horizontally in room, bottom of text at room bottom
+        if (this.endPos) {
+            const roomSize = this.endRoomSize || 2;
+            const roomLeft = sidePadding + this.endPos.x * cellSize;
+            const roomTop = topPadding + this.endPos.y * cellSize;
+            const roomWidth = roomSize * cellSize;
+            const roomHeight = roomSize * cellSize;
+            const roomCenterX = roomLeft + roomWidth / 2;
+            const roomBottom = roomTop + roomHeight;
+
+            // Scale font to fit within room width (END is 3 chars, ~2.5 units per char)
+            const maxLabelWidth = roomWidth * 0.9;
+            const labelSize = Math.min(roomHeight * 0.25, maxLabelWidth / 2.5);
+            const labelY = roomBottom - 2;  // Bottom of text at room bottom minus small margin
+            svg += VectorFont.renderCentered('END', roomCenterX, labelY, labelSize, textColor, strokeWidth * 0.8);
         }
 
         // Quest at bottom (vector font, word-wrapped) - FIXED SIZE for consistency
@@ -5031,44 +5047,74 @@ function getLayoutMetrics(maze) {
         };
     }
 
-    // START/END label bounds - simple text below room
-    const labelSize = Math.max(8, Math.min(14, cellSize * 0.8));
-
+    // START/END label bounds - text inside room, bottom aligned with room bottom
     let startBounds = null;
+    let startRoomBounds = null;
     if (maze.startPos) {
         const roomSize = maze.startRoomSize || 2;
         const roomLeft = mazeOffsetX + maze.startPos.x * cellSize;
         const roomTop = mazeOffsetY + maze.startPos.y * cellSize;
         const roomWidth = roomSize * cellSize;
         const roomHeight = roomSize * cellSize;
-        const labelY = roomTop + roomHeight + labelSize + 2;
+        const roomBottom = roomTop + roomHeight;
+        const roomCenterX = roomLeft + roomWidth / 2;
+
+        // Calculate label size to fit in room (same formula as toSVG)
+        const maxLabelWidth = roomWidth * 0.9;
+        const labelSize = Math.min(roomHeight * 0.25, maxLabelWidth / 4);
         const labelWidth = VectorFont.measureText('START', labelSize);
+        const labelY = roomBottom - 2;  // Bottom of text at room bottom minus small margin
+
+        startRoomBounds = {
+            left: roomLeft,
+            top: roomTop,
+            right: roomLeft + roomWidth,
+            bottom: roomBottom
+        };
 
         startBounds = {
-            left: roomLeft + roomWidth / 2 - labelWidth / 2,
+            left: roomCenterX - labelWidth / 2,
             top: labelY - labelSize,
-            right: roomLeft + roomWidth / 2 + labelWidth / 2,
+            right: roomCenterX + labelWidth / 2,
             bottom: labelY,
-            size: labelSize
+            size: labelSize,
+            roomCenterX: roomCenterX,
+            roomBottom: roomBottom
         };
     }
 
     let endBounds = null;
+    let endRoomBounds = null;
     if (maze.endPos) {
         const roomSize = maze.endRoomSize || 2;
         const roomLeft = mazeOffsetX + maze.endPos.x * cellSize;
         const roomTop = mazeOffsetY + maze.endPos.y * cellSize;
         const roomWidth = roomSize * cellSize;
         const roomHeight = roomSize * cellSize;
-        const labelY = roomTop + roomHeight + labelSize + 2;
+        const roomBottom = roomTop + roomHeight;
+        const roomCenterX = roomLeft + roomWidth / 2;
+
+        // Calculate label size to fit in room (same formula as toSVG)
+        const maxLabelWidth = roomWidth * 0.9;
+        const labelSize = Math.min(roomHeight * 0.25, maxLabelWidth / 2.5);
         const labelWidth = VectorFont.measureText('END', labelSize);
+        const labelY = roomBottom - 2;  // Bottom of text at room bottom minus small margin
+
+        endRoomBounds = {
+            left: roomLeft,
+            top: roomTop,
+            right: roomLeft + roomWidth,
+            bottom: roomBottom
+        };
 
         endBounds = {
-            left: roomLeft + roomWidth / 2 - labelWidth / 2,
+            left: roomCenterX - labelWidth / 2,
             top: labelY - labelSize,
-            right: roomLeft + roomWidth / 2 + labelWidth / 2,
+            right: roomCenterX + labelWidth / 2,
             bottom: labelY,
-            size: labelSize
+            size: labelSize,
+            roomCenterX: roomCenterX,
+            roomBottom: roomBottom
         };
     }
 
@@ -5086,7 +5132,9 @@ function getLayoutMetrics(maze) {
         titleBounds,
         questBounds,
         startBounds,
-        endBounds
+        endBounds,
+        startRoomBounds,
+        endRoomBounds
     };
 }
 
