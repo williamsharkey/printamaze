@@ -2915,58 +2915,8 @@ class Maze {
         this.endRoomSize = roomSize;
 
         // Carve start and end rooms (remove interior walls only, keep exterior walls intact)
-        if (DebugSettings.useCustomArtRooms) {
-            // Use custom art-shaped rooms
-            const characterArt = this.selectedCharacter || (this.theme && this.theme.character);
-            const goalArt = this.selectedGoal || (this.theme && this.theme.goal);
-            const roomPixels = roomSize * cellSize;
-            const charArtSize = roomPixels * DebugSettings.charSizePct;
-            const goalArtSize = roomPixels * DebugSettings.goalSizePct;
-
-            // Calculate room centers (adjusted for art offset)
-            const startCenterX = this.startPos.x + roomSize / 2;
-            const startCenterY = this.startPos.y + roomSize / 2 + (roomSize * DebugSettings.charYOffsetPct);
-            const endCenterX = this.endPos.x + roomSize / 2;
-            const endCenterY = this.endPos.y + roomSize / 2 + (roomSize * DebugSettings.goalYOffsetPct);
-
-            // Get custom room cells for start room
-            if (characterArt) {
-                const startCells = ArtMaskGenerator.getApproximateRoomCells(
-                    characterArt, charArtSize, cellSize,
-                    Math.round(startCenterX), Math.round(startCenterY)
-                );
-                // Filter cells within bounds and not blocked
-                const validStartCells = startCells.filter(c =>
-                    c.x >= 0 && c.x < this.width && c.y >= 0 && c.y < this.height &&
-                    this.cells[c.y] && this.cells[c.y][c.x] && !this.cells[c.y][c.x].blocked
-                );
-                this.startRoomCells = validStartCells;
-                this.carveCustomRoom(validStartCells);
-            } else {
-                this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
-            }
-
-            // Get custom room cells for end room
-            if (goalArt) {
-                const endCells = ArtMaskGenerator.getApproximateRoomCells(
-                    goalArt, goalArtSize, cellSize,
-                    Math.round(endCenterX), Math.round(endCenterY)
-                );
-                // Filter cells within bounds and not blocked
-                const validEndCells = endCells.filter(c =>
-                    c.x >= 0 && c.x < this.width && c.y >= 0 && c.y < this.height &&
-                    this.cells[c.y] && this.cells[c.y][c.x] && !this.cells[c.y][c.x].blocked
-                );
-                this.endRoomCells = validEndCells;
-                this.carveCustomRoom(validEndCells);
-            } else {
-                this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
-            }
-        } else {
-            // Use standard rectangular rooms
-            this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
-            this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
-        }
+        this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
+        this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
 
         this.solution = this.findPath(this.startPos, this.endPos);
     }
@@ -3122,6 +3072,13 @@ class Maze {
         // Base room size scales with maze size
         const baseSize = Math.max(2, Math.ceil(Math.min(this.width, this.height) / 12));
 
+        // Calculate cell size for art mask calculations
+        const cellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(this.width, this.height))));
+
+        // Get available decorations for this theme
+        const decorations = this.theme && this.theme.decorations ? this.theme.decorations : [];
+        const useCustomShapes = DebugSettings.useCustomArtRooms && decorations.length > 0;
+
         for (let i = 0; i < numRooms; i++) {
             for (let attempt = 0; attempt < 30; attempt++) {
                 // Vary room dimensions (sometimes rectangular)
@@ -3145,9 +3102,46 @@ class Maze {
                 }
 
                 if (canPlace) {
-                    this.carveRoom(rx, ry, rw, rh);
-                    this.rooms.push({ x: rx, y: ry, w: rw, h: rh, size: Math.max(rw, rh) });
-                    break;
+                    if (useCustomShapes) {
+                        // Custom art-shaped room
+                        // Pre-select which art will go in this room
+                        const artType = this.rng.choice(decorations);
+                        const roomCenterX = rx + rw / 2;
+                        const roomCenterY = ry + rh / 2;
+                        const roomPixels = Math.min(rw, rh) * cellSize;
+                        const artSize = roomPixels * DebugSettings.decorScale;
+
+                        // Get art-occupied cells
+                        const artCells = ArtMaskGenerator.getApproximateRoomCells(
+                            artType, artSize, cellSize,
+                            Math.round(roomCenterX), Math.round(roomCenterY)
+                        );
+
+                        // Filter to cells within bounds and not blocked
+                        const validCells = artCells.filter(c =>
+                            c.x >= 0 && c.x < this.width && c.y >= 0 && c.y < this.height &&
+                            this.cells[c.y] && this.cells[c.y][c.x] && !this.cells[c.y][c.x].blocked
+                        );
+
+                        if (validCells.length > 0) {
+                            // Carve custom-shaped room
+                            this.carveCustomRoom(validCells);
+                            // Store room with pre-selected art and custom cells
+                            const bounds = this.getCustomRoomBounds(validCells);
+                            this.rooms.push({
+                                x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h,
+                                size: Math.max(bounds.w, bounds.h),
+                                artType: artType,  // Pre-selected art
+                                customCells: validCells  // Custom shape cells
+                            });
+                            break;
+                        }
+                    } else {
+                        // Standard rectangular room
+                        this.carveRoom(rx, ry, rw, rh);
+                        this.rooms.push({ x: rx, y: ry, w: rw, h: rh, size: Math.max(rw, rh) });
+                        break;
+                    }
                 }
             }
         }
@@ -3631,15 +3625,6 @@ class Maze {
                     svg += `<text x="${artCx}" y="${artTop - 5}" font-size="8" fill="blue" text-anchor="middle" opacity="0.7">approx</text>`;
                 }
             }
-
-            // Show actual carved custom room cells (if custom art rooms enabled)
-            if (DebugSettings.useCustomArtRooms && this.startRoomCells) {
-                for (const { x, y } of this.startRoomCells) {
-                    const px = sidePadding + x * cellSize;
-                    const py = topPadding + y * cellSize;
-                    svg += `<rect x="${px + 1}" y="${py + 1}" width="${cellSize - 2}" height="${cellSize - 2}" fill="none" stroke="rgba(0,0,255,0.8)" stroke-width="2" stroke-dasharray="2,2"/>`;
-                }
-            }
         }
 
         // Goal art in end room - configurable via DebugSettings
@@ -3720,15 +3705,6 @@ class Maze {
                     svg += `<text x="${artCx}" y="${artTop - 5}" font-size="8" fill="green" text-anchor="middle" opacity="0.7">approx</text>`;
                 }
             }
-
-            // Show actual carved custom room cells (if custom art rooms enabled)
-            if (DebugSettings.useCustomArtRooms && this.endRoomCells) {
-                for (const { x, y } of this.endRoomCells) {
-                    const px = sidePadding + x * cellSize;
-                    const py = topPadding + y * cellSize;
-                    svg += `<rect x="${px + 1}" y="${py + 1}" width="${cellSize - 2}" height="${cellSize - 2}" fill="none" stroke="rgba(0,128,0,0.8)" stroke-width="2" stroke-dasharray="2,2"/>`;
-                }
-            }
         }
 
         // Room decorations (gray in print mode) - scale via DebugSettings.decorScale
@@ -3743,12 +3719,22 @@ class Maze {
                 if (decorSize < minDecorPixels) continue;
                 const cx = sidePadding + (room.x + room.w / 2) * cellSize;
                 const cy = topPadding + (room.y + room.h / 2) * cellSize;
-                const artType = this.rng.choice(this.theme.decorations);
+                // Use pre-selected artType if available (custom art rooms), otherwise random
+                const artType = room.artType || this.rng.choice(this.theme.decorations);
                 if (ArtGenerators[artType]) {
                     const strokeWidth = Math.max(DebugSettings.roomDecorStrokeMin, decorSize * DebugSettings.roomDecorStrokePct);
                     let artSvg = ArtGenerators[artType](cx, cy, decorSize, this.rng);
                     artSvg = artSvg.replace(/stroke-width="([0-9.]+)"/g, () => `stroke-width="${strokeWidth}"`);
                     svg += artSvg;
+                }
+
+                // Debug: show custom room cells
+                if (DebugSettings.showArtOccupiedCells && room.customCells) {
+                    for (const { x, y } of room.customCells) {
+                        const px = sidePadding + x * cellSize;
+                        const py = topPadding + y * cellSize;
+                        svg += `<rect x="${px}" y="${py}" width="${cellSize}" height="${cellSize}" fill="rgba(255,128,0,0.25)" stroke="rgba(255,128,0,0.6)" stroke-width="1"/>`;
+                    }
                 }
             }
             svg += '</g>';
