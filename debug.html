@@ -240,13 +240,39 @@
                 <label for="showBounds">Show Bounding Boxes</label>
             </div>
 
+            <div class="checkbox-row">
+                <input type="checkbox" id="showArtOccupiedCells">
+                <label for="showArtOccupiedCells">Show Art Occupied Cells</label>
+            </div>
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="useCustomArtRooms">
+                <label for="useCustomArtRooms">Use Custom Art Rooms (experimental)</label>
+            </div>
+
+            <h2>Art Mask Settings</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>Occupancy Threshold</label>
+                    <input type="range" id="artOccupancyThreshold" min="1" max="128" value="30" step="1">
+                    <span class="value-display" id="artOccupancyThresholdVal">30</span>
+                </div>
+                <p style="font-size:10px; color:#888; margin-top:8px;">
+                    Alpha threshold (1-128) for detecting pixel occupancy. Lower = more cells detected.
+                </p>
+                <button class="compute-masks-btn" id="computeMasksBtn" style="margin-top:10px; padding:8px 16px; background:#4a6; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+                    Compute Art Masks
+                </button>
+                <span id="maskStatus" style="margin-left:10px; font-size:11px; color:#888;"></span>
+            </div>
+
             <div class="bounds-legend" id="boundsLegend" style="display:none">
                 <div class="legend-item"><span class="color-box" style="background:cyan"></span> Title/Quest Areas</div>
                 <div class="legend-item"><span class="color-box" style="background:yellow"></span> Maze Area</div>
                 <div class="legend-item"><span class="color-box" style="background:magenta"></span> Title Text</div>
                 <div class="legend-item"><span class="color-box" style="background:orange"></span> Quest Text</div>
-                <div class="legend-item"><span class="color-box" style="background:blue"></span> Character Art</div>
-                <div class="legend-item"><span class="color-box" style="background:green"></span> Goal Art</div>
+                <div class="legend-item"><span class="color-box" style="background:blue"></span> Character Art / Occupied Cells</div>
+                <div class="legend-item"><span class="color-box" style="background:green"></span> Goal Art / Occupied Cells</div>
                 <div class="legend-item"><span class="color-box" style="background:purple"></span> START Label</div>
                 <div class="legend-item"><span class="color-box" style="background:red"></span> END Label</div>
             </div>
@@ -597,7 +623,10 @@
             roomDecorStrokePct: 0.03,
             roomDecorStrokeMin: 0.5,
             scatterDecorStrokePct: 0.04,
-            scatterDecorStrokeMin: 0.4
+            scatterDecorStrokeMin: 0.4,
+            useCustomArtRooms: false,
+            showArtOccupiedCells: false,
+            artOccupancyThreshold: 30
         };
 
         // Current values
@@ -742,6 +771,70 @@
             const iframe = document.getElementById('preview');
             // Initial apply after load
             setTimeout(() => applySettings(), 500);
+        });
+
+        // Compute Art Masks button
+        document.getElementById('computeMasksBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('computeMasksBtn');
+            const status = document.getElementById('maskStatus');
+            const iframe = document.getElementById('preview');
+            const iframeWindow = iframe.contentWindow;
+
+            if (!iframeWindow || !iframeWindow.ArtMaskGenerator) {
+                status.textContent = 'Error: ArtMaskGenerator not found';
+                status.style.color = '#f66';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Computing...';
+            status.textContent = '';
+
+            try {
+                // Get current maze to extract art and cell sizes
+                const maze = iframeWindow.mazeCache?.[1];
+                if (!maze) {
+                    throw new Error('No maze loaded');
+                }
+
+                const characterArt = maze.selectedCharacter || maze.theme?.character;
+                const goalArt = maze.selectedGoal || maze.theme?.goal;
+                const CharacterArt = iframeWindow.CharacterArt;
+                const GoalArt = iframeWindow.GoalArt;
+
+                const cellSize = Math.min(18, Math.max(8, Math.floor(350 / Math.max(maze.width, maze.height))));
+                const roomSize = maze.startRoomSize || 2;
+                const artSize = Math.round(roomSize * cellSize * currentValues.charSizePct);
+
+                // Compute masks for the specific art and size in the current maze
+                const promises = [];
+                if (characterArt && CharacterArt[characterArt]) {
+                    promises.push(iframeWindow.ArtMaskGenerator.getOccupiedCells(
+                        characterArt, CharacterArt[characterArt], artSize, cellSize, currentValues.artOccupancyThreshold
+                    ));
+                }
+                if (goalArt && GoalArt[goalArt]) {
+                    const goalSize = Math.round(roomSize * cellSize * currentValues.goalSizePct);
+                    promises.push(iframeWindow.ArtMaskGenerator.getOccupiedCells(
+                        goalArt, GoalArt[goalArt], goalSize, cellSize, currentValues.artOccupancyThreshold
+                    ));
+                }
+
+                await Promise.all(promises);
+
+                const cacheSize = iframeWindow.ArtMaskGenerator.cache.size;
+                status.textContent = `Done! ${cacheSize} masks cached. Re-render to see results.`;
+                status.style.color = '#4a6';
+
+                // Re-render to show the computed masks
+                applySettings();
+            } catch (e) {
+                status.textContent = `Error: ${e.message}`;
+                status.style.color = '#f66';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Compute Art Masks';
         });
     </script>
 </body>

@@ -64,7 +64,11 @@ const DebugSettings = {
     roomDecorStrokeMin: 0.5,
     // Scattered decorations (paths/dead ends) - stroke as % of decoration size
     scatterDecorStrokePct: 0.04,
-    scatterDecorStrokeMin: 0.4
+    scatterDecorStrokeMin: 0.4,
+    // Custom art rooms - carve room shape to match art pixel occupancy
+    useCustomArtRooms: false,     // Enable custom-shaped rooms based on art
+    showArtOccupiedCells: false,  // Show which cells art occupies in debug mode
+    artOccupancyThreshold: 30     // Alpha threshold (0-255) for pixel occupancy
 };
 
 // Global function to apply debug settings from parent debug.html
@@ -73,6 +77,227 @@ window.applyDebugSettings = function(settings) {
     // Trigger re-render of all visible mazes
     if (window.refreshAllMazes) {
         window.refreshAllMazes();
+    }
+};
+
+// =============================================================================
+// ART MASK GENERATOR - Determines which cells art occupies
+// Renders SVG art to canvas and checks pixel alpha to find occupied cells
+// =============================================================================
+
+const ArtMaskGenerator = {
+    // Cache for computed masks: Map<artName, Map<gridSize, Set<"dx,dy">>>
+    cache: new Map(),
+
+    /**
+     * Get the cells occupied by an art piece at a given grid size
+     * @param {string} artName - Name of the art (e.g., 'explorer', 'treasure')
+     * @param {Function} artGenerator - The art generator function (CharacterArt[name] or GoalArt[name])
+     * @param {number} artSize - Size of the art in pixels
+     * @param {number} cellSize - Size of each grid cell in pixels
+     * @param {number} threshold - Alpha threshold (0-255) to consider a pixel "occupied"
+     * @returns {Array<{dx: number, dy: number}>} Array of cell offsets from art center
+     */
+    getOccupiedCells(artName, artGenerator, artSize, cellSize, threshold = 30) {
+        // Create cache key
+        const cacheKey = `${artName}_${artSize}_${cellSize}`;
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+
+        // Calculate grid dimensions (how many cells the art spans)
+        const gridCells = Math.ceil(artSize / cellSize) + 2; // +2 for padding
+        const canvasSize = gridCells * cellSize;
+        const centerX = canvasSize / 2;
+        const centerY = canvasSize / 2;
+
+        // Create offscreen canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasSize;
+        canvas.height = canvasSize;
+        const ctx = canvas.getContext('2d');
+
+        // Generate SVG for the art centered in the canvas
+        const svgContent = artGenerator(centerX, centerY, artSize);
+        const svgWrapper = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasSize}" height="${canvasSize}">
+            <g style="color:#000; stroke:#000; fill:#000">${svgContent}</g>
+        </svg>`;
+
+        // Create image from SVG
+        const img = new Image();
+        const blob = new Blob([svgWrapper], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+
+        // Return a promise that resolves with occupied cells
+        return new Promise((resolve) => {
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+
+                const occupiedCells = [];
+                const halfGrid = Math.floor(gridCells / 2);
+
+                // Check each cell for non-transparent pixels
+                for (let gy = 0; gy < gridCells; gy++) {
+                    for (let gx = 0; gx < gridCells; gx++) {
+                        const cellX = gx * cellSize;
+                        const cellY = gy * cellSize;
+
+                        // Sample multiple points in the cell for accuracy
+                        let hasContent = false;
+                        const samples = 5; // 5x5 grid of samples per cell
+                        for (let sy = 0; sy < samples && !hasContent; sy++) {
+                            for (let sx = 0; sx < samples && !hasContent; sx++) {
+                                const px = cellX + (sx + 0.5) * (cellSize / samples);
+                                const py = cellY + (sy + 0.5) * (cellSize / samples);
+                                const pixel = ctx.getImageData(Math.floor(px), Math.floor(py), 1, 1).data;
+                                // Check if pixel has any visible content (alpha > threshold)
+                                if (pixel[3] > threshold) {
+                                    hasContent = true;
+                                }
+                            }
+                        }
+
+                        if (hasContent) {
+                            // Store as offset from center cell
+                            const dx = gx - halfGrid;
+                            const dy = gy - halfGrid;
+                            occupiedCells.push({ dx, dy });
+                        }
+                    }
+                }
+
+                // Cache the result
+                this.cache.set(cacheKey, occupiedCells);
+                resolve(occupiedCells);
+            };
+
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                // Fallback to square room on error
+                const fallback = [];
+                const halfSize = Math.ceil(artSize / cellSize / 2);
+                for (let dy = -halfSize; dy <= halfSize; dy++) {
+                    for (let dx = -halfSize; dx <= halfSize; dx++) {
+                        fallback.push({ dx, dy });
+                    }
+                }
+                resolve(fallback);
+            };
+
+            img.src = url;
+        });
+    },
+
+    /**
+     * Synchronous version using precomputed masks
+     * For art that has been pre-analyzed, returns cached cells immediately
+     */
+    getOccupiedCellsSync(artName, artSize, cellSize) {
+        const cacheKey = `${artName}_${artSize}_${cellSize}`;
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+        // Return null if not cached - caller should use async version or fallback
+        return null;
+    },
+
+    /**
+     * Precompute masks for all art at common sizes
+     * Call this during initialization
+     */
+    async precomputeAll(characterArt, goalArt, cellSizes = [8, 10, 12, 15, 18, 20]) {
+        const artSizes = [30, 40, 50, 60, 80, 100, 120];
+        const promises = [];
+
+        for (const [name, generator] of Object.entries(characterArt)) {
+            for (const cellSize of cellSizes) {
+                for (const artSize of artSizes) {
+                    promises.push(this.getOccupiedCells(name, generator, artSize, cellSize));
+                }
+            }
+        }
+
+        for (const [name, generator] of Object.entries(goalArt)) {
+            for (const cellSize of cellSizes) {
+                for (const artSize of artSizes) {
+                    promises.push(this.getOccupiedCells(name, generator, artSize, cellSize));
+                }
+            }
+        }
+
+        await Promise.all(promises);
+        console.log(`ArtMaskGenerator: Precomputed ${this.cache.size} masks`);
+    },
+
+    /**
+     * Clear the cache
+     */
+    clearCache() {
+        this.cache.clear();
+    },
+
+    /**
+     * Get a simple square fallback mask
+     */
+    getSquareMask(roomSize) {
+        const cells = [];
+        for (let dy = 0; dy < roomSize; dy++) {
+            for (let dx = 0; dx < roomSize; dx++) {
+                cells.push({ dx, dy });
+            }
+        }
+        return cells;
+    },
+
+    /**
+     * Convert occupied cells to absolute grid positions
+     * @param {Array<{dx, dy}>} occupiedCells - Relative cell offsets
+     * @param {number} centerX - Center X in grid coordinates
+     * @param {number} centerY - Center Y in grid coordinates
+     * @returns {Array<{x, y}>} Absolute grid positions
+     */
+    toAbsolutePositions(occupiedCells, centerX, centerY) {
+        return occupiedCells.map(({ dx, dy }) => ({
+            x: centerX + dx,
+            y: centerY + dy
+        }));
+    },
+
+    /**
+     * Check if a custom room shape can be placed at a position
+     * @param {Array<{x, y}>} cells - Absolute cell positions
+     * @param {Object} maze - The maze object with cells array
+     * @param {number} minGap - Minimum gap from other rooms
+     * @returns {boolean} True if placement is valid
+     */
+    canPlaceCustomRoom(cells, maze, minGap = 1) {
+        for (const { x, y } of cells) {
+            // Check bounds
+            if (x < minGap || x >= maze.width - minGap ||
+                y < minGap || y >= maze.height - minGap) {
+                return false;
+            }
+            // Check if cell is blocked (outside mask shape)
+            if (maze.cells[y] && maze.cells[y][x] && maze.cells[y][x].blocked) {
+                return false;
+            }
+            // Check gap around the cell
+            for (let dy = -minGap; dy <= minGap; dy++) {
+                for (let dx = -minGap; dx <= minGap; dx++) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx >= 0 && nx < maze.width && ny >= 0 && ny < maze.height) {
+                        const cell = maze.cells[ny][nx];
+                        // Check if this cell is part of another room
+                        if (cell.isRoom && !cells.some(c => c.x === nx && c.y === ny)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
     }
 };
 
@@ -2535,6 +2760,69 @@ class Maze {
         }
     }
 
+    /**
+     * Carve a custom-shaped room from arbitrary cell positions
+     * Removes walls between adjacent cells in the room
+     * @param {Array<{x, y}>} cells - Array of absolute cell positions
+     */
+    carveCustomRoom(cells) {
+        if (!cells || cells.length === 0) return;
+
+        // Create a set for fast lookup
+        const cellSet = new Set(cells.map(c => `${c.x},${c.y}`));
+
+        // For each cell in the room, remove walls between it and its room neighbors
+        for (const { x, y } of cells) {
+            if (y < 0 || y >= this.height || x < 0 || x >= this.width) continue;
+            const cell = this.cells[y][x];
+            if (!cell || cell.blocked) continue;
+
+            // Mark as room cell for visualization
+            cell.isCustomRoom = true;
+
+            // Check north neighbor
+            if (y > 0 && cellSet.has(`${x},${y - 1}`)) {
+                cell.walls.north = false;
+                this.cells[y - 1][x].walls.south = false;
+            }
+
+            // Check south neighbor
+            if (y < this.height - 1 && cellSet.has(`${x},${y + 1}`)) {
+                cell.walls.south = false;
+                this.cells[y + 1][x].walls.north = false;
+            }
+
+            // Check west neighbor
+            if (x > 0 && cellSet.has(`${x - 1},${y}`)) {
+                cell.walls.west = false;
+                this.cells[y][x - 1].walls.east = false;
+            }
+
+            // Check east neighbor
+            if (x < this.width - 1 && cellSet.has(`${x + 1},${y}`)) {
+                cell.walls.east = false;
+                this.cells[y][x + 1].walls.west = false;
+            }
+        }
+    }
+
+    /**
+     * Get bounding box of custom room cells
+     * @param {Array<{x, y}>} cells - Array of cell positions
+     * @returns {{x, y, w, h}} Bounding box
+     */
+    getCustomRoomBounds(cells) {
+        if (!cells || cells.length === 0) return null;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const { x, y } of cells) {
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+        }
+        return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    }
+
     createEntranceExit() {
         // Calculate room size - needs to be big enough for readable art
         // Larger mazes have smaller cells, so need MORE cells for same physical size
@@ -3196,6 +3484,49 @@ class Maze {
                 // Art boundary (dashed)
                 svg += `<rect x="${artCx - artSize/2}" y="${artCy - artSize/2}" width="${artSize}" height="${artSize}" fill="none" stroke="blue" stroke-width="1" stroke-dasharray="4"/>`;
             }
+
+            // Show which cells art occupies (debug mode)
+            if (DebugSettings.showArtOccupiedCells) {
+                // Calculate which grid cells the art bounding box covers
+                const artLeft = artCx - artSize / 2;
+                const artTop = artCy - artSize / 2;
+                const artRight = artCx + artSize / 2;
+                const artBottom = artCy + artSize / 2;
+
+                // Convert to grid coordinates
+                const startCellX = Math.floor((artLeft - sidePadding) / cellSize);
+                const startCellY = Math.floor((artTop - topPadding) / cellSize);
+                const endCellX = Math.ceil((artRight - sidePadding) / cellSize);
+                const endCellY = Math.ceil((artBottom - topPadding) / cellSize);
+
+                // Check cached occupied cells if available
+                const cacheKey = `${characterArt}_${Math.round(artSize)}_${Math.round(cellSize)}`;
+                const occupiedCells = ArtMaskGenerator.cache.get(cacheKey);
+
+                if (occupiedCells) {
+                    // Use actual computed mask - convert from relative to absolute
+                    const centerCellX = Math.floor(artCx / cellSize - sidePadding / cellSize);
+                    const centerCellY = Math.floor(artCy / cellSize - topPadding / cellSize);
+                    for (const { dx, dy } of occupiedCells) {
+                        const cx = centerCellX + dx;
+                        const cy = centerCellY + dy;
+                        const px = sidePadding + cx * cellSize;
+                        const py = topPadding + cy * cellSize;
+                        svg += `<rect x="${px}" y="${py}" width="${cellSize}" height="${cellSize}" fill="rgba(0,128,255,0.25)" stroke="rgba(0,128,255,0.5)" stroke-width="1"/>`;
+                    }
+                } else {
+                    // Fallback: show bounding box grid approximation
+                    for (let cy = startCellY; cy < endCellY; cy++) {
+                        for (let cx = startCellX; cx < endCellX; cx++) {
+                            const px = sidePadding + cx * cellSize;
+                            const py = topPadding + cy * cellSize;
+                            svg += `<rect x="${px}" y="${py}" width="${cellSize}" height="${cellSize}" fill="rgba(0,128,255,0.15)" stroke="rgba(0,128,255,0.3)" stroke-width="1"/>`;
+                        }
+                    }
+                    // Add text indicating this is approximate
+                    svg += `<text x="${artCx}" y="${artTop - 5}" font-size="8" fill="blue" text-anchor="middle" opacity="0.7">approx</text>`;
+                }
+            }
         }
 
         // Goal art in end room - configurable via DebugSettings
@@ -3232,6 +3563,49 @@ class Maze {
                 svg += `<rect x="${roomLeft}" y="${roomTop}" width="${roomWidth}" height="${roomHeight}" fill="none" stroke="green" stroke-width="2" opacity="0.5"/>`;
                 // Art boundary (dashed)
                 svg += `<rect x="${artCx - artSize/2}" y="${artCy - artSize/2}" width="${artSize}" height="${artSize}" fill="none" stroke="green" stroke-width="1" stroke-dasharray="4"/>`;
+            }
+
+            // Show which cells art occupies (debug mode)
+            if (DebugSettings.showArtOccupiedCells) {
+                // Calculate which grid cells the art bounding box covers
+                const artLeft = artCx - artSize / 2;
+                const artTop = artCy - artSize / 2;
+                const artRight = artCx + artSize / 2;
+                const artBottom = artCy + artSize / 2;
+
+                // Convert to grid coordinates
+                const startCellX = Math.floor((artLeft - sidePadding) / cellSize);
+                const startCellY = Math.floor((artTop - topPadding) / cellSize);
+                const endCellX = Math.ceil((artRight - sidePadding) / cellSize);
+                const endCellY = Math.ceil((artBottom - topPadding) / cellSize);
+
+                // Check cached occupied cells if available
+                const cacheKey = `${goalArt}_${Math.round(artSize)}_${Math.round(cellSize)}`;
+                const occupiedCells = ArtMaskGenerator.cache.get(cacheKey);
+
+                if (occupiedCells) {
+                    // Use actual computed mask - convert from relative to absolute
+                    const centerCellX = Math.floor(artCx / cellSize - sidePadding / cellSize);
+                    const centerCellY = Math.floor(artCy / cellSize - topPadding / cellSize);
+                    for (const { dx, dy } of occupiedCells) {
+                        const cx = centerCellX + dx;
+                        const cy = centerCellY + dy;
+                        const px = sidePadding + cx * cellSize;
+                        const py = topPadding + cy * cellSize;
+                        svg += `<rect x="${px}" y="${py}" width="${cellSize}" height="${cellSize}" fill="rgba(0,200,100,0.25)" stroke="rgba(0,200,100,0.5)" stroke-width="1"/>`;
+                    }
+                } else {
+                    // Fallback: show bounding box grid approximation
+                    for (let cy = startCellY; cy < endCellY; cy++) {
+                        for (let cx = startCellX; cx < endCellX; cx++) {
+                            const px = sidePadding + cx * cellSize;
+                            const py = topPadding + cy * cellSize;
+                            svg += `<rect x="${px}" y="${py}" width="${cellSize}" height="${cellSize}" fill="rgba(0,200,100,0.15)" stroke="rgba(0,200,100,0.3)" stroke-width="1"/>`;
+                        }
+                    }
+                    // Add text indicating this is approximate
+                    svg += `<text x="${artCx}" y="${artTop - 5}" font-size="8" fill="green" text-anchor="middle" opacity="0.7">approx</text>`;
+                }
             }
         }
 
@@ -5668,6 +6042,7 @@ if (typeof window !== 'undefined') {
     window.EnhancedSentenceCache = EnhancedSentenceCache;
     window.CharacterArt = CharacterArt;
     window.GoalArt = GoalArt;
+    window.ArtMaskGenerator = ArtMaskGenerator;
     window.Themes = Themes;
     window.ShapeMasks = ShapeMasks;
     window.runMazeTests = runMazeTests;
