@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MazeJS Debug View</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            overflow: hidden;
+        }
+        .container {
+            display: flex;
+            height: 100%;
+        }
+
+        /* Left panel - iPhone preview */
+        .preview-panel {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: #0f0f1a;
+            border-right: 1px solid #333;
+        }
+        .phone-frame {
+            /* iPhone 15 Pro ratio: 393 x 852 = 1:2.17 */
+            width: 393px;
+            height: 852px;
+            border: 3px solid #444;
+            border-radius: 40px;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+        }
+        .phone-frame iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .phone-label {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Right panel - Debug controls */
+        .debug-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #fff;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 14px;
+            margin: 20px 0 10px;
+            color: #8af;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-group {
+            background: #252540;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            flex: 0 0 140px;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            margin: 0 10px;
+            accent-color: #8af;
+        }
+
+        .value-display {
+            flex: 0 0 60px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 12px;
+            color: #8f8;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #8af;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .checkbox-row label {
+            flex: 0 0 auto;
+        }
+
+        /* Output textarea */
+        .output-section {
+            margin-top: 20px;
+        }
+
+        .output-section h2 {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copy-btn {
+            background: #4a4a6a;
+            border: none;
+            color: #fff;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .copy-btn:hover {
+            background: #5a5a7a;
+        }
+        .copy-btn.copied {
+            background: #4a8;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #8f8;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 10px;
+            resize: vertical;
+            margin-top: 10px;
+        }
+
+        .reset-btn {
+            background: #633;
+            border: none;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .reset-btn:hover {
+            background: #844;
+        }
+
+        /* Bounds legend */
+        .bounds-legend {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #aaa;
+        }
+        .color-box {
+            width: 14px;
+            height: 14px;
+            border-radius: 2px;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Subsection styling */
+        .subsection {
+            margin-left: 10px;
+            padding-left: 10px;
+            border-left: 2px solid #444;
+        }
+
+        .subsection-title {
+            font-size: 11px;
+            color: #888;
+            margin: 10px 0 5px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="preview-panel">
+            <div class="phone-frame">
+                <iframe id="preview" src="index.html"></iframe>
+            </div>
+            <div class="phone-label">iPhone 15 Pro (393 x 852)</div>
+        </div>
+
+        <div class="debug-panel">
+            <h1>MazeJS Debug Controls</h1>
+            <p style="font-size:11px; color:#666; margin-bottom:15px;">
+                Adjust settings below. Changes are live-updated. Copy the JSON output and paste to Claude to update defaults.
+            </p>
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="showBounds">
+                <label for="showBounds">Show Bounding Boxes</label>
+            </div>
+
+            <div class="bounds-legend" id="boundsLegend" style="display:none">
+                <div class="legend-item"><span class="color-box" style="background:cyan"></span> Title/Quest Areas</div>
+                <div class="legend-item"><span class="color-box" style="background:yellow"></span> Maze Area</div>
+                <div class="legend-item"><span class="color-box" style="background:magenta"></span> Title Text</div>
+                <div class="legend-item"><span class="color-box" style="background:orange"></span> Quest Text</div>
+                <div class="legend-item"><span class="color-box" style="background:blue"></span> Character Art</div>
+                <div class="legend-item"><span class="color-box" style="background:green"></span> Goal Art</div>
+                <div class="legend-item"><span class="color-box" style="background:purple"></span> START Label</div>
+                <div class="legend-item"><span class="color-box" style="background:red"></span> END Label</div>
+            </div>
+
+            <h2>Title Text</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>Size</label>
+                    <input type="range" id="titleSize" min="14" max="40" value="33" step="1">
+                    <span class="value-display" id="titleSizeVal">33</span>
+                </div>
+                <div class="control-row">
+                    <label>Y Offset</label>
+                    <input type="range" id="titleYOffset" min="-40" max="30" value="-31" step="1">
+                    <span class="value-display" id="titleYOffsetVal">-31</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Width</label>
+                    <input type="range" id="titleStroke" min="0.5" max="5" value="4.2" step="0.1">
+                    <span class="value-display" id="titleStrokeVal">4.2</span>
+                </div>
+                <div class="control-row">
+                    <label>Outline Width</label>
+                    <input type="range" id="titleOutline" min="1" max="12" value="10" step="0.5">
+                    <span class="value-display" id="titleOutlineVal">10</span>
+                </div>
+                <div class="control-row">
+                    <label>Letter Spacing</label>
+                    <input type="range" id="titleLetterSpacing" min="0.5" max="2" value="1.6" step="0.05">
+                    <span class="value-display" id="titleLetterSpacingVal">1.6</span>
+                </div>
+            </div>
+
+            <h2>Quest Text</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>Size</label>
+                    <input type="range" id="questSize" min="10" max="30" value="24" step="1">
+                    <span class="value-display" id="questSizeVal">24</span>
+                </div>
+                <div class="control-row">
+                    <label>Y Offset</label>
+                    <input type="range" id="questYOffset" min="-30" max="30" value="2" step="1">
+                    <span class="value-display" id="questYOffsetVal">2</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Width</label>
+                    <input type="range" id="questStroke" min="0.5" max="4" value="3" step="0.1">
+                    <span class="value-display" id="questStrokeVal">3</span>
+                </div>
+                <div class="control-row">
+                    <label>Outline Width</label>
+                    <input type="range" id="questOutline" min="1" max="10" value="6" step="0.5">
+                    <span class="value-display" id="questOutlineVal">6</span>
+                </div>
+                <div class="control-row">
+                    <label>Line Spacing</label>
+                    <input type="range" id="questLineSpacing" min="18" max="45" value="35" step="1">
+                    <span class="value-display" id="questLineSpacingVal">35</span>
+                </div>
+                <div class="control-row">
+                    <label>Letter Spacing</label>
+                    <input type="range" id="questLetterSpacing" min="0.5" max="2" value="1.75" step="0.05">
+                    <span class="value-display" id="questLetterSpacingVal">1.75</span>
+                </div>
+            </div>
+
+            <h2>START Label (% of room)</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>X Offset %</label>
+                    <input type="range" id="startXOffsetPct" min="-0.5" max="0.5" value="0" step="0.01">
+                    <span class="value-display" id="startXOffsetPctVal">0</span>
+                </div>
+                <div class="control-row">
+                    <label>Y Offset %</label>
+                    <input type="range" id="startYOffsetPct" min="-0.5" max="0.1" value="-0.27" step="0.01">
+                    <span class="value-display" id="startYOffsetPctVal">-0.27</span>
+                </div>
+                <div class="control-row">
+                    <label>Size %</label>
+                    <input type="range" id="startSizePct" min="0.05" max="0.4" value="0.13" step="0.01">
+                    <span class="value-display" id="startSizePctVal">0.13</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke %</label>
+                    <input type="range" id="startStrokePct" min="0.005" max="0.05" value="0.019" step="0.001">
+                    <span class="value-display" id="startStrokePctVal">0.019</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Min (px)</label>
+                    <input type="range" id="startStrokeMin" min="0.3" max="3" value="1.5" step="0.1">
+                    <span class="value-display" id="startStrokeMinVal">1.5</span>
+                </div>
+                <div class="control-row">
+                    <label>Letter Spacing</label>
+                    <input type="range" id="startLetterSpacing" min="0.5" max="2" value="1.75" step="0.05">
+                    <span class="value-display" id="startLetterSpacingVal">1.75</span>
+                </div>
+            </div>
+
+            <h2>END Label (% of room)</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>X Offset %</label>
+                    <input type="range" id="endXOffsetPct" min="-0.5" max="0.5" value="0.01" step="0.01">
+                    <span class="value-display" id="endXOffsetPctVal">0.01</span>
+                </div>
+                <div class="control-row">
+                    <label>Y Offset %</label>
+                    <input type="range" id="endYOffsetPct" min="-0.5" max="0.1" value="-0.3" step="0.01">
+                    <span class="value-display" id="endYOffsetPctVal">-0.3</span>
+                </div>
+                <div class="control-row">
+                    <label>Size %</label>
+                    <input type="range" id="endSizePct" min="0.05" max="0.4" value="0.15" step="0.01">
+                    <span class="value-display" id="endSizePctVal">0.15</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke %</label>
+                    <input type="range" id="endStrokePct" min="0.005" max="0.05" value="0.027" step="0.001">
+                    <span class="value-display" id="endStrokePctVal">0.027</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Min (px)</label>
+                    <input type="range" id="endStrokeMin" min="0.3" max="3" value="0.8" step="0.1">
+                    <span class="value-display" id="endStrokeMinVal">0.8</span>
+                </div>
+                <div class="control-row">
+                    <label>Letter Spacing</label>
+                    <input type="range" id="endLetterSpacing" min="0.5" max="2" value="1.65" step="0.05">
+                    <span class="value-display" id="endLetterSpacingVal">1.65</span>
+                </div>
+            </div>
+
+            <h2>Character Art (% of room)</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>X Offset %</label>
+                    <input type="range" id="charXOffsetPct" min="-0.5" max="0.5" value="0" step="0.01">
+                    <span class="value-display" id="charXOffsetPctVal">0</span>
+                </div>
+                <div class="control-row">
+                    <label>Y Offset %</label>
+                    <input type="range" id="charYOffsetPct" min="-0.5" max="0.5" value="-0.14" step="0.01">
+                    <span class="value-display" id="charYOffsetPctVal">-0.14</span>
+                </div>
+                <div class="control-row">
+                    <label>Size %</label>
+                    <input type="range" id="charSizePct" min="0.2" max="0.9" value="0.56" step="0.01">
+                    <span class="value-display" id="charSizePctVal">0.56</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke %</label>
+                    <input type="range" id="charStrokePct" min="0.005" max="0.05" value="0.024" step="0.001">
+                    <span class="value-display" id="charStrokePctVal">0.024</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Min (px)</label>
+                    <input type="range" id="charStrokeMin" min="0.3" max="3" value="1.3" step="0.1">
+                    <span class="value-display" id="charStrokeMinVal">1.3</span>
+                </div>
+            </div>
+
+            <h2>Goal Art (% of room)</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>X Offset %</label>
+                    <input type="range" id="goalXOffsetPct" min="-0.5" max="0.5" value="0" step="0.01">
+                    <span class="value-display" id="goalXOffsetPctVal">0</span>
+                </div>
+                <div class="control-row">
+                    <label>Y Offset %</label>
+                    <input type="range" id="goalYOffsetPct" min="-0.5" max="0.5" value="-0.08" step="0.01">
+                    <span class="value-display" id="goalYOffsetPctVal">-0.08</span>
+                </div>
+                <div class="control-row">
+                    <label>Size %</label>
+                    <input type="range" id="goalSizePct" min="0.2" max="0.9" value="0.71" step="0.01">
+                    <span class="value-display" id="goalSizePctVal">0.71</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke %</label>
+                    <input type="range" id="goalStrokePct" min="0.005" max="0.05" value="0.02" step="0.001">
+                    <span class="value-display" id="goalStrokePctVal">0.02</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Min (px)</label>
+                    <input type="range" id="goalStrokeMin" min="0.3" max="3" value="1.8" step="0.1">
+                    <span class="value-display" id="goalStrokeMinVal">1.8</span>
+                </div>
+            </div>
+
+            <h2>Layout</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>Title Area Height</label>
+                    <input type="range" id="titleAreaHeight" min="40" max="100" value="70" step="5">
+                    <span class="value-display" id="titleAreaHeightVal">70</span>
+                </div>
+                <div class="control-row">
+                    <label>Quest Area Height</label>
+                    <input type="range" id="questAreaHeight" min="60" max="150" value="120" step="5">
+                    <span class="value-display" id="questAreaHeightVal">120</span>
+                </div>
+                <div class="control-row">
+                    <label>Side Margin</label>
+                    <input type="range" id="sideMargin" min="30" max="80" value="55" step="5">
+                    <span class="value-display" id="sideMarginVal">55</span>
+                </div>
+                <div class="control-row">
+                    <label>Top Margin</label>
+                    <input type="range" id="topMargin" min="5" max="30" value="15" step="1">
+                    <span class="value-display" id="topMarginVal">15</span>
+                </div>
+                <div class="control-row">
+                    <label>Bottom Margin</label>
+                    <input type="range" id="bottomMargin" min="5" max="30" value="15" step="1">
+                    <span class="value-display" id="bottomMarginVal">15</span>
+                </div>
+            </div>
+
+            <h2>Decorations - General</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>Decoration Scale</label>
+                    <input type="range" id="decorScale" min="0.3" max="1.2" value="1" step="0.05">
+                    <span class="value-display" id="decorScaleVal">1</span>
+                </div>
+            </div>
+
+            <h2>Corner Decorations (mask area)</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>Min Size (inches)</label>
+                    <input type="range" id="minCornerDecorInches" min="0" max="1" value="0" step="0.01">
+                    <span class="value-display" id="minCornerDecorInchesVal">0</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke %</label>
+                    <input type="range" id="cornerDecorStrokePct" min="0.01" max="0.1" value="0.03" step="0.005">
+                    <span class="value-display" id="cornerDecorStrokePctVal">0.03</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Min (px)</label>
+                    <input type="range" id="cornerDecorStrokeMin" min="0.2" max="2" value="0.5" step="0.1">
+                    <span class="value-display" id="cornerDecorStrokeMinVal">0.5</span>
+                </div>
+            </div>
+
+            <h2>Room Decorations (interior)</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>Min Size (inches)</label>
+                    <input type="range" id="minRoomDecorInches" min="0" max="1" value="0" step="0.01">
+                    <span class="value-display" id="minRoomDecorInchesVal">0</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke %</label>
+                    <input type="range" id="roomDecorStrokePct" min="0.01" max="0.1" value="0.03" step="0.005">
+                    <span class="value-display" id="roomDecorStrokePctVal">0.03</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Min (px)</label>
+                    <input type="range" id="roomDecorStrokeMin" min="0.2" max="2" value="0.5" step="0.1">
+                    <span class="value-display" id="roomDecorStrokeMinVal">0.5</span>
+                </div>
+            </div>
+
+            <h2>Scattered Decorations (paths)</h2>
+            <div class="control-group">
+                <div class="control-row">
+                    <label>Min Size (inches)</label>
+                    <input type="range" id="minScatterDecorInches" min="0" max="1" value="0.34" step="0.01">
+                    <span class="value-display" id="minScatterDecorInchesVal">0.34</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke %</label>
+                    <input type="range" id="scatterDecorStrokePct" min="0.01" max="0.1" value="0.04" step="0.005">
+                    <span class="value-display" id="scatterDecorStrokePctVal">0.04</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Min (px)</label>
+                    <input type="range" id="scatterDecorStrokeMin" min="0.2" max="2" value="0.4" step="0.1">
+                    <span class="value-display" id="scatterDecorStrokeMinVal">0.4</span>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <h2>
+                    <span>Export Settings</span>
+                    <button class="copy-btn" id="copyBtn">Copy</button>
+                </h2>
+                <textarea id="output" readonly></textarea>
+                <button class="reset-btn" id="resetBtn">Reset to Defaults</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Default values (matching maze.js)
+        const DEFAULTS = {
+            showBounds: false,
+            titleSize: 33,
+            titleYOffset: -31,
+            titleStroke: 4.2,
+            titleOutline: 10,
+            titleLetterSpacing: 1.6,
+            questSize: 24,
+            questYOffset: 2,
+            questStroke: 3,
+            questOutline: 6,
+            questLineSpacing: 35,
+            questLetterSpacing: 1.75,
+            startXOffsetPct: 0,
+            startYOffsetPct: -0.27,
+            startSizePct: 0.13,
+            startStrokePct: 0.019,
+            startStrokeMin: 1.5,
+            startLetterSpacing: 1.75,
+            endXOffsetPct: 0.01,
+            endYOffsetPct: -0.3,
+            endSizePct: 0.15,
+            endStrokePct: 0.027,
+            endStrokeMin: 0.8,
+            endLetterSpacing: 1.65,
+            charXOffsetPct: 0,
+            charYOffsetPct: -0.14,
+            charSizePct: 0.56,
+            charStrokePct: 0.024,
+            charStrokeMin: 1.3,
+            goalXOffsetPct: 0,
+            goalYOffsetPct: -0.08,
+            goalSizePct: 0.71,
+            goalStrokePct: 0.02,
+            goalStrokeMin: 1.8,
+            titleAreaHeight: 70,
+            questAreaHeight: 120,
+            sideMargin: 55,
+            topMargin: 15,
+            bottomMargin: 15,
+            decorScale: 1,
+            minCornerDecorInches: 0,
+            minRoomDecorInches: 0,
+            minScatterDecorInches: 0.34,
+            cornerDecorStrokePct: 0.03,
+            cornerDecorStrokeMin: 0.5,
+            roomDecorStrokePct: 0.03,
+            roomDecorStrokeMin: 0.5,
+            scatterDecorStrokePct: 0.04,
+            scatterDecorStrokeMin: 0.4
+        };
+
+        // Current values
+        let currentValues = { ...DEFAULTS };
+
+        // Throttle function (leading + trailing edge)
+        function throttle(fn, wait) {
+            let timeout = null;
+            let lastArgs = null;
+            let lastTime = 0;
+
+            return function(...args) {
+                const now = Date.now();
+                const remaining = wait - (now - lastTime);
+
+                if (remaining <= 0) {
+                    // Leading edge - execute immediately
+                    lastTime = now;
+                    fn.apply(this, args);
+                    lastArgs = null;
+                } else {
+                    // Store args for trailing edge
+                    lastArgs = args;
+                    if (!timeout) {
+                        timeout = setTimeout(() => {
+                            lastTime = Date.now();
+                            timeout = null;
+                            if (lastArgs) {
+                                fn.apply(this, lastArgs);
+                                lastArgs = null;
+                            }
+                        }, remaining);
+                    }
+                }
+            };
+        }
+
+        // Get all control elements
+        const controls = {};
+        const displays = {};
+
+        Object.keys(DEFAULTS).forEach(key => {
+            const el = document.getElementById(key);
+            if (el) {
+                controls[key] = el;
+                const displayEl = document.getElementById(key + 'Val');
+                if (displayEl) displays[key] = displayEl;
+            }
+        });
+
+        // Update display value for a control
+        function updateDisplay(key) {
+            if (displays[key]) {
+                displays[key].textContent = currentValues[key];
+            }
+        }
+
+        // Generate output JSON (only non-default values)
+        function generateOutput() {
+            const changes = {};
+            Object.keys(DEFAULTS).forEach(key => {
+                if (currentValues[key] !== DEFAULTS[key]) {
+                    changes[key] = currentValues[key];
+                }
+            });
+
+            // Format for easy copy-paste
+            const output = {
+                _comment: "MazeJS Debug Settings - paste to Claude for adjusting defaults",
+                _timestamp: new Date().toISOString(),
+                changes: changes,
+                full: currentValues
+            };
+
+            document.getElementById('output').value = JSON.stringify(output, null, 2);
+        }
+
+        // Apply settings to iframe
+        const applySettings = throttle(() => {
+            const iframe = document.getElementById('preview');
+            if (iframe.contentWindow && iframe.contentWindow.applyDebugSettings) {
+                iframe.contentWindow.applyDebugSettings(currentValues);
+            }
+            generateOutput();
+        }, 100);
+
+        // Set up event listeners for all controls
+        Object.keys(controls).forEach(key => {
+            const el = controls[key];
+
+            el.addEventListener('input', () => {
+                if (el.type === 'checkbox') {
+                    currentValues[key] = el.checked;
+                    // Toggle legend visibility
+                    if (key === 'showBounds') {
+                        document.getElementById('boundsLegend').style.display = el.checked ? 'grid' : 'none';
+                    }
+                } else {
+                    currentValues[key] = parseFloat(el.value);
+                }
+                updateDisplay(key);
+                applySettings();
+            });
+        });
+
+        // Reset button
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            currentValues = { ...DEFAULTS };
+            Object.keys(controls).forEach(key => {
+                const el = controls[key];
+                if (el.type === 'checkbox') {
+                    el.checked = DEFAULTS[key];
+                } else {
+                    el.value = DEFAULTS[key];
+                }
+                updateDisplay(key);
+            });
+            applySettings();
+        });
+
+        // Copy button
+        document.getElementById('copyBtn').addEventListener('click', () => {
+            const textarea = document.getElementById('output');
+            textarea.select();
+            document.execCommand('copy');
+
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = 'Copy';
+                btn.classList.remove('copied');
+            }, 1500);
+        });
+
+        // Initialize displays
+        Object.keys(DEFAULTS).forEach(key => updateDisplay(key));
+        generateOutput();
+
+        // Wait for iframe to load, then inject debug support
+        document.getElementById('preview').addEventListener('load', () => {
+            const iframe = document.getElementById('preview');
+            // Initial apply after load
+            setTimeout(() => applySettings(), 500);
+        });
+    </script>
+</body>
+</html>

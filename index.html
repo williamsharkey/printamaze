@@ -14,7 +14,7 @@
         html, body {
             height: 100%;
             overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #0a0a0f;
             touch-action: pan-y;
             transition: background-color 0.3s ease;
@@ -81,7 +81,15 @@
             cursor: pointer;
         }
         .fav-item svg { width: 100%; height: 100%; }
-        .no-favs { color: #666; font-size: 14px; text-align: center; padding: 30px; }
+        .no-favs {
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            text-align: center;
+            padding: 30px;
+        }
 
         /* Main maze container with snap scroll - fast and fluid */
         #mazeContainer {
@@ -168,10 +176,12 @@
 
         /* Difficulty number above controls */
         .difficulty-number {
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             color: rgba(255,255,255,0.6);
-            letter-spacing: 0.5px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
         }
 
         /* Difficulty row - buttons with dots between, all same Y center */
@@ -187,6 +197,8 @@
             display: flex;
             gap: 5px;
             opacity: 0.5;
+            position: relative;
+            top: -18px;
         }
         .level-dot {
             width: 5px;
@@ -202,13 +214,13 @@
 
         /* Difficulty +/- buttons */
         .difficulty-btn {
-            width: 36px;
-            height: 36px;
+            width: 54px;
+            height: 54px;
             border-radius: 50%;
-            border: 1.5px solid rgba(255,255,255,0.25);
+            border: 2px solid rgba(255,255,255,0.25);
             background: rgba(0,0,0,0.3);
             color: rgba(255,255,255,0.6);
-            font-size: 20px;
+            font-size: 30px;
             font-weight: 300;
             cursor: pointer;
             display: flex;
@@ -265,10 +277,11 @@
             color: #fff;
         }
         .favs-trigger .count {
-            font-size: 10px;
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
+            font-size: 13px;
             font-weight: 600;
-            letter-spacing: 0.8px;
-            color: rgba(255,255,255,0.8);
+            letter-spacing: 1.5px;
+            color: rgb(255, 255, 255);
             text-transform: uppercase;
         }
 
@@ -294,14 +307,16 @@
         }
 
         .action-btn {
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
             padding: 14px 20px;
             border: none;
             border-radius: 12px;
-            font-size: 16px;
+            font-size: 15px;
             cursor: pointer;
             background: #fff;
             color: #333;
             font-weight: 500;
+            letter-spacing: 0.3px;
             -webkit-tap-highlight-color: transparent;
         }
         .action-btn:active { background: #eee; }
@@ -320,12 +335,14 @@
             width: 100%;
         }
         .share-pill button {
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
             padding: 14px 12px;
             border: none;
             background: #fff;
             color: #333;
             font-size: 15px;
             font-weight: 500;
+            letter-spacing: 0.3px;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
             white-space: nowrap;
@@ -355,7 +372,19 @@
             padding: 20px;
         }
         #solutionOverlay.open { display: flex; }
-        #solutionOverlay svg { max-width: 100%; max-height: 100%; }
+        #solutionDisplay {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #solutionDisplay svg {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+        }
         #solutionOverlay .close-btn {
             position: absolute;
             top: max(15px, env(safe-area-inset-top));
@@ -368,6 +397,47 @@
             color: #fff;
             font-size: 24px;
             cursor: pointer;
+        }
+
+        /* Desktop navigation arrows - hidden on mobile/touch devices */
+        .nav-arrow {
+            display: none;
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 48px;
+            height: 32px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.6);
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 50;
+            transition: background 0.2s, color 0.2s, opacity 0.2s;
+        }
+        .nav-arrow:hover {
+            background: rgba(0,0,0,0.5);
+            color: rgba(255,255,255,0.9);
+        }
+        .nav-arrow:active {
+            background: rgba(255,255,255,0.2);
+        }
+        .nav-arrow-up {
+            top: max(10px, env(safe-area-inset-top));
+        }
+        .nav-arrow-down {
+            bottom: max(10px, env(safe-area-inset-bottom));
+        }
+        .nav-arrow.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        /* Show nav arrows only on non-touch devices with hover capability */
+        @media (hover: hover) and (pointer: fine) {
+            .nav-arrow {
+                display: block;
+            }
         }
 
         /* Debug panel */
@@ -494,6 +564,10 @@
 
     <!-- Main scrolling maze container -->
     <div id="mazeContainer"></div>
+
+    <!-- Desktop navigation arrows (hidden on mobile) -->
+    <button class="nav-arrow nav-arrow-up" onclick="navigateMaze(-1)" title="Previous maze">▲</button>
+    <button class="nav-arrow nav-arrow-down" onclick="navigateMaze(1)" title="Next maze">▼</button>
 
     <!-- Action menu - click outside buttons to dismiss -->
     <div id="actionMenu" onclick="closeActionMenu()">
@@ -740,6 +814,9 @@
                     }, 100);
                 }
 
+                // Initialize navigation arrows
+                updateNavArrows(currentIndex);
+
                 // Infinite scroll
                 const container = document.getElementById('mazeContainer');
                 container.addEventListener('scroll', handleScroll);
@@ -886,7 +963,7 @@
             // Difficulty number
             const diffNum = document.createElement('div');
             diffNum.className = 'difficulty-number';
-            diffNum.textContent = `Level ${currentDifficulty - 2}`;
+            diffNum.textContent = `Difficulty ${currentDifficulty - 2}`;
             bottomControls.appendChild(diffNum);
 
             // Difficulty row: - button, dots, + button
@@ -934,6 +1011,9 @@
             if (newIndex !== currentIndex) {
                 currentIndex = newIndex;
                 localStorage.setItem('mazejs-currentIndex', currentIndex.toString());
+
+                // Update navigation arrows visibility
+                updateNavArrows(currentIndex);
 
                 // Update background tint based on current maze theme
                 if (mazeParams[currentIndex]) {
@@ -1061,7 +1141,7 @@
 
                 // Update difficulty number
                 const diffNum = frame.querySelector('.difficulty-number');
-                if (diffNum) diffNum.textContent = `Level ${currentDifficulty - 2}`;
+                if (diffNum) diffNum.textContent = `Difficulty ${currentDifficulty - 2}`;
             });
         }
 
@@ -1497,6 +1577,23 @@
             document.getElementById('solutionOverlay').classList.remove('open');
         }
 
+        function navigateMaze(direction) {
+            const container = document.getElementById('mazeContainer');
+            const newIndex = currentIndex + direction;
+            if (newIndex < 0) return;
+            if (newIndex >= container.children.length) return;
+            container.children[newIndex].scrollIntoView({ behavior: 'smooth' });
+            updateNavArrows(newIndex);
+        }
+
+        function updateNavArrows(index) {
+            const container = document.getElementById('mazeContainer');
+            const upArrow = document.querySelector('.nav-arrow-up');
+            const downArrow = document.querySelector('.nav-arrow-down');
+            if (upArrow) upArrow.classList.toggle('hidden', index <= 0);
+            if (downArrow) downArrow.classList.toggle('hidden', index >= container.children.length - 1);
+        }
+
         function showDebugInfo() {
             closeActionMenu();
             const cached = window.mazeCache[activeMazeId];
@@ -1521,6 +1618,36 @@
                 closeFavorites();
             }
         });
+
+        // Global function to refresh all mazes (called from debug.html via applyDebugSettings)
+        window.refreshAllMazes = function() {
+            const container = document.getElementById('mazeContainer');
+            const frames = container.querySelectorAll('.maze-frame');
+
+            frames.forEach((frame) => {
+                const fadeContainer = frame.querySelector('.maze-fade-container');
+                if (!fadeContainer) return;
+
+                const seed = parseInt(fadeContainer.dataset.seed);
+                const params = mazeParams.find(p => p.seed === seed);
+                if (!params) return;
+
+                // Re-generate maze with current settings
+                const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
+                const levelNum = currentDifficulty - 2;
+                const gen = new window.MazeGenerator(params.seed);
+                const newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
+
+                // Update cache
+                window.mazeCache[params.seed] = { maze: newMaze, params, difficulty: currentDifficulty };
+
+                // Update SVG in place (no animation for debug refresh)
+                const svgContainer = fadeContainer.querySelector('.maze-svg-container');
+                if (svgContainer) {
+                    svgContainer.innerHTML = newMaze.toSVG(false, false);
+                }
+            });
+        };
     </script>
 </body>
 </html>

@@ -4,6 +4,79 @@
  */
 
 // =============================================================================
+// DEBUG SETTINGS - Configurable via debug.html panel
+// =============================================================================
+
+const DebugSettings = {
+    showBounds: false,
+    titleSize: 33,
+    titleYOffset: -31,
+    titleStroke: 4.2,
+    titleOutline: 10,
+    titleLetterSpacing: 1.6,
+    questSize: 24,
+    questYOffset: 2,
+    questStroke: 3,
+    questOutline: 6,
+    questLineSpacing: 35,
+    questLetterSpacing: 1.75,
+    // START/END labels - all values relative to room dimensions
+    startXOffsetPct: 0,        // X offset as % of room width (0 = centered)
+    startYOffsetPct: -0.27,    // Y offset as % of room height from bottom (negative = up into room)
+    startSizePct: 0.13,        // Text height as % of room width
+    startStrokePct: 0.019,     // Stroke as % of room width
+    startStrokeMin: 1.5,       // Minimum stroke width in pixels
+    startLetterSpacing: 1.75,  // Letter spacing multiplier for START
+    endXOffsetPct: 0.01,       // X offset as % of room width (0 = centered)
+    endYOffsetPct: -0.3,       // Y offset as % of room height from bottom
+    endSizePct: 0.15,          // Text height as % of room width (END is shorter word)
+    endStrokePct: 0.027,       // Stroke as % of room width
+    endStrokeMin: 0.8,         // Minimum stroke width in pixels
+    endLetterSpacing: 1.65,    // Letter spacing multiplier for END
+    // Character art - all values relative to room dimensions (center-anchored)
+    charXOffsetPct: 0,         // X offset as % of room width (0 = centered)
+    charYOffsetPct: -0.14,     // Y offset as % of room height (0 = centered)
+    charSizePct: 0.56,         // Art size as % of room width
+    charStrokePct: 0.024,      // Stroke as % of room width
+    charStrokeMin: 1.3,        // Minimum stroke width in pixels
+    // Goal art - all values relative to room dimensions (center-anchored)
+    goalXOffsetPct: 0,         // X offset as % of room width (0 = centered)
+    goalYOffsetPct: -0.08,     // Y offset as % of room height (0 = centered)
+    goalSizePct: 0.71,         // Art size as % of room width
+    goalStrokePct: 0.02,       // Stroke as % of room width
+    goalStrokeMin: 1.8,        // Minimum stroke width in pixels
+    titleAreaHeight: 70,
+    questAreaHeight: 120,
+    sideMargin: 55,
+    topMargin: 15,
+    bottomMargin: 15,
+    decorScale: 1,
+    // Minimum size in inches for each decoration type (page width = 8.5")
+    // Set to 0 to always show, higher values filter out small decorations
+    minCornerDecorInches: 0,   // Corner/mask area decorations
+    minRoomDecorInches: 0,     // Interior room decorations (multi-cell rooms)
+    minScatterDecorInches: 0.34, // Scattered decorations in paths/dead ends
+    // Corner decorations (outside mask area) - stroke as % of decoration size
+    cornerDecorStrokePct: 0.03,
+    cornerDecorStrokeMin: 0.5,
+    // Room decorations (interior rooms) - stroke as % of decoration size
+    roomDecorStrokePct: 0.03,
+    roomDecorStrokeMin: 0.5,
+    // Scattered decorations (paths/dead ends) - stroke as % of decoration size
+    scatterDecorStrokePct: 0.04,
+    scatterDecorStrokeMin: 0.4
+};
+
+// Global function to apply debug settings from parent debug.html
+window.applyDebugSettings = function(settings) {
+    Object.assign(DebugSettings, settings);
+    // Trigger re-render of all visible mazes
+    if (window.refreshAllMazes) {
+        window.refreshAllMazes();
+    }
+};
+
+// =============================================================================
 // VECTOR FONT SYSTEM - Hershey-style pen plotter font
 // =============================================================================
 
@@ -65,10 +138,10 @@ const VectorFont = {
     },
 
     // Render text as SVG path
-    renderText(text, x, y, height, color = '#000', strokeWidth = 1.0) {
+    renderText(text, x, y, height, color = '#000', strokeWidth = 1.0, letterSpacing = 1.0) {
         const scale = height / this.charHeight;
         const charW = this.charWidth * scale;
-        const spacing = charW * 0.2;
+        const spacing = charW * 0.2 * letterSpacing;
         let paths = [];
         let curX = x;
 
@@ -92,17 +165,17 @@ const VectorFont = {
     },
 
     // Measure text width
-    measureText(text, height) {
+    measureText(text, height, letterSpacing = 1.0) {
         const scale = height / this.charHeight;
         const charW = this.charWidth * scale;
-        const spacing = charW * 0.2;
+        const spacing = charW * 0.2 * letterSpacing;
         return text.length * (charW + spacing) - spacing;
     },
 
     // Render text centered at position
-    renderCentered(text, centerX, y, height, color = '#000', strokeWidth = 1.0) {
-        const width = this.measureText(text, height);
-        return this.renderText(text, centerX - width / 2, y, height, color, strokeWidth);
+    renderCentered(text, centerX, y, height, color = '#000', strokeWidth = 1.0, letterSpacing = 1.0) {
+        const width = this.measureText(text, height, letterSpacing);
+        return this.renderText(text, centerX - width / 2, y, height, color, strokeWidth, letterSpacing);
     }
 };
 
@@ -2694,7 +2767,8 @@ class Maze {
     }
 
     // Find blocked corner regions for decorations (for non-rectangle shapes)
-    findCornerRegions() {
+    // Picks random blocked points and checks if a 2-inch diameter circle fits without intersecting maze
+    findCornerRegions(cellSize = 10) {
         const regions = [];
         const corners = [
             { sx: 0, sy: 0, ex: Math.floor(this.width/3), ey: Math.floor(this.height/3) },
@@ -2703,22 +2777,58 @@ class Maze {
             { sx: Math.floor(this.width*2/3), sy: Math.floor(this.height*2/3), ex: this.width, ey: this.height }
         ];
 
+        // 2 inch diameter = 1 inch radius. PAGE_WIDTH (850) = 8.5 inches, so 1 inch = 100 pixels
+        const radiusPixels = 100; // 1 inch radius
+        const radiusCells = radiusPixels / cellSize;
+
         for (const corner of corners) {
-            let blockedCount = 0;
-            let totalCount = 0;
+            // Collect all blocked cells in this corner
+            const blockedCells = [];
             for (let y = corner.sy; y < corner.ey; y++) {
                 for (let x = corner.sx; x < corner.ex; x++) {
-                    totalCount++;
-                    if (this.cells[y][x].blocked) blockedCount++;
+                    if (this.cells[y][x].blocked) {
+                        blockedCells.push({ x, y });
+                    }
                 }
             }
-            // If mostly blocked, it's a corner region
-            if (blockedCount > totalCount * 0.6) {
-                regions.push({
-                    cx: (corner.sx + corner.ex) / 2,
-                    cy: (corner.sy + corner.ey) / 2,
-                    size: Math.min(corner.ex - corner.sx, corner.ey - corner.sy)
-                });
+
+            if (blockedCells.length < 4) continue;
+
+            // Try up to 10 random locations
+            for (let attempt = 0; attempt < 10; attempt++) {
+                const cell = blockedCells[Math.floor(this.rng.next() * blockedCells.length)];
+                const cx = cell.x + 0.5;
+                const cy = cell.y + 0.5;
+
+                // Check if a circle of radiusCells fits without intersecting non-blocked cells
+                let fits = true;
+                const checkRadius = Math.ceil(radiusCells);
+                for (let dy = -checkRadius; dy <= checkRadius && fits; dy++) {
+                    for (let dx = -checkRadius; dx <= checkRadius && fits; dx++) {
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist > radiusCells) continue; // Outside circle
+
+                        const checkX = Math.floor(cx + dx);
+                        const checkY = Math.floor(cy + dy);
+
+                        // Check bounds
+                        if (checkX < 0 || checkX >= this.width || checkY < 0 || checkY >= this.height) {
+                            continue; // Outside grid is OK (edge of maze)
+                        }
+
+                        // If any cell in the circle is NOT blocked, it intersects the maze
+                        if (!this.cells[checkY][checkX].blocked) {
+                            fits = false;
+                        }
+                    }
+                }
+
+                if (fits) {
+                    // Calculate size based on how much space we have (use radius as size guide)
+                    const size = Math.max(2, radiusCells * 1.5);
+                    regions.push({ cx, cy, size });
+                    break; // Found a valid spot for this corner
+                }
             }
         }
         return regions;
@@ -2888,12 +2998,12 @@ class Maze {
         const PAGE_WIDTH = 850;
         const PAGE_HEIGHT = 1100;
 
-        // Fixed margins (in page units)
-        const TITLE_AREA_HEIGHT = 70;    // Space for title at top
-        const QUEST_AREA_HEIGHT = 90;    // Space for quest at bottom
-        const SIDE_MARGIN = 55;          // Space for START/END labels on sides
-        const TOP_MARGIN = 15;           // Small top margin above title
-        const BOTTOM_MARGIN = 15;        // Small bottom margin below quest
+        // Fixed margins (in page units) - use DebugSettings
+        const TITLE_AREA_HEIGHT = DebugSettings.titleAreaHeight;
+        const QUEST_AREA_HEIGHT = DebugSettings.questAreaHeight;
+        const SIDE_MARGIN = DebugSettings.sideMargin;
+        const TOP_MARGIN = DebugSettings.topMargin;
+        const BOTTOM_MARGIN = DebugSettings.bottomMargin;
 
         // Calculate available area for maze
         const mazeAreaWidth = PAGE_WIDTH - SIDE_MARGIN * 2;
@@ -2958,6 +3068,19 @@ class Maze {
         // Background
         svg += `<rect width="${svgWidth}" height="${svgHeight}" fill="${theme.bgColor}"/>`;
 
+        // Debug bounding boxes for layout areas
+        if (DebugSettings.showBounds) {
+            // Title area
+            svg += `<rect x="0" y="${TOP_MARGIN}" width="${svgWidth}" height="${TITLE_AREA_HEIGHT}" fill="none" stroke="cyan" stroke-width="1" stroke-dasharray="8,4" opacity="0.5"/>`;
+            // Maze area
+            svg += `<rect x="${sidePadding}" y="${topPadding}" width="${mazeWidth}" height="${mazeHeight}" fill="none" stroke="yellow" stroke-width="2" stroke-dasharray="8,4" opacity="0.5"/>`;
+            // Quest area
+            svg += `<rect x="0" y="${svgHeight - QUEST_AREA_HEIGHT - BOTTOM_MARGIN}" width="${svgWidth}" height="${QUEST_AREA_HEIGHT}" fill="none" stroke="cyan" stroke-width="1" stroke-dasharray="8,4" opacity="0.5"/>`;
+            // Side margins
+            svg += `<rect x="0" y="0" width="${SIDE_MARGIN}" height="${svgHeight}" fill="rgba(100,100,255,0.1)"/>`;
+            svg += `<rect x="${svgWidth - SIDE_MARGIN}" y="0" width="${SIDE_MARGIN}" height="${svgHeight}" fill="rgba(100,100,255,0.1)"/>`;
+        }
+
         // Border pattern (gray in print mode) - full page
         if (this.theme.borderPattern && BorderPatterns[this.theme.borderPattern]) {
             const borderColor = printMode ? '#aaa' : this.theme.wallColor;
@@ -2966,19 +3089,26 @@ class Maze {
 
         // Title at top (vector font) - FIXED SIZE for consistency across difficulties
         if (this.story && this.story.title) {
-            const TITLE_SIZE = 28; // Fixed title size
+            const TITLE_SIZE = DebugSettings.titleSize;
+            const titleLetterSpacing = DebugSettings.titleLetterSpacing;
             const maxTitleWidth = svgWidth - 60;
             let titleSize = TITLE_SIZE;
             // Only scale down if title is too wide
-            let titleWidth = VectorFont.measureText(this.story.title, titleSize);
+            let titleWidth = VectorFont.measureText(this.story.title, titleSize, titleLetterSpacing);
             while (titleWidth > maxTitleWidth && titleSize > 14) {
                 titleSize -= 1;
-                titleWidth = VectorFont.measureText(this.story.title, titleSize);
+                titleWidth = VectorFont.measureText(this.story.title, titleSize, titleLetterSpacing);
             }
-            const titleY = TOP_MARGIN + TITLE_AREA_HEIGHT / 2 + titleSize / 3;
+            const titleY = TOP_MARGIN + TITLE_AREA_HEIGHT / 2 + titleSize / 3 + DebugSettings.titleYOffset;
             // White outline (thicker stroke) then normal stroke on top
-            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, '#fff', 4);
-            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, textColor, 1.5);
+            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, '#fff', DebugSettings.titleOutline, titleLetterSpacing);
+            svg += VectorFont.renderCentered(this.story.title, svgWidth / 2, titleY, titleSize, textColor, DebugSettings.titleStroke, titleLetterSpacing);
+
+            // Debug bounding box for title
+            if (DebugSettings.showBounds) {
+                const tw = VectorFont.measureText(this.story.title, titleSize, titleLetterSpacing);
+                svg += `<rect x="${svgWidth/2 - tw/2}" y="${titleY - titleSize}" width="${tw}" height="${titleSize * 1.2}" fill="none" stroke="magenta" stroke-width="1" stroke-dasharray="4"/>`;
+            }
         }
 
         // Cell backgrounds (white for maze area) - OPTIMIZED for rectangles
@@ -3000,17 +3130,25 @@ class Maze {
             svg += `<path d="${bgPath}" fill="${theme.pathColor}"/>`;
         }
 
-        // Corner decorations for non-rectangle shapes
+        // Corner decorations for non-rectangle shapes - scale via DebugSettings.decorScale
+        // Skip decorations smaller than minCornerDecorInches
+        const minCornerDecorPixels = DebugSettings.minCornerDecorInches * (PAGE_WIDTH / 8.5);
         if (this.shape !== 'rectangle' && this.theme.decorations && this.theme.decorations.length > 0) {
-            const cornerRegions = this.findCornerRegions();
+            const cornerRegions = this.findCornerRegions(cellSize);
             const artColor = printMode ? '#888' : this.theme.wallColor;
             svg += `<g style="color:${artColor}; stroke:${artColor}; fill:${artColor}">`;
             for (const region of cornerRegions) {
+                const decorSize = region.size * cellSize * 0.6 * DebugSettings.decorScale;
+                // Skip if decoration would be too small
+                if (decorSize < minCornerDecorPixels) continue;
                 const cx = sidePadding + region.cx * cellSize;
                 const cy = topPadding + region.cy * cellSize;
                 const artType = this.rng.choice(this.theme.decorations);
                 if (ArtGenerators[artType]) {
-                    svg += ArtGenerators[artType](cx, cy, region.size * cellSize * 0.6, this.rng);
+                    const strokeWidth = Math.max(DebugSettings.cornerDecorStrokeMin, decorSize * DebugSettings.cornerDecorStrokePct);
+                    let artSvg = ArtGenerators[artType](cx, cy, decorSize, this.rng);
+                    artSvg = artSvg.replace(/stroke-width="([0-9.]+)"/g, () => `stroke-width="${strokeWidth}"`);
+                    svg += artSvg;
                 }
             }
             svg += '</g>';
@@ -3028,7 +3166,8 @@ class Maze {
             svg += `<path d="${pathD}" fill="none" stroke="${theme.solutionColor}" stroke-width="${cellSize * 0.3}" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>`;
         }
 
-        // Character art in start room - 30% smaller overall, thinner lines
+        // Character art in start room - configurable via DebugSettings
+        // All dimensions relative to room size, center-anchored
         const characterArt = this.selectedCharacter || this.theme.character;
         if (this.startPos && characterArt && CharacterArt[characterArt]) {
             const roomSize = this.startRoomSize || 2;
@@ -3038,13 +3177,34 @@ class Maze {
             const roomHeight = roomSize * cellSize;
             const roomCenterX = roomLeft + roomWidth / 2;
             const roomCenterY = roomTop + roomHeight / 2;
+
+            // All dimensions as percentage of room size
+            const xOffset = roomWidth * DebugSettings.charXOffsetPct;
+            const yOffset = roomHeight * DebugSettings.charYOffsetPct;
+            const artSize = roomWidth * DebugSettings.charSizePct;
+            const strokeWidth = Math.max(DebugSettings.charStrokeMin, roomWidth * DebugSettings.charStrokePct);
+
+            const artCx = roomCenterX + xOffset;
+            const artCy = roomCenterY + yOffset;
             const artColor = printMode ? '#000' : this.theme.wallColor;
-            // 30% smaller: 0.8 * 0.7 = 0.56, thinner strokes via transform
-            const artSize = roomSize * cellSize * 0.56;
-            svg += `<g color="${artColor}" style="stroke-width:0.8">${CharacterArt[characterArt](roomCenterX, roomCenterY, artSize)}</g>`;
+
+            svg += `<g color="${artColor}">`;
+            const charArtSvg = CharacterArt[characterArt](artCx, artCy, artSize);
+            // Scale stroke widths proportionally
+            svg += charArtSvg.replace(/stroke-width="([0-9.]+)"/g, (match, w) => `stroke-width="${strokeWidth}"`);
+            svg += `</g>`;
+
+            // Debug bounding box for character and start room
+            if (DebugSettings.showBounds) {
+                // Room boundary (solid)
+                svg += `<rect x="${roomLeft}" y="${roomTop}" width="${roomWidth}" height="${roomHeight}" fill="none" stroke="blue" stroke-width="2" opacity="0.5"/>`;
+                // Art boundary (dashed)
+                svg += `<rect x="${artCx - artSize/2}" y="${artCy - artSize/2}" width="${artSize}" height="${artSize}" fill="none" stroke="blue" stroke-width="1" stroke-dasharray="4"/>`;
+            }
         }
 
-        // Goal art in end room - 10% smaller, half line height left
+        // Goal art in end room - configurable via DebugSettings
+        // All dimensions relative to room size, center-anchored
         const goalArt = this.selectedGoal || this.theme.goal;
         if (this.endPos && goalArt && GoalArt[goalArt]) {
             const roomSize = this.endRoomSize || 2;
@@ -3054,23 +3214,50 @@ class Maze {
             const roomHeight = roomSize * cellSize;
             const roomCenterX = roomLeft + roomWidth / 2;
             const roomCenterY = roomTop + roomHeight / 2;
+
+            // All dimensions as percentage of room size
+            const xOffset = roomWidth * DebugSettings.goalXOffsetPct;
+            const yOffset = roomHeight * DebugSettings.goalYOffsetPct;
+            const artSize = roomWidth * DebugSettings.goalSizePct;
+            const strokeWidth = Math.max(DebugSettings.goalStrokeMin, roomWidth * DebugSettings.goalStrokePct);
+
+            const artCx = roomCenterX + xOffset;
+            const artCy = roomCenterY + yOffset;
             const artColor = printMode ? '#000' : this.theme.wallColor;
-            const artCx = roomCenterX - cellSize * 0.5;
-            // 10% smaller: 0.8 * 0.9 = 0.72, thinner strokes
-            const artSize = roomSize * cellSize * 0.72;
-            svg += `<g color="${artColor}" style="stroke-width:0.8">${GoalArt[goalArt](artCx, roomCenterY, artSize)}</g>`;
+
+            svg += `<g color="${artColor}">`;
+            const goalArtSvg = GoalArt[goalArt](artCx, artCy, artSize);
+            // Scale stroke widths proportionally
+            svg += goalArtSvg.replace(/stroke-width="([0-9.]+)"/g, (match, w) => `stroke-width="${strokeWidth}"`);
+            svg += `</g>`;
+
+            // Debug bounding box for goal and end room
+            if (DebugSettings.showBounds) {
+                // Room boundary (solid)
+                svg += `<rect x="${roomLeft}" y="${roomTop}" width="${roomWidth}" height="${roomHeight}" fill="none" stroke="green" stroke-width="2" opacity="0.5"/>`;
+                // Art boundary (dashed)
+                svg += `<rect x="${artCx - artSize/2}" y="${artCy - artSize/2}" width="${artSize}" height="${artSize}" fill="none" stroke="green" stroke-width="1" stroke-dasharray="4"/>`;
+            }
         }
 
-        // Room decorations (gray in print mode)
+        // Room decorations (gray in print mode) - scale via DebugSettings.decorScale
+        // Skip decorations smaller than minRoomDecorInches (page width = 8.5 inches = PAGE_WIDTH pixels)
+        const minDecorPixels = DebugSettings.minRoomDecorInches * (PAGE_WIDTH / 8.5);
         if (this.theme.decorations && this.theme.decorations.length > 0 && this.rooms && this.rooms.length > 0) {
             const artColor = printMode ? '#888' : this.theme.wallColor;
             svg += `<g style="color:${artColor}; stroke:${artColor}; fill:${artColor}">`;
             for (const room of this.rooms) {
+                const decorSize = Math.min(room.w, room.h) * cellSize * DebugSettings.decorScale;
+                // Skip if decoration would be too small to be worth drawing
+                if (decorSize < minDecorPixels) continue;
                 const cx = sidePadding + (room.x + room.w / 2) * cellSize;
                 const cy = topPadding + (room.y + room.h / 2) * cellSize;
                 const artType = this.rng.choice(this.theme.decorations);
                 if (ArtGenerators[artType]) {
-                    svg += ArtGenerators[artType](cx, cy, Math.min(room.w, room.h) * cellSize, this.rng);
+                    const strokeWidth = Math.max(DebugSettings.roomDecorStrokeMin, decorSize * DebugSettings.roomDecorStrokePct);
+                    let artSvg = ArtGenerators[artType](cx, cy, decorSize, this.rng);
+                    artSvg = artSvg.replace(/stroke-width="([0-9.]+)"/g, () => `stroke-width="${strokeWidth}"`);
+                    svg += artSvg;
                 }
             }
             svg += '</g>';
@@ -3078,6 +3265,7 @@ class Maze {
 
         // Scattered decorations in dead ends and along path (fills empty mazes with art)
         // SKIP if cells are too small - decorations would be illegible and clutter the maze
+        const minScatterDecorPixels = DebugSettings.minScatterDecorInches * (PAGE_WIDTH / 8.5);
         if (allowScatteredDecorations && this.theme.decorations && this.theme.decorations.length > 0) {
             const artColor = printMode ? '#888' : this.theme.wallColor;
             const startRoomSize = this.startRoomSize || 2;
@@ -3142,10 +3330,16 @@ class Maze {
                 for (const spot of selected) {
                     const cx = sidePadding + spot.x * cellSize + cellSize / 2;
                     const cy = topPadding + spot.y * cellSize + cellSize / 2;
+                    // Smaller size for scattered decorations - scale via DebugSettings.decorScale
+                    const decorSize = cellSize * 0.7 * DebugSettings.decorScale;
+                    // Skip if decoration would be too small
+                    if (decorSize < minScatterDecorPixels) continue;
                     const artType = this.rng.choice(this.theme.decorations);
                     if (ArtGenerators[artType]) {
-                        // Smaller size for scattered decorations
-                        svg += ArtGenerators[artType](cx, cy, cellSize * 0.7, this.rng);
+                        const strokeWidth = Math.max(DebugSettings.scatterDecorStrokeMin, decorSize * DebugSettings.scatterDecorStrokePct);
+                        let artSvg = ArtGenerators[artType](cx, cy, decorSize, this.rng);
+                        artSvg = artSvg.replace(/stroke-width="([0-9.]+)"/g, () => `stroke-width="${strokeWidth}"`);
+                        svg += artSvg;
                     }
                 }
                 svg += '</g>';
@@ -3226,7 +3420,7 @@ class Maze {
         }
 
         // START label - drawn AFTER walls so it's on top
-        // Centered horizontally in room, bottom of text at room bottom
+        // Position relative to room: centered at bottom, all sizing as % of room dimensions
         if (this.startPos) {
             const roomSize = this.startRoomSize || 2;
             const roomLeft = sidePadding + this.startPos.x * cellSize;
@@ -3236,15 +3430,27 @@ class Maze {
             const roomCenterX = roomLeft + roomWidth / 2;
             const roomBottom = roomTop + roomHeight;
 
-            // Scale font to fit within room width (START is 5 chars, ~4 units per char)
-            const maxLabelWidth = roomWidth * 0.9;
-            const labelSize = Math.min(roomHeight * 0.25, maxLabelWidth / 4);
-            const labelY = roomBottom - 2;  // Bottom of text at room bottom minus small margin
-            svg += VectorFont.renderCentered('START', roomCenterX, labelY, labelSize, textColor, strokeWidth * 0.8);
+            // All dimensions relative to room size
+            const labelSize = roomWidth * DebugSettings.startSizePct;
+            const labelStroke = Math.max(DebugSettings.startStrokeMin, roomWidth * DebugSettings.startStrokePct);
+            const xOffset = roomWidth * DebugSettings.startXOffsetPct;
+            const yOffset = roomHeight * DebugSettings.startYOffsetPct;
+
+            // Position: center-bottom of text anchored at center-bottom of room + offsets
+            const labelX = roomCenterX + xOffset;
+            const labelY = roomBottom + yOffset;
+
+            svg += VectorFont.renderCentered('START', labelX, labelY, labelSize, textColor, labelStroke, DebugSettings.startLetterSpacing);
+
+            // Debug bounding box for START label
+            if (DebugSettings.showBounds) {
+                const lw = VectorFont.measureText('START', labelSize, DebugSettings.startLetterSpacing);
+                svg += `<rect x="${labelX - lw/2}" y="${labelY - labelSize}" width="${lw}" height="${labelSize * 1.2}" fill="none" stroke="purple" stroke-width="1" stroke-dasharray="4"/>`;
+            }
         }
 
         // END label - drawn AFTER walls so it's on top
-        // Centered horizontally in room, bottom of text at room bottom
+        // Position relative to room: centered at bottom, all sizing as % of room dimensions
         if (this.endPos) {
             const roomSize = this.endRoomSize || 2;
             const roomLeft = sidePadding + this.endPos.x * cellSize;
@@ -3254,43 +3460,109 @@ class Maze {
             const roomCenterX = roomLeft + roomWidth / 2;
             const roomBottom = roomTop + roomHeight;
 
-            // Scale font to fit within room width (END is 3 chars, ~2.5 units per char)
-            const maxLabelWidth = roomWidth * 0.9;
-            const labelSize = Math.min(roomHeight * 0.25, maxLabelWidth / 2.5);
-            const labelY = roomBottom - 2;  // Bottom of text at room bottom minus small margin
-            svg += VectorFont.renderCentered('END', roomCenterX, labelY, labelSize, textColor, strokeWidth * 0.8);
+            // All dimensions relative to room size
+            const labelSize = roomWidth * DebugSettings.endSizePct;
+            const labelStroke = Math.max(DebugSettings.endStrokeMin, roomWidth * DebugSettings.endStrokePct);
+            const xOffset = roomWidth * DebugSettings.endXOffsetPct;
+            const yOffset = roomHeight * DebugSettings.endYOffsetPct;
+
+            // Position: center-bottom of text anchored at center-bottom of room + offsets
+            const labelX = roomCenterX + xOffset;
+            const labelY = roomBottom + yOffset;
+
+            svg += VectorFont.renderCentered('END', labelX, labelY, labelSize, textColor, labelStroke, DebugSettings.endLetterSpacing);
+
+            // Debug bounding box for END label
+            if (DebugSettings.showBounds) {
+                const lw = VectorFont.measureText('END', labelSize, DebugSettings.endLetterSpacing);
+                svg += `<rect x="${labelX - lw/2}" y="${labelY - labelSize}" width="${lw}" height="${labelSize * 1.2}" fill="none" stroke="red" stroke-width="1" stroke-dasharray="4"/>`;
+            }
         }
 
-        // Quest at bottom (vector font, word-wrapped) - FIXED SIZE for consistency
+        // Quest at bottom (vector font, word-wrapped) - configurable via DebugSettings
         if (this.story && this.story.quest) {
-            const QUEST_SIZE = 16; // Fixed quest size
-            const questY = svgHeight - QUEST_AREA_HEIGHT + 20;
+            const QUEST_SIZE = DebugSettings.questSize;
+            const questLetterSpacing = DebugSettings.questLetterSpacing;
+            const questY = svgHeight - QUEST_AREA_HEIGHT + 20 + DebugSettings.questYOffset;
             const maxWidth = svgWidth - 80;
 
-            // Simple word wrap
+            // Balanced word wrap - distribute text evenly across lines
             const words = this.story.quest.split(' ');
             let lines = [];
-            let currentLine = '';
 
+            // First, find minimum number of lines needed (greedy)
+            let greedyLines = [];
+            let currentLine = '';
             for (const word of words) {
                 const testLine = currentLine ? currentLine + ' ' + word : word;
-                const testWidth = VectorFont.measureText(testLine, QUEST_SIZE);
+                const testWidth = VectorFont.measureText(testLine, QUEST_SIZE, questLetterSpacing);
                 if (testWidth > maxWidth && currentLine) {
-                    lines.push(currentLine);
+                    greedyLines.push(currentLine);
                     currentLine = word;
                 } else {
                     currentLine = testLine;
                 }
             }
-            if (currentLine) lines.push(currentLine);
+            if (currentLine) greedyLines.push(currentLine);
+
+            const numLines = Math.min(greedyLines.length, 3);
+
+            if (numLines === 1) {
+                // Single line - just use it
+                lines = greedyLines;
+            } else {
+                // Multiple lines - balance them using optimal break points
+                // Calculate cumulative widths for each word position
+                const cumWidths = [0];
+                let runningText = '';
+                for (let i = 0; i < words.length; i++) {
+                    runningText = i === 0 ? words[i] : runningText + ' ' + words[i];
+                    cumWidths.push(VectorFont.measureText(runningText, QUEST_SIZE, questLetterSpacing));
+                }
+                const totalWidth = cumWidths[words.length];
+                const targetLineWidth = totalWidth / numLines;
+
+                // Find optimal break points that minimize variance from target
+                let breakPoints = [0];
+                for (let line = 1; line < numLines; line++) {
+                    const targetCumWidth = targetLineWidth * line;
+                    // Find word index closest to target cumulative width
+                    let bestIdx = breakPoints[breakPoints.length - 1] + 1;
+                    let bestDiff = Infinity;
+                    for (let i = breakPoints[breakPoints.length - 1] + 1; i < words.length; i++) {
+                        const diff = Math.abs(cumWidths[i] - targetCumWidth);
+                        if (diff < bestDiff) {
+                            bestDiff = diff;
+                            bestIdx = i;
+                        }
+                    }
+                    breakPoints.push(bestIdx);
+                }
+                breakPoints.push(words.length);
+
+                // Build lines from break points
+                for (let i = 0; i < numLines; i++) {
+                    const start = breakPoints[i];
+                    const end = breakPoints[i + 1];
+                    if (start < end) {
+                        lines.push(words.slice(start, end).join(' '));
+                    }
+                }
+            }
 
             // Render lines centered with white outline for readability (up to 3 lines)
-            const lineSpacing = QUEST_SIZE + 6;
+            const lineSpacing = DebugSettings.questLineSpacing;
             for (let i = 0; i < lines.length && i < 3; i++) {
                 const lineY = questY + i * lineSpacing;
                 // White outline (thicker stroke) then normal stroke on top
-                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, QUEST_SIZE, '#fff', 3);
-                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, QUEST_SIZE, textColor, 1.2);
+                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, QUEST_SIZE, '#fff', DebugSettings.questOutline, questLetterSpacing);
+                svg += VectorFont.renderCentered(lines[i], svgWidth / 2, lineY, QUEST_SIZE, textColor, DebugSettings.questStroke, questLetterSpacing);
+            }
+
+            // Debug bounding box for quest area
+            if (DebugSettings.showBounds) {
+                const totalHeight = lines.length * lineSpacing;
+                svg += `<rect x="${40}" y="${questY - QUEST_SIZE}" width="${svgWidth - 80}" height="${totalHeight + QUEST_SIZE}" fill="none" stroke="orange" stroke-width="1" stroke-dasharray="4"/>`;
             }
         }
 
