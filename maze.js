@@ -298,6 +298,60 @@ const ArtMaskGenerator = {
             }
         }
         return true;
+    },
+
+    /**
+     * Get an approximate room shape for synchronous maze generation
+     * Uses cached mask if available, otherwise returns a circular approximation
+     * @param {string} artName - Name of the art
+     * @param {number} artSize - Size of art in pixels
+     * @param {number} cellSize - Size of each cell in pixels
+     * @param {number} centerX - Center X in grid coordinates
+     * @param {number} centerY - Center Y in grid coordinates
+     * @returns {Array<{x, y}>} Array of absolute cell positions
+     */
+    getApproximateRoomCells(artName, artSize, cellSize, centerX, centerY) {
+        // Check cache first
+        const cacheKey = `${artName}_${Math.round(artSize)}_${Math.round(cellSize)}`;
+        const cached = this.cache.get(cacheKey);
+        if (cached) {
+            return this.toAbsolutePositions(cached, centerX, centerY);
+        }
+
+        // Fallback: circular approximation
+        // Most art is roughly circular, so use radius = artSize / (2 * cellSize)
+        const cells = [];
+        const radius = artSize / (2 * cellSize);
+        const radiusCells = Math.ceil(radius);
+
+        for (let dy = -radiusCells; dy <= radiusCells; dy++) {
+            for (let dx = -radiusCells; dx <= radiusCells; dx++) {
+                // Check if cell center is within the circular region
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist <= radius + 0.5) {  // +0.5 for cell center tolerance
+                    cells.push({ x: centerX + dx, y: centerY + dy });
+                }
+            }
+        }
+
+        return cells;
+    },
+
+    /**
+     * Get a rectangular room approximation
+     * Simpler than circular, used as fallback
+     */
+    getRectangularRoomCells(artSize, cellSize, centerX, centerY) {
+        const cells = [];
+        const halfSize = Math.ceil(artSize / (2 * cellSize));
+
+        for (let dy = -halfSize; dy <= halfSize; dy++) {
+            for (let dx = -halfSize; dx <= halfSize; dx++) {
+                cells.push({ x: centerX + dx, y: centerY + dy });
+            }
+        }
+
+        return cells;
     }
 };
 
@@ -2861,8 +2915,58 @@ class Maze {
         this.endRoomSize = roomSize;
 
         // Carve start and end rooms (remove interior walls only, keep exterior walls intact)
-        this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
-        this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
+        if (DebugSettings.useCustomArtRooms) {
+            // Use custom art-shaped rooms
+            const characterArt = this.selectedCharacter || (this.theme && this.theme.character);
+            const goalArt = this.selectedGoal || (this.theme && this.theme.goal);
+            const roomPixels = roomSize * cellSize;
+            const charArtSize = roomPixels * DebugSettings.charSizePct;
+            const goalArtSize = roomPixels * DebugSettings.goalSizePct;
+
+            // Calculate room centers (adjusted for art offset)
+            const startCenterX = this.startPos.x + roomSize / 2;
+            const startCenterY = this.startPos.y + roomSize / 2 + (roomSize * DebugSettings.charYOffsetPct);
+            const endCenterX = this.endPos.x + roomSize / 2;
+            const endCenterY = this.endPos.y + roomSize / 2 + (roomSize * DebugSettings.goalYOffsetPct);
+
+            // Get custom room cells for start room
+            if (characterArt) {
+                const startCells = ArtMaskGenerator.getApproximateRoomCells(
+                    characterArt, charArtSize, cellSize,
+                    Math.round(startCenterX), Math.round(startCenterY)
+                );
+                // Filter cells within bounds and not blocked
+                const validStartCells = startCells.filter(c =>
+                    c.x >= 0 && c.x < this.width && c.y >= 0 && c.y < this.height &&
+                    this.cells[c.y] && this.cells[c.y][c.x] && !this.cells[c.y][c.x].blocked
+                );
+                this.startRoomCells = validStartCells;
+                this.carveCustomRoom(validStartCells);
+            } else {
+                this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
+            }
+
+            // Get custom room cells for end room
+            if (goalArt) {
+                const endCells = ArtMaskGenerator.getApproximateRoomCells(
+                    goalArt, goalArtSize, cellSize,
+                    Math.round(endCenterX), Math.round(endCenterY)
+                );
+                // Filter cells within bounds and not blocked
+                const validEndCells = endCells.filter(c =>
+                    c.x >= 0 && c.x < this.width && c.y >= 0 && c.y < this.height &&
+                    this.cells[c.y] && this.cells[c.y][c.x] && !this.cells[c.y][c.x].blocked
+                );
+                this.endRoomCells = validEndCells;
+                this.carveCustomRoom(validEndCells);
+            } else {
+                this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
+            }
+        } else {
+            // Use standard rectangular rooms
+            this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
+            this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
+        }
 
         this.solution = this.findPath(this.startPos, this.endPos);
     }
@@ -3527,6 +3631,15 @@ class Maze {
                     svg += `<text x="${artCx}" y="${artTop - 5}" font-size="8" fill="blue" text-anchor="middle" opacity="0.7">approx</text>`;
                 }
             }
+
+            // Show actual carved custom room cells (if custom art rooms enabled)
+            if (DebugSettings.useCustomArtRooms && this.startRoomCells) {
+                for (const { x, y } of this.startRoomCells) {
+                    const px = sidePadding + x * cellSize;
+                    const py = topPadding + y * cellSize;
+                    svg += `<rect x="${px + 1}" y="${py + 1}" width="${cellSize - 2}" height="${cellSize - 2}" fill="none" stroke="rgba(0,0,255,0.8)" stroke-width="2" stroke-dasharray="2,2"/>`;
+                }
+            }
         }
 
         // Goal art in end room - configurable via DebugSettings
@@ -3605,6 +3718,15 @@ class Maze {
                     }
                     // Add text indicating this is approximate
                     svg += `<text x="${artCx}" y="${artTop - 5}" font-size="8" fill="green" text-anchor="middle" opacity="0.7">approx</text>`;
+                }
+            }
+
+            // Show actual carved custom room cells (if custom art rooms enabled)
+            if (DebugSettings.useCustomArtRooms && this.endRoomCells) {
+                for (const { x, y } of this.endRoomCells) {
+                    const px = sidePadding + x * cellSize;
+                    const py = topPadding + y * cellSize;
+                    svg += `<rect x="${px + 1}" y="${py + 1}" width="${cellSize - 2}" height="${cellSize - 2}" fill="none" stroke="rgba(0,128,0,0.8)" stroke-width="2" stroke-dasharray="2,2"/>`;
                 }
             }
         }
