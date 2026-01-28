@@ -66,7 +66,7 @@ const DebugSettings = {
     scatterDecorStrokePct: 0.04,
     scatterDecorStrokeMin: 0.4,
     // Custom art rooms - carve room shape to match art pixel occupancy
-    useCustomArtRooms: false,     // Enable custom-shaped rooms based on art
+    useCustomArtRooms: true,      // Enable custom-shaped rooms based on art
     showArtOccupiedCells: false,  // Show which cells art occupies in debug mode
     artOccupancyThreshold: 30     // Alpha threshold (0-255) for pixel occupancy
 };
@@ -2910,6 +2910,13 @@ class Maze {
         if (!this.startPos || !this.endPos) return;
         if (this.startPos.y + roomSize > this.height || this.startPos.x + roomSize > this.width) return;
         if (this.endPos.y + roomSize > this.height || this.endPos.x + roomSize > this.width) return;
+
+        // Calculate Euclidean distance between start and end in inches
+        // PAGE_WIDTH = 850 pixels = 8.5 inches, so 1 inch = 100 pixels
+        const dx = (this.endPos.x - this.startPos.x) * cellSize;
+        const dy = (this.endPos.y - this.startPos.y) * cellSize;
+        this.startEndDistancePixels = Math.sqrt(dx * dx + dy * dy);
+        this.startEndDistanceInches = this.startEndDistancePixels / 100;
 
         this.startRoomSize = roomSize;
         this.endRoomSize = roomSize;

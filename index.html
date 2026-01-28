@@ -915,12 +915,63 @@
             });
         }
 
+        // Minimum distance between start and end (in inches)
+        const MIN_START_END_DISTANCE_INCHES = 5;
+        const MAX_MAZE_RETRIES = 4;
+
+        function generateMazeWithDistanceCheck(params, levelNum) {
+            const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle'];
+            const ALL_SHAPES = ['rectangle', 'circle', 'heart', 'star', 'hexagon', 'diamond'];
+            const ALL_ALGORITHMS = ['backtracker', 'prims', 'kruskals'];
+
+            let bestMaze = null;
+            let bestParams = params;
+            let bestDistance = 0;
+
+            for (let attempt = 0; attempt < MAX_MAZE_RETRIES; attempt++) {
+                // First attempt uses original params, subsequent use random style
+                let tryParams = params;
+                if (attempt > 0) {
+                    const retrySeed = params.seed * 1000 + attempt;
+                    const rng = new window.SeededRandom(retrySeed);
+                    tryParams = {
+                        seed: retrySeed,
+                        theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
+                        shape: ALL_SHAPES[Math.floor(rng.next() * ALL_SHAPES.length)],
+                        algorithm: ALL_ALGORITHMS[Math.floor(rng.next() * ALL_ALGORITHMS.length)]
+                    };
+                }
+
+                const dims = window.findOptimalDimensions(tryParams.seed, currentDifficulty, tryParams.shape, tryParams.algorithm);
+                const gen = new window.MazeGenerator(tryParams.seed);
+                const maze = gen.generateWithStory(dims.w, dims.h, tryParams.algorithm, tryParams.shape, tryParams.theme, false, levelNum);
+
+                const distance = maze.startEndDistanceInches || 0;
+
+                // Track best attempt
+                if (distance > bestDistance) {
+                    bestDistance = distance;
+                    bestMaze = maze;
+                    bestParams = tryParams;
+                }
+
+                // If distance meets minimum, use this maze
+                if (distance >= MIN_START_END_DISTANCE_INCHES) {
+                    return { maze, params: tryParams };
+                }
+            }
+
+            // No attempt met minimum - use the best one we found
+            return { maze: bestMaze, params: bestParams };
+        }
+
         function createMazeFrame(params, idx) {
-            const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
             const levelNum = currentDifficulty - 2;
 
-            const gen = new window.MazeGenerator(params.seed);
-            const maze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
+            // Generate maze with distance validation and retry logic
+            const result = generateMazeWithDistanceCheck(params, levelNum);
+            const maze = result.maze;
+            params = result.params; // May have changed if retried
 
             window.mazeCache = window.mazeCache || {};
             window.mazeCache[params.seed] = { maze, params, difficulty: currentDifficulty };
