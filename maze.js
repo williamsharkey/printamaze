@@ -2572,14 +2572,9 @@ class Maze {
         this.startRoomSize = roomSize;
         this.endRoomSize = roomSize;
 
-        // Carve start and end rooms
+        // Carve start and end rooms (remove interior walls only, keep exterior walls intact)
         this.carveRoom(this.startPos.x, this.startPos.y, roomSize, roomSize);
         this.carveRoom(this.endPos.x, this.endPos.y, roomSize, roomSize);
-
-        // Connect rooms to the maze interior (not just to the outside)
-        // Find adjacent cells that are part of the maze and open walls to them
-        this.connectRoomToMaze(this.startPos.x, this.startPos.y, roomSize);
-        this.connectRoomToMaze(this.endPos.x, this.endPos.y, roomSize);
 
         this.solution = this.findPath(this.startPos, this.endPos);
     }
@@ -3382,36 +3377,32 @@ class Maze {
                     const eastBlocked = x < this.width - 1 && this.cells[y][x+1].blocked;
                     const westBlocked = x > 0 && this.cells[y][x-1].blocked;
 
-                    // North wall
+                    // North wall - skip only if both cells are in the same room
                     if (cell.walls.north || northBlocked) {
-                        if (!((inStartRoom && isInStartRoom(x, y-1)) || (inEndRoom && isInEndRoom(x, y-1)))) {
-                            if (!(inEndRoom && northBlocked)) {
-                                pathD += `M${cx},${cy}L${cx + cellSize},${cy}`;
-                            }
+                        const skipNorth = (inStartRoom && isInStartRoom(x, y-1)) || (inEndRoom && isInEndRoom(x, y-1));
+                        if (!skipNorth) {
+                            pathD += `M${cx},${cy}L${cx + cellSize},${cy}`;
                         }
                     }
                     // South wall (only for bottom row or blocked neighbor)
                     if ((y === this.height - 1 && cell.walls.south) || southBlocked) {
-                        if (!((inStartRoom && isInStartRoom(x, y+1)) || (inEndRoom && isInEndRoom(x, y+1)))) {
-                            if (!(inEndRoom && southBlocked)) {
-                                pathD += `M${cx},${cy + cellSize}L${cx + cellSize},${cy + cellSize}`;
-                            }
+                        const skipSouth = (inStartRoom && isInStartRoom(x, y+1)) || (inEndRoom && isInEndRoom(x, y+1));
+                        if (!skipSouth) {
+                            pathD += `M${cx},${cy + cellSize}L${cx + cellSize},${cy + cellSize}`;
                         }
                     }
-                    // West wall
+                    // West wall - skip only if both cells are in the same room
                     if (cell.walls.west || westBlocked) {
-                        if (!((inStartRoom && isInStartRoom(x-1, y)) || (inEndRoom && isInEndRoom(x-1, y)))) {
-                            if (!(inEndRoom && westBlocked)) {
-                                pathD += `M${cx},${cy}L${cx},${cy + cellSize}`;
-                            }
+                        const skipWest = (inStartRoom && isInStartRoom(x-1, y)) || (inEndRoom && isInEndRoom(x-1, y));
+                        if (!skipWest) {
+                            pathD += `M${cx},${cy}L${cx},${cy + cellSize}`;
                         }
                     }
                     // East wall (only for right edge or blocked neighbor)
                     if ((x === this.width - 1 && cell.walls.east) || eastBlocked) {
-                        if (!((inStartRoom && isInStartRoom(x+1, y)) || (inEndRoom && isInEndRoom(x+1, y)))) {
-                            if (!(inEndRoom && eastBlocked)) {
-                                pathD += `M${cx + cellSize},${cy}L${cx + cellSize},${cy + cellSize}`;
-                            }
+                        const skipEast = (inStartRoom && isInStartRoom(x+1, y)) || (inEndRoom && isInEndRoom(x+1, y));
+                        if (!skipEast) {
+                            pathD += `M${cx + cellSize},${cy}L${cx + cellSize},${cy + cellSize}`;
                         }
                     }
                 }
