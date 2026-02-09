@@ -920,22 +920,17 @@
         const MAX_MAZE_RETRIES = 4;
 
         function generateMazeWithDistanceCheck(params, levelNum) {
-            const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle'];
-            const ALL_SHAPES = ['rectangle', 'circle', 'heart', 'star', 'hexagon', 'diamond'];
-            const ALL_ALGORITHMS = ['backtracker', 'prims', 'kruskals'];
-
             let bestMaze = null;
             let bestParams = params;
             let bestDistance = 0;
 
             for (let attempt = 0; attempt < MAX_MAZE_RETRIES; attempt++) {
-                // First attempt uses original params, subsequent use random style
+                // First attempt uses original params, subsequent use random style but keep same seed
                 let tryParams = params;
                 if (attempt > 0) {
-                    const retrySeed = params.seed * 1000 + attempt;
-                    const rng = new window.SeededRandom(retrySeed);
+                    const rng = new window.SeededRandom(params.seed * 1000 + attempt);
                     tryParams = {
-                        seed: retrySeed,
+                        seed: params.seed,
                         theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
                         shape: ALL_SHAPES[Math.floor(rng.next() * ALL_SHAPES.length)],
                         algorithm: ALL_ALGORITHMS[Math.floor(rng.next() * ALL_ALGORITHMS.length)]
@@ -972,6 +967,7 @@
             const result = generateMazeWithDistanceCheck(params, levelNum);
             const maze = result.maze;
             params = result.params; // May have changed if retried
+            mazeParams[idx] = params; // Keep mazeParams in sync
 
             window.mazeCache = window.mazeCache || {};
             window.mazeCache[params.seed] = { maze, params, difficulty: currentDifficulty };
@@ -1136,65 +1132,69 @@
             const frames = container.querySelectorAll('.maze-frame');
 
             frames.forEach((frame) => {
-                const fadeContainer = frame.querySelector('.maze-fade-container');
-                if (!fadeContainer) return;
+                try {
+                    const fadeContainer = frame.querySelector('.maze-fade-container');
+                    if (!fadeContainer) return;
 
-                const seed = parseInt(fadeContainer.dataset.seed);
-                const params = mazeParams.find(p => p.seed === seed);
-                if (!params) return;
+                    const seed = parseInt(fadeContainer.dataset.seed);
+                    const params = mazeParams.find(p => p.seed === seed);
+                    if (!params) return;
 
-                // Try to use precomputed maze first for instant response
-                let newMaze;
-                const precomputed = getPrecomputedMaze(seed, currentDifficulty);
-                if (precomputed) {
-                    newMaze = precomputed.maze;
-                } else {
-                    // Generate new maze at new difficulty
-                    const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
-                    const levelNum = currentDifficulty - 2;
-                    const gen = new window.MazeGenerator(params.seed);
-                    newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
-                }
+                    // Try to use precomputed maze first for instant response
+                    let newMaze;
+                    const precomputed = getPrecomputedMaze(seed, currentDifficulty);
+                    if (precomputed) {
+                        newMaze = precomputed.maze;
+                    } else {
+                        // Generate new maze at new difficulty
+                        const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
+                        const levelNum = currentDifficulty - 2;
+                        const gen = new window.MazeGenerator(params.seed);
+                        newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
+                    }
 
-                // Update cache
-                window.mazeCache[params.seed] = { maze: newMaze, params, difficulty: currentDifficulty };
+                    // Update cache
+                    window.mazeCache[params.seed] = { maze: newMaze, params, difficulty: currentDifficulty };
 
-                // Create new SVG container as overlay (starts invisible)
-                const newSvgContainer = document.createElement('div');
-                newSvgContainer.className = 'maze-svg-container fade-overlay';
-                newSvgContainer.innerHTML = newMaze.toSVG(false, false);
-                newSvgContainer.onclick = (e) => {
-                    if (e.target.closest('.heart-btn')) return;
-                    if (e.target.closest('.favs-trigger')) return;
-                    if (e.target.closest('.difficulty-btn')) return;
-                    if (!e.target.closest('svg')) return;
-                    activeMazeId = params.seed;
-                    openActionMenu();
-                };
+                    // Create new SVG container as overlay (starts invisible)
+                    const newSvgContainer = document.createElement('div');
+                    newSvgContainer.className = 'maze-svg-container fade-overlay';
+                    newSvgContainer.innerHTML = newMaze.toSVG(false, false);
+                    newSvgContainer.onclick = (e) => {
+                        if (e.target.closest('.heart-btn')) return;
+                        if (e.target.closest('.favs-trigger')) return;
+                        if (e.target.closest('.difficulty-btn')) return;
+                        if (!e.target.closest('svg')) return;
+                        activeMazeId = params.seed;
+                        openActionMenu();
+                    };
 
-                // Add to DOM for prerender
-                fadeContainer.appendChild(newSvgContainer);
+                    // Add to DOM for prerender
+                    fadeContainer.appendChild(newSvgContainer);
 
-                // Wait for render, then fade in
-                requestAnimationFrame(() => {
+                    // Wait for render, then fade in
                     requestAnimationFrame(() => {
-                        // Start fade in
-                        newSvgContainer.classList.add('fade-in');
+                        requestAnimationFrame(() => {
+                            // Start fade in
+                            newSvgContainer.classList.add('fade-in');
 
-                        // After fade complete, clean up (200ms to match transition)
-                        setTimeout(() => {
-                            // Remove old container(s)
-                            const oldContainers = fadeContainer.querySelectorAll('.maze-svg-container:not(.fade-overlay)');
-                            oldContainers.forEach(c => c.remove());
+                            // After fade complete, clean up (200ms to match transition)
+                            setTimeout(() => {
+                                // Remove old container(s)
+                                const oldContainers = fadeContainer.querySelectorAll('.maze-svg-container:not(.fade-overlay)');
+                                oldContainers.forEach(c => c.remove());
 
-                            // Remove overlay classes from new container
-                            newSvgContainer.classList.remove('fade-overlay', 'fade-in');
+                                // Remove overlay classes from new container
+                                newSvgContainer.classList.remove('fade-overlay', 'fade-in');
 
-                            // Precompute adjacent difficulty mazes after idle
-                            schedulePrecomputation();
-                        }, 200);
+                                // Precompute adjacent difficulty mazes after idle
+                                schedulePrecomputation();
+                            }, 200);
+                        });
                     });
-                });
+                } catch (e) {
+                    console.error('Error updating maze frame during difficulty change:', e);
+                }
 
                 // Update difficulty buttons visibility
                 const minusBtn = frame.querySelector('.difficulty-btn.minus');
