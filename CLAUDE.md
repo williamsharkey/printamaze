@@ -1,12 +1,12 @@
-# CLAUDE.md - MazeJS Project
+# CLAUDE.md - PrintAMaze Project
 
 This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-MazeJS is a lightweight, client-side maze generator that runs entirely in the browser. It generates algorithmic mazes with various themes, shapes, and difficulty levels. Designed for printing puzzles.
+PrintAMaze is a lightweight, client-side maze generator that runs entirely in the browser at **printamaze.com**. It generates algorithmic mazes with various themes, shapes, and difficulty levels. Designed for printing puzzles.
 
-**Key insight**: This is a simplified JavaScript port of the Python-based PrintAMaze project at `~/Desktop/maze`. It focuses on fast client-side generation without AI enhancement features.
+**Key insight**: This is the production codebase deployed at printamaze.com. Originally a simplified JavaScript port of the Python-based maze project at `~/Desktop/maze`, it now stands as the primary project. Focuses on fast client-side generation without AI enhancement features.
 
 ## Architecture
 
@@ -23,10 +23,10 @@ MazeJS is a lightweight, client-side maze generator that runs entirely in the br
    - Kruskal's (Random) - uniform distribution
 
 2. **Shape Masks**
-   - Rectangle, Circle, Heart, Star, Hexagon, Diamond
+   - 41 shapes: Rectangle, Circle, Heart, Star, Hexagon, Diamond, Triangle, Oval, Cross, Arrow, Moon, Cloud, Tree, House, Cat, Bunny, Rocket, Fish, Butterfly, Castle, Crown, Lightning, Mushroom, Ghost, Pumpkin, Egg, Apple, Flower, Clover, Pacman, Skull, Anchor, MusicNote, Village, Towers, Islands, Compound, Blocks, Archipelago, DolphinJump, TropicalSea, DolphinPod, OceanWaves
 
 3. **Themes**
-   - Classic, Ocean, Space, Garden, Candy, Jungle
+   - Classic, Ocean, Space, Garden, Candy, Jungle, Dolphin
    - Each has colors, decorations, border patterns
 
 4. **Print Mode**
@@ -69,16 +69,16 @@ Host printamaze
 ### Local Testing
 ```bash
 # Simple HTTP server
-cd ~/Desktop/mazejs
+cd ~/Desktop/printamaze  # (local dir may still be named mazejs)
 python3 -m http.server 8000
 # Visit http://localhost:8000
 ```
 
 ## Difficulty Scaling
 
-Current mapping (Level -> Grid Size):
+Current mapping (internal difficulty 3-17 -> Level 1-15 displayed):
 ```javascript
-const ageDifficulty = {
+const DIFFICULTY_SIZES = {
     3: { w: 5, h: 6 },     // Level 1 - very easy
     4: { w: 7, h: 9 },     // Level 2
     5: { w: 10, h: 13 },   // Level 3
@@ -88,7 +88,12 @@ const ageDifficulty = {
     9: { w: 27, h: 35 },   // Level 7
     10: { w: 33, h: 43 },  // Level 8
     11: { w: 39, h: 50 },  // Level 9
-    12: { w: 45, h: 58 }   // Level 10 - expert
+    12: { w: 45, h: 58 },  // Level 10
+    13: { w: 51, h: 66 },  // Level 11
+    14: { w: 57, h: 74 },  // Level 12
+    15: { w: 63, h: 82 },  // Level 13
+    16: { w: 69, h: 90 },  // Level 14
+    17: { w: 75, h: 98 }   // Level 15 - expert
 };
 ```
 
@@ -229,18 +234,19 @@ addEnhancedSentence(original, enhanced);
     - Touch-friendly UI
     - Better responsive layout
 
-## Comparison with Original PrintAMaze
+## Comparison with Python Maze Project
 
-| Feature | MazeJS | PrintAMaze (~/Desktop/maze) |
-|---------|--------|----------------------------|
+| Feature | PrintAMaze (this repo) | Python maze (~/Desktop/maze) |
+|---------|------------------------|------------------------------|
 | Runtime | Client-side JS | Python + Flask |
 | AI Art | No | Yes (DALL-E) |
-| Themes | 6 built-in | 20+ with AI art |
-| Shapes | 6 masks | 16x16 high-res masks |
+| Themes | 7 built-in | 20+ with AI art |
+| Shapes | 41 masks | 16x16 high-res masks |
+| Difficulty | 15 levels | 13 levels (age-based) |
 | Rooms | Variable size, 3-cell gap | Advanced interior rooms |
 | Story Mode | Yes (template-based) | Planned |
 | Debug Output | Yes (compact hex) | No |
-| Deployment | Static files | Python WSGI |
+| Deployment | Static files (TigerTech) | Python WSGI |
 
 ## Code Style
 
@@ -278,5 +284,5 @@ console.log(CompactMazeEncoder.encode(maze));
 
 ## Git Repository
 
-- Remote: github.com/williamsharkey/mazejs (private)
+- Remote: github.com/williamsharkey/printamaze (renamed from mazejs)
 - Branch: main
