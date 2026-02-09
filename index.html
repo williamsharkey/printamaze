@@ -1088,6 +1088,12 @@
 
                 // Precompute adjacent mazes after page change
                 schedulePrecomputation();
+
+                // If scrolled to a stale frame, regenerate it immediately
+                const frame = container.children[currentIndex];
+                if (frame && frame.dataset.staleDifficulty) {
+                    updateFrameMaze(frame);
+                }
             }
 
             // Load more mazes when near the end
@@ -1129,90 +1135,129 @@
             localStorage.setItem('mazejs-difficulty', currentDifficulty.toString());
 
             const container = document.getElementById('mazeContainer');
-            const frames = container.querySelectorAll('.maze-frame');
+            const frames = Array.from(container.querySelectorAll('.maze-frame'));
 
+            // Update ALL frames' UI controls immediately (cheap DOM updates)
             frames.forEach((frame) => {
-                try {
-                    const fadeContainer = frame.querySelector('.maze-fade-container');
-                    if (!fadeContainer) return;
-
-                    const seed = parseInt(fadeContainer.dataset.seed);
-                    const params = mazeParams.find(p => p.seed === seed);
-                    if (!params) return;
-
-                    // Try to use precomputed maze first for instant response
-                    let newMaze;
-                    const precomputed = getPrecomputedMaze(seed, currentDifficulty);
-                    if (precomputed) {
-                        newMaze = precomputed.maze;
-                    } else {
-                        // Generate new maze at new difficulty
-                        const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
-                        const levelNum = currentDifficulty - 2;
-                        const gen = new window.MazeGenerator(params.seed);
-                        newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
-                    }
-
-                    // Update cache
-                    window.mazeCache[params.seed] = { maze: newMaze, params, difficulty: currentDifficulty };
-
-                    // Create new SVG container as overlay (starts invisible)
-                    const newSvgContainer = document.createElement('div');
-                    newSvgContainer.className = 'maze-svg-container fade-overlay';
-                    newSvgContainer.innerHTML = newMaze.toSVG(false, false);
-                    newSvgContainer.onclick = (e) => {
-                        if (e.target.closest('.heart-btn')) return;
-                        if (e.target.closest('.favs-trigger')) return;
-                        if (e.target.closest('.difficulty-btn')) return;
-                        if (!e.target.closest('svg')) return;
-                        activeMazeId = params.seed;
-                        openActionMenu();
-                    };
-
-                    // Add to DOM for prerender
-                    fadeContainer.appendChild(newSvgContainer);
-
-                    // Wait for render, then fade in
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(() => {
-                            // Start fade in
-                            newSvgContainer.classList.add('fade-in');
-
-                            // After fade complete, clean up (200ms to match transition)
-                            setTimeout(() => {
-                                // Remove old container(s)
-                                const oldContainers = fadeContainer.querySelectorAll('.maze-svg-container:not(.fade-overlay)');
-                                oldContainers.forEach(c => c.remove());
-
-                                // Remove overlay classes from new container
-                                newSvgContainer.classList.remove('fade-overlay', 'fade-in');
-
-                                // Precompute adjacent difficulty mazes after idle
-                                schedulePrecomputation();
-                            }, 200);
-                        });
-                    });
-                } catch (e) {
-                    console.error('Error updating maze frame during difficulty change:', e);
-                }
-
-                // Update difficulty buttons visibility
                 const minusBtn = frame.querySelector('.difficulty-btn.minus');
                 const plusBtn = frame.querySelector('.difficulty-btn.plus');
                 if (minusBtn) minusBtn.classList.toggle('hidden', currentDifficulty <= 3);
                 if (plusBtn) plusBtn.classList.toggle('hidden', currentDifficulty >= 17);
 
-                // Update level dots
                 const dots = frame.querySelectorAll('.level-dot');
                 dots.forEach((dot, i) => {
-                    const level = i + 3;
-                    dot.classList.toggle('active', level === currentDifficulty);
+                    dot.classList.toggle('active', (i + 3) === currentDifficulty);
                 });
 
-                // Update difficulty number
                 const diffNum = frame.querySelector('.difficulty-number');
                 if (diffNum) diffNum.textContent = `Difficulty ${currentDifficulty - 2}`;
+
+                // Mark frame as needing maze regeneration
+                frame.dataset.staleDifficulty = currentDifficulty;
             });
+
+            // Generate ONLY the visible frame immediately
+            const visibleFrame = frames[currentIndex];
+            if (visibleFrame) {
+                updateFrameMaze(visibleFrame);
+            }
+
+            // Defer nearby frames, then remaining frames via idle callbacks
+            const nearby = [currentIndex - 1, currentIndex + 1].filter(i => i >= 0 && i < frames.length && i !== currentIndex);
+            const rest = [];
+            for (let i = 0; i < frames.length; i++) {
+                if (i !== currentIndex && !nearby.includes(i)) rest.push(i);
+            }
+
+            // Adjacent frames: generate after a microtask so visible frame paints first
+            if (nearby.length > 0) {
+                requestAnimationFrame(() => {
+                    nearby.forEach(i => {
+                        if (frames[i] && frames[i].dataset.staleDifficulty == currentDifficulty) {
+                            updateFrameMaze(frames[i]);
+                        }
+                    });
+                    // Then schedule remaining frames in idle time
+                    scheduleStaleFrameUpdates(frames, rest);
+                });
+            } else {
+                scheduleStaleFrameUpdates(frames, rest);
+            }
+
+            // Precompute adjacent difficulties for new level
+            schedulePrecomputation();
+        }
+
+        function scheduleStaleFrameUpdates(frames, indices) {
+            if (indices.length === 0) return;
+            const batch = indices.splice(0, 2); // process 2 frames per idle callback
+            scheduleIdleWork(() => {
+                batch.forEach(i => {
+                    if (frames[i] && frames[i].dataset.staleDifficulty == currentDifficulty) {
+                        updateFrameMaze(frames[i]);
+                    }
+                });
+                if (indices.length > 0) {
+                    scheduleStaleFrameUpdates(frames, indices);
+                }
+            });
+        }
+
+        function updateFrameMaze(frame) {
+            try {
+                const fadeContainer = frame.querySelector('.maze-fade-container');
+                if (!fadeContainer) return;
+
+                const seed = parseInt(fadeContainer.dataset.seed);
+                const params = mazeParams.find(p => p.seed === seed);
+                if (!params) return;
+
+                // Try precomputed cache first for instant response
+                let newMaze;
+                const precomputed = getPrecomputedMaze(seed, currentDifficulty);
+                if (precomputed) {
+                    newMaze = precomputed.maze;
+                } else {
+                    const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
+                    const levelNum = currentDifficulty - 2;
+                    const gen = new window.MazeGenerator(params.seed);
+                    newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
+                }
+
+                // Update cache
+                window.mazeCache[params.seed] = { maze: newMaze, params, difficulty: currentDifficulty };
+
+                // Create new SVG container as overlay (starts invisible)
+                const newSvgContainer = document.createElement('div');
+                newSvgContainer.className = 'maze-svg-container fade-overlay';
+                newSvgContainer.innerHTML = newMaze.toSVG(false, false);
+                newSvgContainer.onclick = (e) => {
+                    if (e.target.closest('.heart-btn')) return;
+                    if (e.target.closest('.favs-trigger')) return;
+                    if (e.target.closest('.difficulty-btn')) return;
+                    if (!e.target.closest('svg')) return;
+                    activeMazeId = params.seed;
+                    openActionMenu();
+                };
+
+                fadeContainer.appendChild(newSvgContainer);
+
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        newSvgContainer.classList.add('fade-in');
+                        setTimeout(() => {
+                            const oldContainers = fadeContainer.querySelectorAll('.maze-svg-container:not(.fade-overlay)');
+                            oldContainers.forEach(c => c.remove());
+                            newSvgContainer.classList.remove('fade-overlay', 'fade-in');
+                        }, 200);
+                    });
+                });
+
+                // Clear stale marker
+                delete frame.dataset.staleDifficulty;
+            } catch (e) {
+                console.error('Error updating maze frame:', e);
+            }
         }
 
         // Precomputation system for adjacent mazes
