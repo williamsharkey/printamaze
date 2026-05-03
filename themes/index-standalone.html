@@ -1,3 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a0f">
+    <title>Print A Maze</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            touch-action: pan-y;
+            transition: background-color 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* Prevent text selection on all interactive elements */
+        button, .difficulty-btn, .heart-btn, .favs-trigger, .fav-item, .action-btn, .share-pill, .level-dot, .level-indicator {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* Favorites section - pull down to reveal */
+        #favoritesSection {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            transform: translateY(-100%);
+            background: #1a1a1a;
+            max-height: 60vh;
+            overflow-y: auto;
+            z-index: 50;
+            padding: 20px;
+            padding-top: max(20px, env(safe-area-inset-top));
+            transition: transform 0.3s ease;
+        }
+        #favoritesSection.open { transform: translateY(0); }
+        #favoritesSection h2 { color: #fff; font-size: 16px; margin-bottom: 15px; }
+        .favs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .favs-header h2 { margin-bottom: 0; }
+        .favs-close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .favs-close-btn:active { background: rgba(255,255,255,0.2); }
+        .fav-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        .fav-item {
+            aspect-ratio: 8.5/11;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .fav-item svg { width: 100%; height: 100%; }
+        .no-favs {
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            text-align: center;
+            padding: 30px;
+        }
+
+        /* Main maze container with snap scroll - fast and fluid */
+        #mazeContainer {
+            height: 100%;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+        }
+
+        .maze-frame {
+            height: 100vh;
+            height: 100dvh;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            overflow: hidden;
+            /* Top margin 50% taller than before - add extra padding top */
+            padding-top: calc(env(safe-area-inset-top) + 60px);
+        }
+
+        /* Fade container for difficulty transition animations */
+        .maze-fade-container {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            /* Prevent height bounce by using fixed background that extends */
+            background: inherit;
+        }
+
+        .maze-svg-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            /* Fill any gaps with matching background */
+            background: inherit;
+        }
+
+        .maze-svg-container.fade-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            pointer-events: none;
+        }
+
+        .maze-svg-container.fade-overlay.fade-in {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .maze-svg-container svg {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+        }
+
+        /* Bottom controls container - holds +/- buttons with dots between */
+        .bottom-controls {
+            position: relative;
+            width: 100%;
+            padding: 8px 0 max(12px, env(safe-area-inset-bottom));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Difficulty number above controls */
+        .difficulty-number {
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        /* Difficulty row - buttons with dots between, all same Y center */
+        .difficulty-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        /* Level indicator - between the buttons */
+        .level-indicator {
+            display: flex;
+            gap: 5px;
+            opacity: 0.5;
+            position: relative;
+            top: -18px;
+        }
+        .level-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            transition: background 0.2s, transform 0.2s;
+        }
+        .level-dot.active {
+            background: rgba(255,255,255,0.9);
+            transform: scale(1.4);
+        }
+
+        /* Difficulty +/- buttons */
+        .difficulty-btn {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.25);
+            background: rgba(0,0,0,0.3);
+            color: rgba(255,255,255,0.6);
+            font-size: 30px;
+            font-weight: 300;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: opacity 0.2s, transform 0.1s, background 0.1s;
+        }
+        .difficulty-btn:active {
+            transform: scale(0.92);
+            background: rgba(255,255,255,0.15);
+        }
+        .difficulty-btn.hidden {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* Heart favorite button - upper right */
+        .heart-btn {
+            position: absolute;
+            top: max(12px, env(safe-area-inset-top));
+            right: max(12px, env(safe-area-inset-right));
+            width: 44px;
+            height: 44px;
+            background: none;
+            border: none;
+            font-size: 26px;
+            cursor: pointer;
+            opacity: 0.25;
+            z-index: 10;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .heart-btn.favorited { opacity: 1; color: #e74c3c; }
+
+        /* Favorites button - upper left with count */
+        .favs-trigger {
+            position: absolute;
+            top: max(12px, env(safe-area-inset-top));
+            left: max(12px, env(safe-area-inset-left));
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            opacity: 0.4;
+            z-index: 10;
+            -webkit-tap-highlight-color: transparent;
+            padding: 8px;
+        }
+        .favs-trigger:active { opacity: 0.7; }
+        .favs-trigger .arrow {
+            font-size: 20px;
+            color: #fff;
+        }
+        .favs-trigger .count {
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            color: rgb(255, 255, 255);
+            text-transform: uppercase;
+        }
+
+        /* Action menu overlay */
+        #actionMenu {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+        }
+        #actionMenu.open { display: flex; }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 220px;
+        }
+
+        .action-btn {
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            cursor: pointer;
+            background: #fff;
+            color: #333;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .action-btn:active { background: #eee; }
+        .action-btn.close-btn {
+            background: transparent;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Share pill button - split design */
+        .share-pill {
+            display: flex;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+            width: 100%;
+        }
+        .share-pill button {
+            font-family: 'Avenir Next', 'Avenir', system-ui, sans-serif;
+            padding: 14px 12px;
+            border: none;
+            background: #fff;
+            color: #333;
+            font-size: 15px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            white-space: nowrap;
+        }
+        .share-pill button:first-child {
+            flex: 0 0 35%;
+            border-right: 1px solid #e0e0e0;
+        }
+        .share-pill button:last-child {
+            flex: 1;
+        }
+        .share-pill button:active { background: #eee; }
+        .share-pill .copied {
+            background: #4CAF50;
+            color: #fff;
+        }
+
+        /* Solution overlay */
+        #solutionOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 150;
+            padding: 20px;
+        }
+        #solutionOverlay.open { display: flex; }
+        #solutionDisplay {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #solutionDisplay svg {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+        }
+        #solutionOverlay .close-btn {
+            position: absolute;
+            top: max(15px, env(safe-area-inset-top));
+            right: max(15px, env(safe-area-inset-right));
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        /* Desktop navigation arrows - hidden on mobile/touch devices */
+        .nav-arrow {
+            display: none;
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 48px;
+            height: 32px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.6);
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 50;
+            transition: background 0.2s, color 0.2s, opacity 0.2s;
+        }
+        .nav-arrow:hover {
+            background: rgba(0,0,0,0.5);
+            color: rgba(255,255,255,0.9);
+        }
+        .nav-arrow:active {
+            background: rgba(255,255,255,0.2);
+        }
+        .nav-arrow-up {
+            top: max(10px, env(safe-area-inset-top));
+        }
+        .nav-arrow-down {
+            bottom: max(10px, env(safe-area-inset-bottom));
+        }
+        .nav-arrow.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        /* Show nav arrows only on non-touch devices with hover capability */
+        @media (hover: hover) and (pointer: fine) {
+            .nav-arrow {
+                display: block;
+            }
+        }
+
+        /* Debug panel */
+        #debugPanel {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.9);
+            color: #fff;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 11px;
+            z-index: 200;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+
+        /* Print mode overlay */
+        #printOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #fff;
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        #printOverlay.open { display: flex; }
+        #printOverlay .print-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25in;
+        }
+        #printOverlay .print-content svg {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+        }
+        #printOverlay .print-back-btn {
+            position: absolute;
+            top: max(20px, env(safe-area-inset-top));
+            left: max(20px, env(safe-area-inset-left));
+            height: 44px;
+            padding: 0 16px;
+            border-radius: 22px;
+            border: 1.5px solid #333;
+            background: #fff;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 310;
+        }
+        #printOverlay .print-back-btn:active {
+            background: #eee;
+        }
+        #printOverlay .print-back-btn .arrow {
+            font-size: 18px;
+        }
+
+        /* Print styles - maximize page usage, single page on all devices */
+        @media print {
+            @page {
+                size: letter;
+                margin: 0;
+            }
+            html, body {
+                width: 8.5in !important;
+                height: 11in !important;
+                max-height: 11in !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+                overflow: hidden !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            body * {
+                visibility: hidden;
+            }
+            #printOverlay, #printOverlay * {
+                visibility: visible;
+            }
+            #printOverlay {
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 8.5in !important;
+                height: 11in !important;
+                max-height: 11in !important;
+                overflow: hidden !important;
+                background: #fff !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            #printOverlay .print-back-btn {
+                display: none !important;
+            }
+            #printOverlay .print-content {
+                width: 8in !important;
+                height: 10.5in !important;
+                max-width: 8in !important;
+                max-height: 10.5in !important;
+                padding: 0 !important;
+                margin: 0.25in !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                overflow: hidden !important;
+            }
+            #printOverlay .print-content svg {
+                width: auto !important;
+                height: auto !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
+                object-fit: contain !important;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Favorites - pull down to reveal -->
+    <div id="favoritesSection">
+        <div class="favs-header">
+            <h2>Saved Mazes</h2>
+            <button class="favs-close-btn" onclick="closeFavorites()">✕</button>
+        </div>
+        <div id="favGrid" class="fav-grid"></div>
+        <div id="noFavs" class="no-favs">No saved mazes yet. Tap the heart to save one!</div>
+    </div>
+
+    <!-- Main scrolling maze container -->
+    <div id="mazeContainer"></div>
+
+    <!-- Desktop navigation arrows (hidden on mobile) -->
+    <button class="nav-arrow nav-arrow-up" onclick="navigateMaze(-1)" title="Previous maze">▲</button>
+    <button class="nav-arrow nav-arrow-down" onclick="navigateMaze(1)" title="Next maze">▼</button>
+
+    <!-- Action menu - click outside buttons to dismiss -->
+    <div id="actionMenu" onclick="closeActionMenu()">
+        <div class="action-buttons" onclick="event.stopPropagation()">
+            <button class="action-btn" id="menuHeartBtn" onclick="toggleFavoriteFromMenu()">♥ Save to Favorites</button>
+            <div class="share-pill">
+                <button onclick="shareMaze()">↗ Share</button>
+                <button id="copyLinkBtn" onclick="copyMazeLink()">🔗 Copy Link</button>
+            </div>
+            <button class="action-btn" onclick="printColor()">🖨️ Print Color</button>
+            <button class="action-btn" onclick="printBW()">📄 Print B&W</button>
+            <button class="action-btn" onclick="saveToCameraRoll()">📷 Save to Photos</button>
+            <button class="action-btn" onclick="showSolution()">🔍 Show Solution</button>
+            <button class="action-btn" id="debugBtn" style="display:none" onclick="showDebugInfo()">🔧 Debug Info</button>
+        </div>
+    </div>
+
+    <!-- Solution overlay -->
+    <div id="solutionOverlay">
+        <button class="close-btn" onclick="closeSolution()">✕</button>
+        <div id="solutionDisplay"></div>
+    </div>
+
+    <!-- Debug panel -->
+    <div id="debugPanel">
+        <strong>Debug Info</strong>
+        <pre id="debugContent"></pre>
+    </div>
+
+    <!-- Print overlay (same page, no new tab) -->
+    <div id="printOverlay">
+        <button class="print-back-btn" onclick="closePrintMode()">
+            <span class="arrow">←</span>
+            <span>back to printamaze.com</span>
+        </button>
+        <div class="print-content" id="printContent"></div>
+    </div>
+    <script>
 /**
  * MazeJS - Client-Side Maze Generator with Themes & Shapes
  * Deterministic generation with seeded random
@@ -8012,3 +8639,1278 @@ if (typeof module !== 'undefined' && module.exports) {
         ? globalThis.PrintAMaze
         : exposePrintAMazeAPI({});
 }
+
+    </script>
+    <script>
+const THEME_NAMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle', 'dolphin', 'baking', 'deckPlanters', 'ceciSoccer', 'wesGearRobot'];
+        let ALL_THEMES = [...THEME_NAMES];
+
+        function refreshAvailableThemes() {
+            if (window.Themes) {
+                const available = THEME_NAMES.filter(themeName => window.Themes[themeName]);
+                ALL_THEMES = available.length > 0 ? available : THEME_NAMES.slice(0, 8);
+            } else {
+                ALL_THEMES = [...THEME_NAMES];
+            }
+        }
+        const ALL_SHAPES = [
+            'rectangle', 'circle', 'heart', 'star', 'hexagon', 'diamond',
+            'triangle', 'oval', 'cross', 'arrow', 'moon', 'cloud', 'tree',
+            'house', 'cat', 'bunny', 'rocket', 'fish', 'butterfly', 'castle',
+            'crown', 'lightning', 'mushroom', 'ghost', 'pumpkin', 'egg',
+            'apple', 'flower', 'clover', 'pacman', 'skull', 'anchor', 'musicNote',
+            'village', 'towers', 'islands', 'compound', 'blocks', 'archipelago',
+            'dolphinJump', 'tropicalSea', 'dolphinPod', 'oceanWaves'
+        ];
+        const ALL_ALGORITHMS = ['recursive_backtracker', 'prims', 'kruskals'];
+        const DIFFICULTY_SIZES = {
+            3: { w: 5, h: 6 },
+            4: { w: 7, h: 9 },
+            5: { w: 10, h: 13 },
+            6: { w: 13, h: 17 },
+            7: { w: 17, h: 22 },
+            8: { w: 21, h: 27 },
+            9: { w: 27, h: 35 },
+            10: { w: 33, h: 43 },
+            11: { w: 39, h: 50 },
+            12: { w: 45, h: 58 },
+            13: { w: 51, h: 66 },
+            14: { w: 57, h: 74 },
+            15: { w: 63, h: 82 },
+            16: { w: 69, h: 90 },
+            17: { w: 75, h: 98 }
+        };
+
+        // Theme background tints - subtle color shifts
+        const THEME_TINTS = {
+            classic: '#0a0a0f',
+            ocean: '#0a0c12',
+            space: '#08080f',
+            garden: '#0a0c0a',
+            candy: '#0f0a0c',
+            jungle: '#0a0c0a',
+            dolphin: '#0a0c10',
+            baking: '#100c08',
+            deckPlanters: '#0d1208',
+            ceciSoccer: '#07120b',
+            wesGearRobot: '#071018'
+        };
+
+        let currentDifficulty = parseInt(localStorage.getItem('mazejs-difficulty')) || 4;
+        let mazeParams = []; // Array of {seed, theme, shape, algorithm} per position
+        let currentIndex = parseInt(localStorage.getItem('mazejs-currentIndex')) || 0;
+        let activeMazeId = null;
+        let sharedMazeParams = null; // For URL-shared mazes
+
+
+        // Local Mulberry32 fallback for app-level parameter selection.
+        // This keeps index.html deterministic even when a cached/older maze.js
+        // does not expose SeededRandom as window.SeededRandom. Maze generation
+        // still uses MazeGenerator from maze.js.
+        class IndexSeededRandom {
+            constructor(seed) {
+                this.seed = seed >>> 0;
+            }
+
+            next() {
+                let t = this.seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            }
+
+            nextInt(min, max) {
+                return Math.floor(this.next() * (max - min + 1)) + min;
+            }
+
+            shuffle(array) {
+                const arr = [...array];
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(this.next() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+
+            choice(array) {
+                return array[Math.floor(this.next() * array.length)];
+            }
+        }
+
+        if (typeof window !== 'undefined' && typeof window.SeededRandom !== 'function') {
+            window.SeededRandom = IndexSeededRandom;
+        }
+        if (typeof globalThis !== 'undefined' && typeof globalThis.SeededRandom !== 'function') {
+            globalThis.SeededRandom = IndexSeededRandom;
+        }
+
+        function createSeededRandom(seed) {
+            const globalCtor = typeof globalThis !== 'undefined' && typeof globalThis.SeededRandom === 'function'
+                ? globalThis.SeededRandom
+                : null;
+            const windowCtor = typeof window !== 'undefined' && typeof window.SeededRandom === 'function'
+                ? window.SeededRandom
+                : null;
+            const RandomCtor = globalCtor || windowCtor || IndexSeededRandom;
+            return new RandomCtor(seed);
+        }
+
+        // Also populate window.SeededRandom for any legacy call sites that still
+        // use new window.SeededRandom(...). This is intentionally done in
+        // index.html as well as maze.js so mixed cache states keep working.
+        if (typeof window.SeededRandom !== 'function') {
+            window.SeededRandom = IndexSeededRandom;
+        }
+
+        function getMazeLibraryExport(name) {
+            const printAmazeApi = window.PrintAMaze || window.MazeJS || null;
+            if (printAmazeApi && typeof printAmazeApi[name] !== 'undefined') {
+                return printAmazeApi[name];
+            }
+            if (typeof window[name] !== 'undefined') {
+                return window[name];
+            }
+            return undefined;
+        }
+
+        function createMazeGenerator(seed) {
+            const MazeGeneratorCtor = getMazeLibraryExport('MazeGenerator');
+            if (typeof MazeGeneratorCtor !== 'function') {
+                throw new Error('MazeGenerator was not loaded from maze.js. Deploy index.html and maze.js together, then hard-refresh.');
+            }
+            return new MazeGeneratorCtor(seed);
+        }
+
+        function findMazeDimensions(seed, difficulty, shape, algorithm) {
+            const findOptimalDimensionsFn = getMazeLibraryExport('findOptimalDimensions');
+            if (typeof findOptimalDimensionsFn !== 'function') {
+                throw new Error('findOptimalDimensions was not loaded from maze.js. Deploy index.html and maze.js together, then hard-refresh.');
+            }
+            return findOptimalDimensionsFn(seed, difficulty, shape, algorithm);
+        }
+
+        async function waitForMazeLibraryLoaded() {
+            if (window.__mazeLibraryReady) {
+                await window.__mazeLibraryReady;
+            }
+
+            const missing = [];
+            if (typeof getMazeLibraryExport('MazeGenerator') !== 'function') missing.push('MazeGenerator');
+            if (typeof getMazeLibraryExport('findOptimalDimensions') !== 'function') missing.push('findOptimalDimensions');
+            if (!getMazeLibraryExport('Themes')) missing.push('Themes');
+
+            if (missing.length > 0) {
+                throw new Error(`maze.js loaded, but missing required export(s): ${missing.join(', ')}. Deploy the matching maze.js with this index.html, then hard-refresh.`);
+            }
+
+            refreshAvailableThemes();
+        }
+
+        // =============================================================================
+        // URL ENCODING FOR SHARING - Compact maze links
+        // =============================================================================
+
+        const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        const THEME_RADIX = 16;
+        const LEGACY_THEME_RADIX = 8;
+        const SHAPE_RADIX = 64;
+        const ALGO_RADIX = 4;
+        const DIFFICULTY_RADIX = 32;
+
+        function toBase62(num) {
+            if (num === 0) return '0';
+            let result = '';
+            while (num > 0) {
+                result = BASE62[num % 62] + result;
+                num = Math.floor(num / 62);
+            }
+            return result;
+        }
+
+        function fromBase62(str) {
+            let result = 0;
+            for (let i = 0; i < str.length; i++) {
+                result = result * 62 + BASE62.indexOf(str[i]);
+            }
+            return result;
+        }
+
+        function encodeMazeParams(seed, difficulty, themeIdx, shapeIdx, algoIdx) {
+            const packed = ((seed * DIFFICULTY_RADIX + (difficulty - 3)) * THEME_RADIX + themeIdx) * SHAPE_RADIX + shapeIdx;
+            const withAlgo = packed * ALGO_RADIX + algoIdx;
+            return toBase62(withAlgo);
+        }
+
+        function decodeMazeParamsWithRadix(encoded, themeRadix) {
+            const num = fromBase62(encoded);
+            const algoIdx = num % ALGO_RADIX;
+            const rest1 = Math.floor(num / ALGO_RADIX);
+            const shapeIdx = rest1 % SHAPE_RADIX;
+            const rest2 = Math.floor(rest1 / SHAPE_RADIX);
+            const themeIdx = rest2 % themeRadix;
+            const rest3 = Math.floor(rest2 / themeRadix);
+            const difficulty = (rest3 % DIFFICULTY_RADIX) + 3;
+            const seed = Math.floor(rest3 / DIFFICULTY_RADIX);
+            return { seed, difficulty, themeIdx, shapeIdx, algoIdx, themeRadix };
+        }
+
+        function decodeMazeParams(encoded, expectedDifficulty = null) {
+            const modern = decodeMazeParamsWithRadix(encoded, THEME_RADIX);
+            if (expectedDifficulty == null || modern.difficulty === expectedDifficulty) return modern;
+            const legacy = decodeMazeParamsWithRadix(encoded, LEGACY_THEME_RADIX);
+            return legacy.difficulty === expectedDifficulty ? legacy : modern;
+        }
+
+        function generateShareUrl(seed) {
+            const cached = window.mazeCache[seed];
+            if (!cached) return null;
+
+            const { params, difficulty, maze } = cached;
+            const themeIdx = ALL_THEMES.indexOf(params.theme);
+            const shapeIdx = ALL_SHAPES.indexOf(params.shape);
+            const algoIdx = ALL_ALGORITHMS.indexOf(params.algorithm);
+
+            const title = maze.story?.title || 'Maze';
+            const firstWord = title.split(' ')[0].replace(/[^a-zA-Z]/g, '') || 'Maze';
+
+            const encoded = encodeMazeParams(seed, difficulty, themeIdx, shapeIdx, algoIdx);
+            return `${window.location.origin}/${firstWord}-${difficulty}-${encoded}`;
+        }
+
+        function parseShareUrl() {
+            const path = window.location.pathname;
+            const match = path.match(/^\/([A-Za-z]+)-(\d+)-([0-9A-Za-z]+)$/);
+            if (!match) return null;
+
+            const [, titleWord, diffStr, encoded] = match;
+            const expectedDifficulty = parseInt(diffStr, 10);
+            const { seed, difficulty, themeIdx, shapeIdx, algoIdx } = decodeMazeParams(encoded, expectedDifficulty);
+
+            if (themeIdx >= ALL_THEMES.length || shapeIdx >= ALL_SHAPES.length || algoIdx >= ALL_ALGORITHMS.length) {
+                return null;
+            }
+
+            return {
+                seed,
+                difficulty,
+                theme: ALL_THEMES[themeIdx],
+                shape: ALL_SHAPES[shapeIdx],
+                algorithm: ALL_ALGORITHMS[algoIdx]
+            };
+        }
+
+        async function shareMaze() {
+            const url = generateShareUrl(activeMazeId);
+            if (!url) return;
+
+            const cached = window.mazeCache[activeMazeId];
+            const title = cached?.maze?.story?.title || 'Print A Maze';
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: title,
+                        text: `Try this maze puzzle: ${title}`,
+                        url: url
+                    });
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        copyMazeLink();
+                    }
+                }
+            } else {
+                copyMazeLink();
+            }
+            closeActionMenu();
+        }
+
+        function copyMazeLink() {
+            const url = generateShareUrl(activeMazeId);
+            if (!url) return;
+
+            navigator.clipboard.writeText(url).then(() => {
+                const btn = document.getElementById('copyLinkBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 1500);
+            }).catch(() => {
+                prompt('Copy this link:', url);
+            });
+        }
+
+        // Update background tint based on current theme
+        function updateBackgroundTint(theme) {
+            const tint = THEME_TINTS[theme] || THEME_TINTS.classic;
+            document.body.style.backgroundColor = tint;
+            // Update meta theme-color for Safari
+            const metaTheme = document.querySelector('meta[name="theme-color"]');
+            if (metaTheme) metaTheme.content = tint;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await waitForMazeLibraryLoaded();
+
+                // Check for shared maze URL first
+                sharedMazeParams = parseShareUrl();
+                if (sharedMazeParams) {
+                    currentDifficulty = sharedMazeParams.difficulty;
+                    currentIndex = 0;
+                }
+
+                // Show debug button if debug mode
+                if (localStorage.getItem('debug')) {
+                    document.getElementById('debugBtn').style.display = 'block';
+                }
+
+                // Ensure we have enough mazes for the saved position
+                const neededMazes = Math.max(20, currentIndex + 10);
+                generateMazeParams(neededMazes);
+                renderMazes();
+
+                // Restore scroll position to saved maze
+                if (currentIndex > 0) {
+                    setTimeout(() => {
+                        const container = document.getElementById('mazeContainer');
+                        container.scrollTop = currentIndex * window.innerHeight;
+                    }, 100);
+                }
+
+                // Initialize navigation arrows
+                updateNavArrows(currentIndex);
+
+                // Infinite scroll
+                const container = document.getElementById('mazeContainer');
+                container.addEventListener('scroll', handleScroll);
+
+                // Pull down for favorites
+                let pullStartY = 0;
+                container.addEventListener('touchstart', e => {
+                    if (container.scrollTop <= 0) {
+                        pullStartY = e.touches[0].clientY;
+                    }
+                }, { passive: true });
+                container.addEventListener('touchmove', e => {
+                    if (container.scrollTop <= 0 && pullStartY > 0) {
+                        const pullDist = e.touches[0].clientY - pullStartY;
+                        if (pullDist > 80) {
+                            showFavorites();
+                            pullStartY = 0;
+                        }
+                    }
+                }, { passive: true });
+
+                // Set initial background tint
+                if (mazeParams[0]) {
+                    updateBackgroundTint(mazeParams[0].theme);
+                }
+
+                // Start precomputing adjacent mazes after initial load
+                schedulePrecomputation();
+            } catch (e) {
+                console.error('Initialization error:', e);
+                document.body.innerHTML = '<div style="color:red;padding:20px;font-family:monospace;">Error: ' + e.message + '<br><br>' + e.stack + '</div>';
+            }
+        });
+
+        function generateMazeParams(count) {
+            const startIdx = mazeParams.length;
+
+            if (startIdx === 0 && sharedMazeParams) {
+                mazeParams.push({
+                    seed: sharedMazeParams.seed,
+                    theme: sharedMazeParams.theme,
+                    shape: sharedMazeParams.shape,
+                    algorithm: sharedMazeParams.algorithm
+                });
+                for (let i = 1; i < count; i++) {
+                    const seed = i + 1;
+                    const rng = createSeededRandom(seed);
+                    mazeParams.push({
+                        seed,
+                        theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
+                        shape: ALL_SHAPES[Math.floor(rng.next() * ALL_SHAPES.length)],
+                        algorithm: ALL_ALGORITHMS[Math.floor(rng.next() * ALL_ALGORITHMS.length)]
+                    });
+                }
+                return;
+            }
+
+            for (let i = 0; i < count; i++) {
+                const seed = startIdx + i + 1;
+                const rng = createSeededRandom(seed);
+                mazeParams.push({
+                    seed,
+                    theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
+                    shape: ALL_SHAPES[Math.floor(rng.next() * ALL_SHAPES.length)],
+                    algorithm: ALL_ALGORITHMS[Math.floor(rng.next() * ALL_ALGORITHMS.length)]
+                });
+            }
+        }
+
+        function renderMazes() {
+            const container = document.getElementById('mazeContainer');
+            container.innerHTML = '';
+
+            mazeParams.forEach((params, idx) => {
+                const frame = createMazeFrame(params, idx);
+                container.appendChild(frame);
+            });
+        }
+
+        // Minimum distance between start and end (in inches)
+        const MIN_START_END_DISTANCE_INCHES = 5;
+        const MAX_MAZE_RETRIES = 4;
+
+        function generateMazeWithDistanceCheck(params, levelNum) {
+            let bestMaze = null;
+            let bestParams = params;
+            let bestDistance = 0;
+
+            for (let attempt = 0; attempt < MAX_MAZE_RETRIES; attempt++) {
+                // First attempt uses original params, subsequent use random style but keep same seed
+                let tryParams = params;
+                if (attempt > 0) {
+                    const rng = createSeededRandom(params.seed * 1000 + attempt);
+                    tryParams = {
+                        seed: params.seed,
+                        theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
+                        shape: ALL_SHAPES[Math.floor(rng.next() * ALL_SHAPES.length)],
+                        algorithm: ALL_ALGORITHMS[Math.floor(rng.next() * ALL_ALGORITHMS.length)]
+                    };
+                }
+
+                const dims = findMazeDimensions(tryParams.seed, currentDifficulty, tryParams.shape, tryParams.algorithm);
+                const gen = createMazeGenerator(tryParams.seed);
+                const maze = gen.generateWithStory(dims.w, dims.h, tryParams.algorithm, tryParams.shape, tryParams.theme, false, levelNum);
+
+                const distance = maze.startEndDistanceInches || 0;
+
+                // Track best attempt
+                if (distance > bestDistance) {
+                    bestDistance = distance;
+                    bestMaze = maze;
+                    bestParams = tryParams;
+                }
+
+                // If distance meets minimum, use this maze
+                if (distance >= MIN_START_END_DISTANCE_INCHES) {
+                    return { maze, params: tryParams };
+                }
+            }
+
+            // No attempt met minimum - use the best one we found
+            return { maze: bestMaze, params: bestParams };
+        }
+
+        function createMazeFrame(params, idx) {
+            const levelNum = currentDifficulty - 2;
+
+            // Generate maze with distance validation and retry logic
+            const result = generateMazeWithDistanceCheck(params, levelNum);
+            const maze = result.maze;
+            params = result.params; // May have changed if retried
+            mazeParams[idx] = params; // Keep mazeParams in sync
+
+            window.mazeCache = window.mazeCache || {};
+            window.mazeCache[params.seed] = { maze, params, difficulty: currentDifficulty };
+
+            const frame = document.createElement('div');
+            frame.className = 'maze-frame';
+            frame.dataset.seed = params.seed;
+            frame.dataset.idx = idx;
+            frame.dataset.theme = params.theme;
+
+            // Heart button
+            const heart = document.createElement('button');
+            heart.className = 'heart-btn' + (isFavorited(params.seed) ? ' favorited' : '');
+            heart.innerHTML = '♥';
+            heart.onclick = (e) => {
+                e.stopPropagation();
+                toggleFavorite(params.seed, heart);
+            };
+            frame.appendChild(heart);
+
+            // Favorites trigger (upper left) - only show if there are favorites
+            const favCount = getFavorites().length;
+            if (favCount > 0) {
+                const favsTrigger = document.createElement('button');
+                favsTrigger.className = 'favs-trigger';
+                favsTrigger.innerHTML = `<span class="arrow">↑</span><span class="count">${favCount} FAVS</span>`;
+                favsTrigger.onclick = (e) => {
+                    e.stopPropagation();
+                    document.getElementById('mazeContainer').scrollTo({ top: 0, behavior: 'smooth' });
+                    setTimeout(showFavorites, 300);
+                };
+                frame.appendChild(favsTrigger);
+            }
+
+            // Fade container for maze
+            const fadeContainer = document.createElement('div');
+            fadeContainer.className = 'maze-fade-container';
+            fadeContainer.dataset.seed = params.seed;
+
+            // Maze SVG
+            const svgContainer = document.createElement('div');
+            svgContainer.className = 'maze-svg-container';
+            svgContainer.innerHTML = maze.toSVG(false, false);
+            svgContainer.onclick = (e) => {
+                if (e.target.closest('.heart-btn')) return;
+                if (e.target.closest('.favs-trigger')) return;
+                if (e.target.closest('.difficulty-btn')) return;
+                if (!e.target.closest('svg')) return;
+                activeMazeId = params.seed;
+                openActionMenu();
+            };
+            fadeContainer.appendChild(svgContainer);
+            frame.appendChild(fadeContainer);
+
+            // Bottom controls
+            const bottomControls = document.createElement('div');
+            bottomControls.className = 'bottom-controls';
+
+            // Difficulty number
+            const diffNum = document.createElement('div');
+            diffNum.className = 'difficulty-number';
+            diffNum.textContent = `Difficulty ${currentDifficulty - 2}`;
+            bottomControls.appendChild(diffNum);
+
+            // Difficulty row: - button, dots, + button
+            const difficultyRow = document.createElement('div');
+            difficultyRow.className = 'difficulty-row';
+
+            // Minus button - fire on touchstart/mousedown for immediate response
+            const minusBtn = document.createElement('button');
+            minusBtn.className = 'difficulty-btn minus' + (currentDifficulty <= 3 ? ' hidden' : '');
+            minusBtn.innerHTML = '−';
+            minusBtn.onmousedown = decreaseDifficulty;
+            minusBtn.ontouchstart = (e) => { e.preventDefault(); decreaseDifficulty(e); };
+            difficultyRow.appendChild(minusBtn);
+
+            // Level dots (between buttons)
+            const levelIndicator = document.createElement('div');
+            levelIndicator.className = 'level-indicator';
+            for (let i = 3; i <= 17; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'level-dot' + (i === currentDifficulty ? ' active' : '');
+                levelIndicator.appendChild(dot);
+            }
+            difficultyRow.appendChild(levelIndicator);
+
+            // Plus button - fire on touchstart/mousedown for immediate response
+            const plusBtn = document.createElement('button');
+            plusBtn.className = 'difficulty-btn plus' + (currentDifficulty >= 17 ? ' hidden' : '');
+            plusBtn.innerHTML = '+';
+            plusBtn.onmousedown = increaseDifficulty;
+            plusBtn.ontouchstart = (e) => { e.preventDefault(); increaseDifficulty(e); };
+            difficultyRow.appendChild(plusBtn);
+
+            bottomControls.appendChild(difficultyRow);
+            frame.appendChild(bottomControls);
+
+            return frame;
+        }
+
+        function handleScroll() {
+            const container = document.getElementById('mazeContainer');
+            const scrollPos = container.scrollTop;
+            const frameHeight = window.innerHeight;
+            const newIndex = Math.round(scrollPos / frameHeight);
+
+            if (newIndex !== currentIndex) {
+                currentIndex = newIndex;
+                localStorage.setItem('mazejs-currentIndex', currentIndex.toString());
+
+                // Update navigation arrows visibility
+                updateNavArrows(currentIndex);
+
+                // Update background tint based on current maze theme
+                if (mazeParams[currentIndex]) {
+                    updateBackgroundTint(mazeParams[currentIndex].theme);
+                }
+
+                // Precompute adjacent mazes after page change
+                schedulePrecomputation();
+
+                // If scrolled to a stale frame, regenerate it immediately
+                const frame = container.children[currentIndex];
+                if (frame && frame.dataset.staleDifficulty) {
+                    updateFrameMaze(frame);
+                }
+            }
+
+            // Load more mazes when near the end
+            if (currentIndex >= mazeParams.length - 5) {
+                generateMazeParams(10);
+                const existingFrames = container.children.length;
+                for (let i = existingFrames; i < mazeParams.length; i++) {
+                    container.appendChild(createMazeFrame(mazeParams[i], i));
+                }
+            }
+        }
+
+        // Debounce flag to prevent rapid button spam
+        let difficultyChanging = false;
+
+        function decreaseDifficulty(e) {
+            e.stopPropagation();
+            if (e.cancelable) e.preventDefault();
+            if (difficultyChanging) return;
+            if (currentDifficulty > 3) {
+                changeDifficulty(currentDifficulty - 1);
+            }
+        }
+
+        function increaseDifficulty(e) {
+            e.stopPropagation();
+            if (e.cancelable) e.preventDefault();
+            if (difficultyChanging) return;
+            if (currentDifficulty < 17) {
+                changeDifficulty(currentDifficulty + 1);
+            }
+        }
+
+        function changeDifficulty(newDifficulty) {
+            // Debounce: prevent rapid changes
+            difficultyChanging = true;
+            setTimeout(() => { difficultyChanging = false; }, 250);
+            currentDifficulty = newDifficulty;
+            localStorage.setItem('mazejs-difficulty', currentDifficulty.toString());
+
+            const container = document.getElementById('mazeContainer');
+            const frames = Array.from(container.querySelectorAll('.maze-frame'));
+
+            // Update ALL frames' UI controls immediately (cheap DOM updates)
+            frames.forEach((frame) => {
+                const minusBtn = frame.querySelector('.difficulty-btn.minus');
+                const plusBtn = frame.querySelector('.difficulty-btn.plus');
+                if (minusBtn) minusBtn.classList.toggle('hidden', currentDifficulty <= 3);
+                if (plusBtn) plusBtn.classList.toggle('hidden', currentDifficulty >= 17);
+
+                const dots = frame.querySelectorAll('.level-dot');
+                dots.forEach((dot, i) => {
+                    dot.classList.toggle('active', (i + 3) === currentDifficulty);
+                });
+
+                const diffNum = frame.querySelector('.difficulty-number');
+                if (diffNum) diffNum.textContent = `Difficulty ${currentDifficulty - 2}`;
+
+                // Mark frame as needing maze regeneration
+                frame.dataset.staleDifficulty = currentDifficulty;
+            });
+
+            // Generate ONLY the visible frame immediately
+            const visibleFrame = frames[currentIndex];
+            if (visibleFrame) {
+                updateFrameMaze(visibleFrame);
+            }
+
+            // Defer nearby frames, then remaining frames via idle callbacks
+            const nearby = [currentIndex - 1, currentIndex + 1].filter(i => i >= 0 && i < frames.length && i !== currentIndex);
+            const rest = [];
+            for (let i = 0; i < frames.length; i++) {
+                if (i !== currentIndex && !nearby.includes(i)) rest.push(i);
+            }
+
+            // Adjacent frames: generate after a microtask so visible frame paints first
+            if (nearby.length > 0) {
+                requestAnimationFrame(() => {
+                    nearby.forEach(i => {
+                        if (frames[i] && frames[i].dataset.staleDifficulty == currentDifficulty) {
+                            updateFrameMaze(frames[i]);
+                        }
+                    });
+                    // Then schedule remaining frames in idle time
+                    scheduleStaleFrameUpdates(frames, rest);
+                });
+            } else {
+                scheduleStaleFrameUpdates(frames, rest);
+            }
+
+            // Precompute adjacent difficulties for new level
+            schedulePrecomputation();
+        }
+
+        function scheduleStaleFrameUpdates(frames, indices) {
+            if (indices.length === 0) return;
+            const batch = indices.splice(0, 2); // process 2 frames per idle callback
+            scheduleIdleWork(() => {
+                batch.forEach(i => {
+                    if (frames[i] && frames[i].dataset.staleDifficulty == currentDifficulty) {
+                        updateFrameMaze(frames[i]);
+                    }
+                });
+                if (indices.length > 0) {
+                    scheduleStaleFrameUpdates(frames, indices);
+                }
+            });
+        }
+
+        function updateFrameMaze(frame) {
+            try {
+                const fadeContainer = frame.querySelector('.maze-fade-container');
+                if (!fadeContainer) return;
+
+                const seed = parseInt(fadeContainer.dataset.seed);
+                const params = mazeParams.find(p => p.seed === seed);
+                if (!params) return;
+
+                // Try precomputed cache first for instant response
+                let newMaze;
+                const precomputed = getPrecomputedMaze(seed, currentDifficulty);
+                if (precomputed) {
+                    newMaze = precomputed.maze;
+                } else {
+                    const dims = findMazeDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
+                    const levelNum = currentDifficulty - 2;
+                    const gen = createMazeGenerator(params.seed);
+                    newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
+                }
+
+                // Update cache
+                window.mazeCache[params.seed] = { maze: newMaze, params, difficulty: currentDifficulty };
+
+                // Create new SVG container as overlay (starts invisible)
+                const newSvgContainer = document.createElement('div');
+                newSvgContainer.className = 'maze-svg-container fade-overlay';
+                newSvgContainer.innerHTML = newMaze.toSVG(false, false);
+                newSvgContainer.onclick = (e) => {
+                    if (e.target.closest('.heart-btn')) return;
+                    if (e.target.closest('.favs-trigger')) return;
+                    if (e.target.closest('.difficulty-btn')) return;
+                    if (!e.target.closest('svg')) return;
+                    activeMazeId = params.seed;
+                    openActionMenu();
+                };
+
+                fadeContainer.appendChild(newSvgContainer);
+
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        newSvgContainer.classList.add('fade-in');
+                        setTimeout(() => {
+                            const oldContainers = fadeContainer.querySelectorAll('.maze-svg-container:not(.fade-overlay)');
+                            oldContainers.forEach(c => c.remove());
+                            newSvgContainer.classList.remove('fade-overlay', 'fade-in');
+                        }, 200);
+                    });
+                });
+
+                // Clear stale marker
+                delete frame.dataset.staleDifficulty;
+            } catch (e) {
+                console.error('Error updating maze frame:', e);
+            }
+        }
+
+        // Precomputation system for adjacent mazes
+        let precomputeTimer = null;
+        const precomputeCache = new Map(); // key: "seed-difficulty" -> maze object
+
+        function getPrecomputeKey(seed, difficulty) {
+            return `${seed}-${difficulty}`;
+        }
+
+        function schedulePrecomputation() {
+            // Cancel any pending precomputation
+            if (precomputeTimer) clearTimeout(precomputeTimer);
+
+            // Schedule precomputation after 300ms idle
+            precomputeTimer = setTimeout(() => {
+                precomputeAdjacentMazes();
+            }, 300);
+        }
+
+        function precomputeAdjacentMazes() {
+            // Get current visible maze params
+            const params = mazeParams[currentIndex];
+            if (!params) return;
+
+            const seed = params.seed;
+            const toPrecompute = [];
+
+            // Add n-1 and n+1 difficulty levels
+            if (currentDifficulty > 3) {
+                toPrecompute.push({ seed, difficulty: currentDifficulty - 1, params });
+            }
+            if (currentDifficulty < 17) {
+                toPrecompute.push({ seed, difficulty: currentDifficulty + 1, params });
+            }
+
+            // Add previous and next page mazes at current difficulty
+            if (currentIndex > 0 && mazeParams[currentIndex - 1]) {
+                const prevParams = mazeParams[currentIndex - 1];
+                toPrecompute.push({ seed: prevParams.seed, difficulty: currentDifficulty, params: prevParams });
+            }
+            if (mazeParams[currentIndex + 1]) {
+                const nextParams = mazeParams[currentIndex + 1];
+                toPrecompute.push({ seed: nextParams.seed, difficulty: currentDifficulty, params: nextParams });
+            }
+
+            // Precompute in idle time using requestIdleCallback or setTimeout fallback
+            const computeNext = () => {
+                if (toPrecompute.length === 0) return;
+
+                const item = toPrecompute.shift();
+                const key = getPrecomputeKey(item.seed, item.difficulty);
+
+                // Skip if already cached
+                if (precomputeCache.has(key)) {
+                    if (toPrecompute.length > 0) {
+                        scheduleIdleWork(computeNext);
+                    }
+                    return;
+                }
+
+                // Skip if already in main cache at this difficulty
+                const mainCached = window.mazeCache[item.seed];
+                if (mainCached && mainCached.difficulty === item.difficulty) {
+                    if (toPrecompute.length > 0) {
+                        scheduleIdleWork(computeNext);
+                    }
+                    return;
+                }
+
+                // Generate maze
+                try {
+                    const dims = findMazeDimensions(item.seed, item.difficulty, item.params.shape, item.params.algorithm);
+                    const levelNum = item.difficulty - 2;
+                    const gen = createMazeGenerator(item.seed);
+                    const maze = gen.generateWithStory(dims.w, dims.h, item.params.algorithm, item.params.shape, item.params.theme, false, levelNum);
+
+                    // Cache the result
+                    precomputeCache.set(key, { maze, params: item.params, difficulty: item.difficulty });
+
+                    // Limit cache size to 20 entries
+                    if (precomputeCache.size > 20) {
+                        const firstKey = precomputeCache.keys().next().value;
+                        precomputeCache.delete(firstKey);
+                    }
+                } catch (e) {
+                    // Ignore precompute errors
+                }
+
+                // Continue with next item
+                if (toPrecompute.length > 0) {
+                    scheduleIdleWork(computeNext);
+                }
+            };
+
+            // Start precomputation
+            if (toPrecompute.length > 0) {
+                scheduleIdleWork(computeNext);
+            }
+        }
+
+        function scheduleIdleWork(fn) {
+            if (window.requestIdleCallback) {
+                requestIdleCallback(fn, { timeout: 1000 });
+            } else {
+                setTimeout(fn, 50);
+            }
+        }
+
+        // Use precomputed maze if available
+        function getPrecomputedMaze(seed, difficulty) {
+            const key = getPrecomputeKey(seed, difficulty);
+            return precomputeCache.get(key);
+        }
+
+        // Favorites
+        function getFavorites() {
+            try {
+                return JSON.parse(localStorage.getItem('mazejs-favorites') || '[]');
+            } catch { return []; }
+        }
+
+        function saveFavorites(favs) {
+            localStorage.setItem('mazejs-favorites', JSON.stringify(favs));
+        }
+
+        function isFavorited(seed) {
+            return getFavorites().some(f => f.seed === seed);
+        }
+
+        function toggleFavorite(seed, btn) {
+            const cached = window.mazeCache[seed];
+            if (!cached) return;
+
+            let favs = getFavorites();
+            const idx = favs.findIndex(f => f.seed === seed);
+
+            if (idx >= 0) {
+                favs.splice(idx, 1);
+                btn.classList.remove('favorited');
+            } else {
+                favs.unshift({
+                    seed,
+                    theme: cached.params.theme,
+                    shape: cached.params.shape,
+                    algorithm: cached.params.algorithm,
+                    difficulty: cached.difficulty,
+                    savedAt: Date.now()
+                });
+                btn.classList.add('favorited');
+            }
+            saveFavorites(favs);
+
+            // Update favs triggers in all visible frames
+            updateFavsTriggers();
+        }
+
+        function updateFavsTriggers() {
+            const favCount = getFavorites().length;
+            const frames = document.querySelectorAll('.maze-frame');
+            frames.forEach(frame => {
+                let trigger = frame.querySelector('.favs-trigger');
+                if (favCount > 0) {
+                    if (!trigger) {
+                        trigger = document.createElement('button');
+                        trigger.className = 'favs-trigger';
+                        trigger.onclick = (e) => {
+                            e.stopPropagation();
+                            document.getElementById('mazeContainer').scrollTo({ top: 0, behavior: 'smooth' });
+                            setTimeout(showFavorites, 300);
+                        };
+                        frame.appendChild(trigger);
+                    }
+                    trigger.innerHTML = `<span class="arrow">↑</span><span class="count">${favCount} FAVS</span>`;
+                } else if (trigger) {
+                    trigger.remove();
+                }
+            });
+        }
+
+        function showFavorites() {
+            const section = document.getElementById('favoritesSection');
+            const grid = document.getElementById('favGrid');
+            const noFavs = document.getElementById('noFavs');
+            const favs = getFavorites();
+
+            grid.innerHTML = '';
+
+            if (favs.length === 0) {
+                noFavs.style.display = 'block';
+            } else {
+                noFavs.style.display = 'none';
+                favs.forEach(fav => {
+                    const dims = findMazeDimensions(fav.seed, fav.difficulty || 4, fav.shape, fav.algorithm);
+                    const gen = createMazeGenerator(fav.seed);
+                    const maze = gen.generateWithStory(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme, false, (fav.difficulty || 4) - 2);
+
+                    const item = document.createElement('div');
+                    item.className = 'fav-item';
+                    item.innerHTML = maze.toSVG(false, false);
+                    item.onclick = () => {
+                        closeFavorites();
+                        scrollToSeed(fav.seed);
+                    };
+                    grid.appendChild(item);
+                });
+            }
+
+            section.classList.add('open');
+
+            setTimeout(() => {
+                document.addEventListener('click', closeFavoritesOnOutsideClick);
+            }, 100);
+        }
+
+        function closeFavorites() {
+            document.getElementById('favoritesSection').classList.remove('open');
+            document.removeEventListener('click', closeFavoritesOnOutsideClick);
+        }
+
+        function closeFavoritesOnOutsideClick(e) {
+            if (!e.target.closest('#favoritesSection')) {
+                closeFavorites();
+            }
+        }
+
+        function scrollToSeed(seed) {
+            const fav = getFavorites().find(f => f.seed === seed);
+
+            if (fav && fav.difficulty && fav.difficulty !== currentDifficulty) {
+                currentDifficulty = fav.difficulty;
+            }
+
+            let idx = mazeParams.findIndex(p => p.seed === seed);
+            if (idx === -1) {
+                if (fav) {
+                    mazeParams.unshift({ seed, theme: fav.theme, shape: fav.shape, algorithm: fav.algorithm });
+                    idx = 0;
+                }
+            }
+
+            renderMazes();
+
+            if (idx >= 0) {
+                document.getElementById('mazeContainer').children[idx].scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Action menu
+        function openActionMenu() {
+            updateMenuHeartButton();
+            document.getElementById('actionMenu').classList.add('open');
+        }
+
+        function closeActionMenu() {
+            document.getElementById('actionMenu').classList.remove('open');
+        }
+
+        function toggleFavoriteFromMenu() {
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            const frame = document.querySelector(`.maze-frame[data-seed="${activeMazeId}"]`);
+            const heartBtn = frame ? frame.querySelector('.heart-btn') : null;
+
+            let favs = getFavorites();
+            const idx = favs.findIndex(f => f.seed === activeMazeId);
+            const menuBtn = document.getElementById('menuHeartBtn');
+
+            if (idx >= 0) {
+                favs.splice(idx, 1);
+                if (heartBtn) heartBtn.classList.remove('favorited');
+                if (menuBtn) menuBtn.textContent = '♥ Save to Favorites';
+            } else {
+                favs.unshift({
+                    seed: activeMazeId,
+                    theme: cached.params.theme,
+                    shape: cached.params.shape,
+                    algorithm: cached.params.algorithm,
+                    difficulty: cached.difficulty,
+                    savedAt: Date.now()
+                });
+                if (heartBtn) heartBtn.classList.add('favorited');
+                if (menuBtn) menuBtn.textContent = '♥ Saved!';
+            }
+            saveFavorites(favs);
+            updateFavsTriggers();
+
+            setTimeout(closeActionMenu, 300);
+        }
+
+        function updateMenuHeartButton() {
+            const menuBtn = document.getElementById('menuHeartBtn');
+            if (menuBtn && activeMazeId) {
+                const isFav = isFavorited(activeMazeId);
+                menuBtn.textContent = isFav ? '♥ Saved!' : '♥ Save to Favorites';
+            }
+        }
+
+        // Print mode
+        function openPrintMode(bwMode) {
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            autoFavorite(activeMazeId);
+
+            const printContent = document.getElementById('printContent');
+            printContent.innerHTML = cached.maze.toSVG(false, bwMode);
+            document.getElementById('printOverlay').classList.add('open');
+
+            setTimeout(() => window.print(), 100);
+        }
+
+        function autoFavorite(seed) {
+            if (isFavorited(seed)) return;
+            const cached = window.mazeCache[seed];
+            if (!cached) return;
+
+            let favs = getFavorites();
+            favs.unshift({
+                seed: seed,
+                theme: cached.params.theme,
+                shape: cached.params.shape,
+                algorithm: cached.params.algorithm,
+                difficulty: cached.difficulty,
+                savedAt: Date.now()
+            });
+            saveFavorites(favs);
+
+            const frame = document.querySelector(`.maze-frame[data-seed="${seed}"]`);
+            const heartBtn = frame ? frame.querySelector('.heart-btn') : null;
+            if (heartBtn) heartBtn.classList.add('favorited');
+            updateFavsTriggers();
+        }
+
+        function closePrintMode() {
+            document.getElementById('printOverlay').classList.remove('open');
+        }
+
+        function printColor() {
+            closeActionMenu();
+            openPrintMode(false);
+        }
+
+        function printBW() {
+            closeActionMenu();
+            openPrintMode(true);
+        }
+
+        function getMazeFilename(cached) {
+            const story = cached.maze.story || {};
+            const character = story.character || 'maze';
+            const goal = story.goal || 'finish';
+            const level = cached.difficulty - 2;
+            const clean = str => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            return `${clean(character)}-to-${clean(goal)}-level-${level}.png`;
+        }
+
+        function saveToCameraRoll() {
+            closeActionMenu();
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            autoFavorite(activeMazeId);
+
+            const svgString = cached.maze.toSVG(false, false);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const scale = 4;
+            canvas.width = 850 * scale;
+            canvas.height = 1100 * scale;
+
+            const img = new Image();
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+
+            img.onload = () => {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const imgAspect = img.width / img.height;
+                const canvasAspect = canvas.width / canvas.height;
+                let drawW, drawH, drawX, drawY;
+
+                if (imgAspect > canvasAspect) {
+                    drawW = canvas.width * 0.9;
+                    drawH = drawW / imgAspect;
+                } else {
+                    drawH = canvas.height * 0.9;
+                    drawW = drawH * imgAspect;
+                }
+                drawX = (canvas.width - drawW) / 2;
+                drawY = (canvas.height - drawH) / 2;
+
+                ctx.drawImage(img, drawX, drawY, drawW, drawH);
+                URL.revokeObjectURL(url);
+
+                const filename = getMazeFilename(cached);
+
+                canvas.toBlob(async blob => {
+                    if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'image/png' })] })) {
+                        try {
+                            await navigator.share({
+                                files: [new File([blob], filename, { type: 'image/png' })]
+                            });
+                            return;
+                        } catch (e) {
+                            if (e.name === 'AbortError') return;
+                        }
+                    }
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = filename;
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                }, 'image/png');
+            };
+            img.src = url;
+        }
+
+        function showSolution() {
+            closeActionMenu();
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            document.getElementById('solutionDisplay').innerHTML = cached.maze.toSVG(true, false);
+            document.getElementById('solutionOverlay').classList.add('open');
+        }
+
+        function closeSolution() {
+            document.getElementById('solutionOverlay').classList.remove('open');
+        }
+
+        function navigateMaze(direction) {
+            const container = document.getElementById('mazeContainer');
+            const newIndex = currentIndex + direction;
+            if (newIndex < 0) return;
+            if (newIndex >= container.children.length) return;
+            container.children[newIndex].scrollIntoView({ behavior: 'smooth' });
+            updateNavArrows(newIndex);
+        }
+
+        function updateNavArrows(index) {
+            const container = document.getElementById('mazeContainer');
+            const upArrow = document.querySelector('.nav-arrow-up');
+            const downArrow = document.querySelector('.nav-arrow-down');
+            if (upArrow) upArrow.classList.toggle('hidden', index <= 0);
+            if (downArrow) downArrow.classList.toggle('hidden', index >= container.children.length - 1);
+        }
+
+        function showDebugInfo() {
+            closeActionMenu();
+            const cached = window.mazeCache[activeMazeId];
+            if (!cached) return;
+
+            const debug = generateMazeDebugOutput(cached.maze);
+            document.getElementById('debugContent').textContent = debug;
+            document.getElementById('debugPanel').style.display = 'block';
+
+            setTimeout(() => {
+                document.addEventListener('click', () => {
+                    document.getElementById('debugPanel').style.display = 'none';
+                }, { once: true });
+            }, 100);
+        }
+
+        // Close overlays on escape
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                closeActionMenu();
+                closeSolution();
+                closeFavorites();
+            }
+        });
+
+        // Global function to refresh all mazes (called from debug.html via applyDebugSettings)
+        window.refreshAllMazes = function() {
+            const container = document.getElementById('mazeContainer');
+            const frames = container.querySelectorAll('.maze-frame');
+
+            frames.forEach((frame) => {
+                const fadeContainer = frame.querySelector('.maze-fade-container');
+                if (!fadeContainer) return;
+
+                const seed = parseInt(fadeContainer.dataset.seed);
+                const params = mazeParams.find(p => p.seed === seed);
+                if (!params) return;
+
+                // Re-generate maze with current settings
+                const dims = findMazeDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
+                const levelNum = currentDifficulty - 2;
+                const gen = createMazeGenerator(params.seed);
+                const newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
+
+                // Update cache
+                window.mazeCache[params.seed] = { maze: newMaze, params, difficulty: currentDifficulty };
+
+                // Update SVG in place (no animation for debug refresh)
+                const svgContainer = fadeContainer.querySelector('.maze-svg-container');
+                if (svgContainer) {
+                    svgContainer.innerHTML = newMaze.toSVG(false, false);
+                }
+            });
+        };
+    </script>
+</body>
+</html>

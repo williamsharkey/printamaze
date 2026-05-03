@@ -624,10 +624,19 @@
         </button>
         <div class="print-content" id="printContent"></div>
     </div>
-
-    <script src="maze.js?v=20260126-4"></script>
+    <script src="maze.js?v=20260502-6"></script>
     <script>
-        const ALL_THEMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle', 'dolphin'];
+const THEME_NAMES = ['classic', 'ocean', 'space', 'garden', 'candy', 'jungle', 'dolphin', 'baking', 'deckPlanters', 'ceciSoccer', 'wesGearRobot'];
+        let ALL_THEMES = [...THEME_NAMES];
+
+        function refreshAvailableThemes() {
+            if (window.Themes) {
+                const available = THEME_NAMES.filter(themeName => window.Themes[themeName]);
+                ALL_THEMES = available.length > 0 ? available : THEME_NAMES.slice(0, 8);
+            } else {
+                ALL_THEMES = [...THEME_NAMES];
+            }
+        }
         const ALL_SHAPES = [
             'rectangle', 'circle', 'heart', 'star', 'hexagon', 'diamond',
             'triangle', 'oval', 'cross', 'arrow', 'moon', 'cloud', 'tree',
@@ -664,7 +673,11 @@
             garden: '#0a0c0a',
             candy: '#0f0a0c',
             jungle: '#0a0c0a',
-            dolphin: '#0a0c10'
+            dolphin: '#0a0c10',
+            baking: '#100c08',
+            deckPlanters: '#0d1208',
+            ceciSoccer: '#07120b',
+            wesGearRobot: '#071018'
         };
 
         let currentDifficulty = parseInt(localStorage.getItem('mazejs-difficulty')) || 4;
@@ -673,11 +686,120 @@
         let activeMazeId = null;
         let sharedMazeParams = null; // For URL-shared mazes
 
+
+        // Local Mulberry32 fallback for app-level parameter selection.
+        // This keeps index.html deterministic even when a cached/older maze.js
+        // does not expose SeededRandom as window.SeededRandom. Maze generation
+        // still uses MazeGenerator from maze.js.
+        class IndexSeededRandom {
+            constructor(seed) {
+                this.seed = seed >>> 0;
+            }
+
+            next() {
+                let t = this.seed += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            }
+
+            nextInt(min, max) {
+                return Math.floor(this.next() * (max - min + 1)) + min;
+            }
+
+            shuffle(array) {
+                const arr = [...array];
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(this.next() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+
+            choice(array) {
+                return array[Math.floor(this.next() * array.length)];
+            }
+        }
+
+        if (typeof window !== 'undefined' && typeof window.SeededRandom !== 'function') {
+            window.SeededRandom = IndexSeededRandom;
+        }
+        if (typeof globalThis !== 'undefined' && typeof globalThis.SeededRandom !== 'function') {
+            globalThis.SeededRandom = IndexSeededRandom;
+        }
+
+        function createSeededRandom(seed) {
+            const globalCtor = typeof globalThis !== 'undefined' && typeof globalThis.SeededRandom === 'function'
+                ? globalThis.SeededRandom
+                : null;
+            const windowCtor = typeof window !== 'undefined' && typeof window.SeededRandom === 'function'
+                ? window.SeededRandom
+                : null;
+            const RandomCtor = globalCtor || windowCtor || IndexSeededRandom;
+            return new RandomCtor(seed);
+        }
+
+        // Also populate window.SeededRandom for any legacy call sites that still
+        // use new window.SeededRandom(...). This is intentionally done in
+        // index.html as well as maze.js so mixed cache states keep working.
+        if (typeof window.SeededRandom !== 'function') {
+            window.SeededRandom = IndexSeededRandom;
+        }
+
+        function getMazeLibraryExport(name) {
+            const printAmazeApi = window.PrintAMaze || window.MazeJS || null;
+            if (printAmazeApi && typeof printAmazeApi[name] !== 'undefined') {
+                return printAmazeApi[name];
+            }
+            if (typeof window[name] !== 'undefined') {
+                return window[name];
+            }
+            return undefined;
+        }
+
+        function createMazeGenerator(seed) {
+            const MazeGeneratorCtor = getMazeLibraryExport('MazeGenerator');
+            if (typeof MazeGeneratorCtor !== 'function') {
+                throw new Error('MazeGenerator was not loaded from maze.js. Deploy index.html and maze.js together, then hard-refresh.');
+            }
+            return new MazeGeneratorCtor(seed);
+        }
+
+        function findMazeDimensions(seed, difficulty, shape, algorithm) {
+            const findOptimalDimensionsFn = getMazeLibraryExport('findOptimalDimensions');
+            if (typeof findOptimalDimensionsFn !== 'function') {
+                throw new Error('findOptimalDimensions was not loaded from maze.js. Deploy index.html and maze.js together, then hard-refresh.');
+            }
+            return findOptimalDimensionsFn(seed, difficulty, shape, algorithm);
+        }
+
+        async function waitForMazeLibraryLoaded() {
+            if (window.__mazeLibraryReady) {
+                await window.__mazeLibraryReady;
+            }
+
+            const missing = [];
+            if (typeof getMazeLibraryExport('MazeGenerator') !== 'function') missing.push('MazeGenerator');
+            if (typeof getMazeLibraryExport('findOptimalDimensions') !== 'function') missing.push('findOptimalDimensions');
+            if (!getMazeLibraryExport('Themes')) missing.push('Themes');
+
+            if (missing.length > 0) {
+                throw new Error(`maze.js loaded, but missing required export(s): ${missing.join(', ')}. Deploy the matching maze.js with this index.html, then hard-refresh.`);
+            }
+
+            refreshAvailableThemes();
+        }
+
         // =============================================================================
         // URL ENCODING FOR SHARING - Compact maze links
         // =============================================================================
 
         const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        const THEME_RADIX = 16;
+        const LEGACY_THEME_RADIX = 8;
+        const SHAPE_RADIX = 64;
+        const ALGO_RADIX = 4;
+        const DIFFICULTY_RADIX = 32;
 
         function toBase62(num) {
             if (num === 0) return '0';
@@ -698,22 +820,29 @@
         }
 
         function encodeMazeParams(seed, difficulty, themeIdx, shapeIdx, algoIdx) {
-            const packed = ((seed * 32 + (difficulty - 3)) * 8 + themeIdx) * 64 + shapeIdx;
-            const withAlgo = packed * 4 + algoIdx;
+            const packed = ((seed * DIFFICULTY_RADIX + (difficulty - 3)) * THEME_RADIX + themeIdx) * SHAPE_RADIX + shapeIdx;
+            const withAlgo = packed * ALGO_RADIX + algoIdx;
             return toBase62(withAlgo);
         }
 
-        function decodeMazeParams(encoded) {
+        function decodeMazeParamsWithRadix(encoded, themeRadix) {
             const num = fromBase62(encoded);
-            const algoIdx = num % 4;
-            const rest1 = Math.floor(num / 4);
-            const shapeIdx = rest1 % 64;
-            const rest2 = Math.floor(rest1 / 64);
-            const themeIdx = rest2 % 8;
-            const rest3 = Math.floor(rest2 / 8);
-            const difficulty = (rest3 % 32) + 3;
-            const seed = Math.floor(rest3 / 32);
-            return { seed, difficulty, themeIdx, shapeIdx, algoIdx };
+            const algoIdx = num % ALGO_RADIX;
+            const rest1 = Math.floor(num / ALGO_RADIX);
+            const shapeIdx = rest1 % SHAPE_RADIX;
+            const rest2 = Math.floor(rest1 / SHAPE_RADIX);
+            const themeIdx = rest2 % themeRadix;
+            const rest3 = Math.floor(rest2 / themeRadix);
+            const difficulty = (rest3 % DIFFICULTY_RADIX) + 3;
+            const seed = Math.floor(rest3 / DIFFICULTY_RADIX);
+            return { seed, difficulty, themeIdx, shapeIdx, algoIdx, themeRadix };
+        }
+
+        function decodeMazeParams(encoded, expectedDifficulty = null) {
+            const modern = decodeMazeParamsWithRadix(encoded, THEME_RADIX);
+            if (expectedDifficulty == null || modern.difficulty === expectedDifficulty) return modern;
+            const legacy = decodeMazeParamsWithRadix(encoded, LEGACY_THEME_RADIX);
+            return legacy.difficulty === expectedDifficulty ? legacy : modern;
         }
 
         function generateShareUrl(seed) {
@@ -738,7 +867,8 @@
             if (!match) return null;
 
             const [, titleWord, diffStr, encoded] = match;
-            const { seed, difficulty, themeIdx, shapeIdx, algoIdx } = decodeMazeParams(encoded);
+            const expectedDifficulty = parseInt(diffStr, 10);
+            const { seed, difficulty, themeIdx, shapeIdx, algoIdx } = decodeMazeParams(encoded, expectedDifficulty);
 
             if (themeIdx >= ALL_THEMES.length || shapeIdx >= ALL_SHAPES.length || algoIdx >= ALL_ALGORITHMS.length) {
                 return null;
@@ -806,8 +936,10 @@
         }
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             try {
+                await waitForMazeLibraryLoaded();
+
                 // Check for shared maze URL first
                 sharedMazeParams = parseShareUrl();
                 if (sharedMazeParams) {
@@ -882,7 +1014,7 @@
                 });
                 for (let i = 1; i < count; i++) {
                     const seed = i + 1;
-                    const rng = new window.SeededRandom(seed);
+                    const rng = createSeededRandom(seed);
                     mazeParams.push({
                         seed,
                         theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
@@ -895,7 +1027,7 @@
 
             for (let i = 0; i < count; i++) {
                 const seed = startIdx + i + 1;
-                const rng = new window.SeededRandom(seed);
+                const rng = createSeededRandom(seed);
                 mazeParams.push({
                     seed,
                     theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
@@ -928,7 +1060,7 @@
                 // First attempt uses original params, subsequent use random style but keep same seed
                 let tryParams = params;
                 if (attempt > 0) {
-                    const rng = new window.SeededRandom(params.seed * 1000 + attempt);
+                    const rng = createSeededRandom(params.seed * 1000 + attempt);
                     tryParams = {
                         seed: params.seed,
                         theme: ALL_THEMES[Math.floor(rng.next() * ALL_THEMES.length)],
@@ -937,8 +1069,8 @@
                     };
                 }
 
-                const dims = window.findOptimalDimensions(tryParams.seed, currentDifficulty, tryParams.shape, tryParams.algorithm);
-                const gen = new window.MazeGenerator(tryParams.seed);
+                const dims = findMazeDimensions(tryParams.seed, currentDifficulty, tryParams.shape, tryParams.algorithm);
+                const gen = createMazeGenerator(tryParams.seed);
                 const maze = gen.generateWithStory(dims.w, dims.h, tryParams.algorithm, tryParams.shape, tryParams.theme, false, levelNum);
 
                 const distance = maze.startEndDistanceInches || 0;
@@ -1218,9 +1350,9 @@
                 if (precomputed) {
                     newMaze = precomputed.maze;
                 } else {
-                    const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
+                    const dims = findMazeDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
                     const levelNum = currentDifficulty - 2;
-                    const gen = new window.MazeGenerator(params.seed);
+                    const gen = createMazeGenerator(params.seed);
                     newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
                 }
 
@@ -1330,9 +1462,9 @@
 
                 // Generate maze
                 try {
-                    const dims = window.findOptimalDimensions(item.seed, item.difficulty, item.params.shape, item.params.algorithm);
+                    const dims = findMazeDimensions(item.seed, item.difficulty, item.params.shape, item.params.algorithm);
                     const levelNum = item.difficulty - 2;
-                    const gen = new window.MazeGenerator(item.seed);
+                    const gen = createMazeGenerator(item.seed);
                     const maze = gen.generateWithStory(dims.w, dims.h, item.params.algorithm, item.params.shape, item.params.theme, false, levelNum);
 
                     // Cache the result
@@ -1451,8 +1583,8 @@
             } else {
                 noFavs.style.display = 'none';
                 favs.forEach(fav => {
-                    const dims = window.findOptimalDimensions(fav.seed, fav.difficulty || 4, fav.shape, fav.algorithm);
-                    const gen = new window.MazeGenerator(fav.seed);
+                    const dims = findMazeDimensions(fav.seed, fav.difficulty || 4, fav.shape, fav.algorithm);
+                    const gen = createMazeGenerator(fav.seed);
                     const maze = gen.generateWithStory(dims.w, dims.h, fav.algorithm, fav.shape, fav.theme, false, (fav.difficulty || 4) - 2);
 
                     const item = document.createElement('div');
@@ -1748,9 +1880,9 @@
                 if (!params) return;
 
                 // Re-generate maze with current settings
-                const dims = window.findOptimalDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
+                const dims = findMazeDimensions(params.seed, currentDifficulty, params.shape, params.algorithm);
                 const levelNum = currentDifficulty - 2;
-                const gen = new window.MazeGenerator(params.seed);
+                const gen = createMazeGenerator(params.seed);
                 const newMaze = gen.generateWithStory(dims.w, dims.h, params.algorithm, params.shape, params.theme, false, levelNum);
 
                 // Update cache
